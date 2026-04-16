@@ -13,10 +13,22 @@
         <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
         <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="pomodoro">Pomodoro</button>
     </div>
+<div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative" style="height: 600px;">
+        
+        <div id="canvas-container" class="w-full h-full cursor-grab relative" style="touch-action: none;">
+            
+            <div id="infinite-canvas" class="absolute top-0 left-0 origin-top-left transform-gpu" style="width: 5000px; height: 5000px; transform: translate(0px, 0px) scale(1);">
+                
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px); background-size: 40px 40px;"></div>
 
-    <div id="schedule" class="tab-content hidden bg-white p-6 rounded-lg shadow">
-        <h2 class="text-xl font-bold">📅 Schedule View</h2>
-        <p>Your infinite canvas will go here.</p>
+                <div id="blocks-layer" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+        </div>
+        
+        <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow border border-gray-200 pointer-events-none">
+            <h2 class="font-bold text-gray-800">📅 Schedule Canvas</h2>
+            <p class="text-xs text-gray-500">Click and drag to pan. Scroll to zoom.</p>
+        </div>
     </div>
 
     <div id="pomodoro" class="tab-content hidden bg-white p-6 rounded-lg shadow">
