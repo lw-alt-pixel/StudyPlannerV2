@@ -1,8 +1,11 @@
 // js/State.js
 
 // This holds the default settings for the app
+// js/State.js
+
 export const defaultState = {
     activeTab: 'schedule', 
+    blocks: [], // <-- ADD THIS LINE
     theme: {
         appBgColor: '#f3f4f6',
         isGlassMode: true
@@ -14,6 +17,7 @@ export const defaultState = {
     }
 };
 
+// ... the rest of the file stays exactly the same
 class AppStore {
     constructor(initialState) {
         this.state = initialState;
