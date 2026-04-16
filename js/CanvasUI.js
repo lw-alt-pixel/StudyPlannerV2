@@ -3,12 +3,22 @@ import { store } from './State.js';
 
 class CanvasUI {
     constructor() {
+        // Camera state
         this.panX = 0;
         this.panY = 0;
         this.scale = 1;
-        this.isDragging = false;
+        this.isPanning = false;
         this.startX = 0;
         this.startY = 0;
+
+        // Block Dragging state
+        this.isDraggingBlock = false;
+        this.draggedBlock = null;
+        this.draggedBlockId = null;
+        this.blockStartX = 0;
+        this.blockStartY = 0;
+        this.originalBlockX = 0;
+        this.originalBlockY = 0;
     }
 
     init() {
@@ -18,9 +28,9 @@ class CanvasUI {
         
         if (!this.container || !this.canvas) return;
 
-        this.bindPanAndZoom();
+        this.bindEvents();
         
-        // Listen to the Brain for any block updates (Add/Delete/Move)
+        // Listen to the Brain for any block updates
         store.subscribe('blocks', (blocks) => {
             this.renderBlocks(blocks);
         });
@@ -29,49 +39,100 @@ class CanvasUI {
         this.renderBlocks(store.state.blocks);
     }
 
-    bindPanAndZoom() {
-        // 1. Start Panning
+    bindEvents() {
+        // 1. POINTER DOWN: Decide if we are panning or dragging a block
         this.container.addEventListener('pointerdown', (e) => {
-            // Ignore if clicking on a study block (we will handle drag-and-drop later)
-            if (e.target.closest('.ypt-block')) return;
+            const blockEl = e.target.closest('.ypt-block');
             
-            this.isDragging = true;
-            this.startX = e.clientX - this.panX;
-            this.startY = e.clientY - this.panY;
-            
-            this.container.classList.remove('cursor-grab');
-            this.container.classList.add('cursor-grabbing');
-        });
-
-        // 2. Pan Movement
-        window.addEventListener('pointermove', (e) => {
-            if (!this.isDragging) return;
-            
-            // Calculate new position
-            this.panX = e.clientX - this.startX;
-            this.panY = e.clientY - this.startY;
-            
-            // Apply using hardware-accelerated CSS
-            this.updateTransform();
-        });
-
-        // 3. Stop Panning
-        window.addEventListener('pointerup', () => {
-            this.isDragging = false;
-            if (this.container) {
-                this.container.classList.remove('cursor-grabbing');
-                this.container.classList.add('cursor-grab');
+            if (blockEl) {
+                // START DRAGGING A BLOCK
+                this.isDraggingBlock = true;
+                this.draggedBlock = blockEl;
+                this.draggedBlockId = parseInt(blockEl.dataset.id);
+                
+                // Record where the mouse started
+                this.blockStartX = e.clientX;
+                this.blockStartY = e.clientY;
+                
+                // Record where the block started
+                this.originalBlockX = parseFloat(blockEl.style.left);
+                this.originalBlockY = parseFloat(blockEl.style.top);
+                
+                // Visual pop effect
+                blockEl.style.zIndex = '100';
+                blockEl.classList.add('shadow-2xl', 'opacity-90');
+                
+                // Stop the canvas from taking the click
+                e.stopPropagation(); 
+            } else {
+                // START PANNING THE CANVAS
+                this.isPanning = true;
+                this.startX = e.clientX - this.panX;
+                this.startY = e.clientY - this.panY;
+                
+                this.container.classList.remove('cursor-grab');
+                this.container.classList.add('cursor-grabbing');
             }
         });
 
-        // 4. Zooming
+        // 2. POINTER MOVE: Move either the block or the canvas
+        window.addEventListener('pointermove', (e) => {
+            if (this.isDraggingBlock && this.draggedBlock) {
+                // Move the Block
+                // We divide by `this.scale` so the block moves exactly with your mouse even if zoomed in/out!
+                const dx = (e.clientX - this.blockStartX) / this.scale;
+                const dy = (e.clientY - this.blockStartY) / this.scale;
+                
+                const newX = this.originalBlockX + dx;
+                const newY = this.originalBlockY + dy;
+                
+                // Update HTML instantly for smooth 60fps movement
+                this.draggedBlock.style.left = `${newX}px`;
+                this.draggedBlock.style.top = `${newY}px`;
+            } 
+            else if (this.isPanning) {
+                // Move the Canvas Camera
+                this.panX = e.clientX - this.startX;
+                this.panY = e.clientY - this.startY;
+                this.updateTransform();
+            }
+        });
+
+        // 3. POINTER UP: Drop the block or stop panning
+        window.addEventListener('pointerup', () => {
+            if (this.isDraggingBlock && this.draggedBlock) {
+                // DROP THE BLOCK
+                this.draggedBlock.classList.remove('shadow-2xl', 'opacity-90');
+                this.draggedBlock.style.zIndex = '';
+                
+                const finalX = parseFloat(this.draggedBlock.style.left);
+                const finalY = parseFloat(this.draggedBlock.style.top);
+                const blockId = this.draggedBlockId;
+
+                // Tell the Brain to permanently save the new location!
+                store.update('blocks', oldBlocks => {
+                    return oldBlocks.map(b => b.id === blockId ? { ...b, x: finalX, y: finalY } : b);
+                });
+
+                this.isDraggingBlock = false;
+                this.draggedBlock = null;
+            }
+
+            if (this.isPanning) {
+                // STOP PANNING
+                this.isPanning = false;
+                if (this.container) {
+                    this.container.classList.remove('cursor-grabbing');
+                    this.container.classList.add('cursor-grab');
+                }
+            }
+        });
+
+        // 4. ZOOMING
         this.container.addEventListener('wheel', (e) => {
-            e.preventDefault(); // Stop page from scrolling
-            
+            e.preventDefault(); 
             const zoomIntensity = 0.05;
             const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
-            
-            // Limit zoom out to 0.5x, zoom in to 2x
             this.scale = Math.min(Math.max(0.5, this.scale + delta), 2);
             this.updateTransform();
         }, { passive: false });
@@ -81,19 +142,17 @@ class CanvasUI {
         this.canvas.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
     }
 
-    const safeBlocks = blocks || []; 
-
+    renderBlocks(blocks) {
         if (!this.blocksLayer) return;
         this.blocksLayer.innerHTML = ''; 
 
-        // And change this line to use safeBlocks:
-        const displayBlocks = safeBlocks.length > 0 ? safeBlocks : [
-            { id: 1, title: 'Math Study', x: 200, y: 150, w: 200, h: 100, color: '#3b82f6' },
-            { id: 2, title: 'Break', x: 450, y: 150, w: 100, h: 50, color: '#10b981' }
-        ];
-        displayBlocks.forEach(b => {
+        const safeBlocks = blocks || [];
+
+        safeBlocks.forEach(b => {
             const el = document.createElement('div');
-            // Adding pointer-events-auto so we can interact with them later
+            // We store the ID in the dataset so we know which one we clicked!
+            el.dataset.id = b.id; 
+            
             el.className = 'ypt-block absolute rounded-xl shadow-lg p-3 text-white font-bold cursor-pointer transition-transform hover:scale-105 pointer-events-auto flex flex-col justify-between';
             el.style.left = `${b.x}px`;
             el.style.top = `${b.y}px`;
