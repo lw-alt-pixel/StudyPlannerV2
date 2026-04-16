@@ -5,7 +5,10 @@
 
 export const defaultState = {
     activeTab: 'schedule', 
-    blocks: [], // <-- ADD THIS LINE
+    blocks: [
+        { id: 1, title: 'Math Study', x: 200, y: 150, w: 200, h: 100, color: '#3b82f6' },
+        { id: 2, title: 'Break', x: 450, y: 150, w: 100, h: 50, color: '#10b981' }
+    ],
     theme: {
         appBgColor: '#f3f4f6',
         isGlassMode: true
