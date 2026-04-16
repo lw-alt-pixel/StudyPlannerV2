@@ -81,16 +81,16 @@ class CanvasUI {
         this.canvas.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
     }
 
-    renderBlocks(blocks) {
+    const safeBlocks = blocks || []; 
+
         if (!this.blocksLayer) return;
         this.blocksLayer.innerHTML = ''; 
 
-        // For testing, let's inject a fake block if your storage is empty
-        const displayBlocks = blocks.length > 0 ? blocks : [
+        // And change this line to use safeBlocks:
+        const displayBlocks = safeBlocks.length > 0 ? safeBlocks : [
             { id: 1, title: 'Math Study', x: 200, y: 150, w: 200, h: 100, color: '#3b82f6' },
             { id: 2, title: 'Break', x: 450, y: 150, w: 100, h: 50, color: '#10b981' }
         ];
-
         displayBlocks.forEach(b => {
             const el = document.createElement('div');
             // Adding pointer-events-auto so we can interact with them later
