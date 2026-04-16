@@ -3,10 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <title>Study Planner Pro V2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <h1>Modular Architecture Test</h1>
-    <p>If you check the console, you should see a message!</p>
+<body class="bg-gray-100 text-gray-800 p-8">
+    
+    <h1 class="text-3xl font-bold mb-6">Study Planner Pro</h1>
+
+    <div class="flex gap-4 mb-6 border-b pb-2">
+        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
+        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="pomodoro">Pomodoro</button>
+    </div>
+
+    <div id="schedule" class="tab-content hidden bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-bold">📅 Schedule View</h2>
+        <p>Your infinite canvas will go here.</p>
+    </div>
+
+    <div id="pomodoro" class="tab-content hidden bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-bold">⏱️ Pomodoro Timer</h2>
+        <p>Your timer engine will go here.</p>
+    </div>
 
     <script type="module" src="js/App.js"></script>
 </body>
