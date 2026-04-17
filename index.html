@@ -11,7 +11,7 @@
 
     <div class="flex gap-4 mb-6 border-b pb-2">
         <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
-        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="pomodoro">Pomodoro</button>
+        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="focus">Focus</button>
     </div>
 
     <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative" style="height: 600px;">
@@ -28,13 +28,27 @@
         </div>
     </div>
 
-    <div id="pomodoro" class="tab-content hidden bg-white p-6 rounded-lg shadow">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">⏱️ Pomodoro Timer</h2>
-        <div class="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-xl border-2 border-gray-100">
-            <div id="timerDisplay" class="text-6xl font-bold font-mono text-gray-700 mb-8 transition-colors">00:00</div>
+   <div id="focus" class="tab-content hidden bg-white p-6 rounded-lg shadow">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-gray-800">🎯 Focus Mode</h2>
+            
+            <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
+                <button id="modeStopwatch" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all">Stopwatch</button>
+                <button id="modePomodoro" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all">Pomodoro</button>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-xl border-2 border-gray-100 relative">
+            
+            <div id="phaseIndicator" class="absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+                Study Phase
+            </div>
+
+            <div id="timerDisplay" class="text-8xl font-bold font-mono text-gray-800 my-8 transition-colors">00:00</div>
+            
             <div class="flex gap-4">
-                <button id="startTimerBtn" class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-bold shadow-md transition-all">START</button>
-                <button id="stopTimerBtn" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-lg font-bold shadow-md transition-all">STOP</button>
+                <button id="toggleTimerBtn" class="bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">START</button>
+                <button id="switchPhaseBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">TAKE BREAK</button>
             </div>
         </div>
     </div>
