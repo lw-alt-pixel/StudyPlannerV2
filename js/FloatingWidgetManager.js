@@ -5,7 +5,7 @@ class FloatingWidgetManager {
         this.makeDraggable('openSettingsBtn');
         
         document.getElementById('openSettingsBtn')?.addEventListener('click', () => {
-            document.getElementById('settingsPanel').classList.remove('translate-x-full');
+            document.getElementById('settingsPanel')?.classList.remove('translate-x-full');
         });
     }
 
@@ -23,7 +23,7 @@ class FloatingWidgetManager {
             const rect = el.getBoundingClientRect();
             initialLeft = rect.left; initialTop = rect.top;
             
-            el.style.transition = 'none'; // Kills lag for consecutive drags
+            el.style.transition = 'none'; 
             el.classList.add('dragging-widget');
             el.setPointerCapture(e.pointerId);
         });
@@ -32,6 +32,7 @@ class FloatingWidgetManager {
             if (!isDragging) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
+            // Prevent micro-jitters from triggering a drag
             if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
             
             el.style.left = `${initialLeft + dx}px`;
@@ -65,5 +66,3 @@ class FloatingWidgetManager {
     }
 }
 export const floatingWidgetManager = new FloatingWidgetManager();
-
-
