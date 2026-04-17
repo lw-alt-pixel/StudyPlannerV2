@@ -1,25 +1,16 @@
 // js/State.js
-
-// Load blocks, but DESTROY old V1 "Ghost Blocks" that don't have a schedule!
 const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
+const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
 
 export const defaultState = {
     activeTab: 'schedule', 
     blocks: savedBlocks, 
-    theme: {
-        appBgColor: '#f3f4f6',
-        isGlassMode: true
-    },
-    timer: {
-        activeBlockId: null, 
-        mode: 'stopwatch', 
-        phase: 'study',    
-        isRunning: false,
-        // NEW: Add these default values so we never get NaN!
-        studySeconds: 0,
-        breakSeconds: 0,
-        secondsElapsed: 0 
+    exams: savedExams, // NEW!
+    theme: { appBgColor: '#f3f4f6', isGlassMode: true },
+    timer: { 
+        activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false,
+        studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 
     }
 };
 
@@ -38,14 +29,12 @@ class Store {
         const newValue = updater(this.state[key]);
         this.state[key] = newValue;
         
-        if (key === 'blocks') {
-            localStorage.setItem('studyBlocks', JSON.stringify(newValue));
-        }
+        if (key === 'blocks') localStorage.setItem('studyBlocks', JSON.stringify(newValue));
+        if (key === 'exams') localStorage.setItem('studyExams', JSON.stringify(newValue));
 
         if (this.listeners[key]) {
             this.listeners[key].forEach(listener => listener(newValue));
         }
     }
 }
-
 export const store = new Store(defaultState);
