@@ -23,7 +23,10 @@
         var(--day-width) calc(15px * var(--zoom)), 
         var(--day-width) calc(60px * var(--zoom));
     position: absolute;
-    top: 0; left: -100000px; width: 200000px; height: calc(24 * 60px * var(--zoom));
+    top: 0; 
+    left: -100800px; /* FIX: Perfect multiple of 180px */
+    width: 201600px; /* FIX: Scaled to match */
+    height: calc(24 * 60px * var(--zoom));
     pointer-events: none;
 }
 
