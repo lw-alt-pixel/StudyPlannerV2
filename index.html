@@ -5,63 +5,154 @@
     <title>Study Planner Pro V2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-gray-100 text-gray-800 p-8 transition-colors duration-500">
+<body class="bg-gray-100 text-gray-800 transition-colors duration-500 overflow-x-hidden flex flex-col h-screen">
     
-    <h1 class="text-3xl font-bold mb-6">Study Planner Pro</h1>
-
-   <div class="flex gap-4 mb-6 border-b pb-2">
-        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
-        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="focus">Focus</button>
-        <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="stats">Calendar & Analytics</button>
+    <div id="globalExamBanner" class="hidden bg-red-600 text-white text-center py-2 px-4 font-black tracking-wide z-[9999] shadow-md flex justify-center items-center gap-2">
+        🚨 <span id="bannerText">Next Exam: Physics in 14 Days</span> 🚨
     </div>
 
-    <div id="stats" class="tab-content hidden bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-6">📊 Calendar Heatmap & Analytics</h2>
-        <div id="calendarHeatmap" class="grid grid-cols-7 gap-2 mb-8 border-b pb-8">
-            </div>
-        <div class="grid grid-cols-2 gap-8">
-            <div class="bg-gray-50 p-4 rounded-xl border">
-                <h3 class="font-bold text-gray-700 mb-2">Total Study Time by Subject</h3>
-                <ul id="subjectStatsList" class="space-y-2"></ul>
-            </div>
-            <div class="bg-gray-50 p-4 rounded-xl border">
-                <h3 class="font-bold text-gray-700 mb-2">Daily Averages</h3>
-                <p id="dailyAvgText" class="text-3xl font-black text-blue-600">0h 0m</p>
-            </div>
+    <div class="p-8 flex-1 flex flex-col h-full max-h-full overflow-hidden">
+        <h1 class="text-3xl font-bold mb-6 shrink-0">Study Planner Pro</h1>
+
+        <div class="flex gap-4 mb-6 border-b pb-2 shrink-0">
+            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
+            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="focus">Focus</button>
+            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="stats">Analytics</button>
+            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="exams">Exams</button>
         </div>
-    </div>
 
-    <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative flex flex-col" style="height: 700px;">
-        
-        <div class="p-4 border-b bg-gray-50 flex justify-between items-center z-50 relative shadow-sm">
-            <div class="flex items-center gap-4">
-                <h2 class="text-xl font-bold text-gray-800">🗓️ Timeline</h2>
-                <div class="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button id="prevDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600 transition-colors">&lt;</button>
-                    <button id="centerTodayBtn" class="px-4 py-1 hover:bg-blue-50 font-bold text-sm text-blue-600 transition-colors">Go to Today</button>
-                    <button id="nextDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600 transition-colors">&gt;</button>
+        <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative flex flex-col flex-1 min-h-0">
+            <div class="p-4 border-b bg-gray-50 flex justify-between items-center z-50 relative shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
+                        <button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600">🗺️ Timeline</button>
+                        <button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">📅 Month</button>
+                    </div>
+
+                    <div id="canvasControls" class="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <button id="prevDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600">&lt;</button>
+                        <button id="centerTodayBtn" class="px-4 py-1 hover:bg-blue-50 font-bold text-sm text-blue-600">Go to Today</button>
+                        <button id="nextDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600">&gt;</button>
+                    </div>
+
+                    <div id="calendarControls" class="hidden items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <button id="prevMonthBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600">&lt;</button>
+                        <div id="currentMonthLabel" class="px-4 py-1 font-bold text-sm text-gray-700">April 2024</div>
+                        <button id="nextMonthBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600">&gt;</button>
+                    </div>
+                </div>
+                <button id="openAddBlockModalHeader" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Block</button>
+            </div>
+
+            <div id="canvas-container" class="relative flex-1 overflow-hidden bg-slate-50 cursor-grab touch-none w-full h-full block">
+                <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
+                    <div id="canvas-grid"></div>
+                    <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="left: -100000px; width: 200000px; height: calc(24 * 60px * var(--zoom));"></div>
+                </div>
+                <div class="absolute top-0 left-16 right-0 h-12 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200 pointer-events-none">
+                    <div id="canvas-days" class="absolute top-0 h-12 flex items-end pb-2 font-bold text-gray-700 text-sm" style="left: calc(-100000px + var(--pan-x)); width: 200000px;"></div>
+                </div>
+                <div class="absolute top-12 left-0 bottom-0 w-16 z-20 bg-white/90 backdrop-blur-md border-r border-gray-200 pointer-events-none">
+                    <div id="canvas-times" class="absolute left-0 w-16 flex flex-col items-center text-xs font-bold text-gray-500" style="top: var(--pan-y); height: calc(24 * 60px * var(--zoom));"></div>
+                </div>
+                <div class="absolute top-0 left-0 w-16 h-12 z-30 bg-gray-100 border-b border-r border-gray-200"></div>
+            </div>
+
+            <div id="calendar-container" class="hidden flex-1 p-4 bg-gray-50 flex-col overflow-y-auto">
+                <div class="grid grid-cols-7 gap-2 mb-2 text-center font-bold text-gray-500 text-sm uppercase">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2 flex-1 auto-rows-fr">
+                    </div>
+            </div>
+
+            <div id="daySlidePanel" class="absolute top-0 right-0 bottom-0 w-80 bg-white shadow-[-10px_0_20px_rgba(0,0,0,0.1)] border-l transform translate-x-full transition-transform duration-300 z-[100] flex flex-col">
+                <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+                    <h3 id="slidePanelDate" class="font-bold text-lg text-blue-600">Apr 14, 2024</h3>
+                    <button id="closeSlidePanel" class="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+                </div>
+                <div class="p-4 border-b">
+                    <div class="text-sm font-bold text-gray-500 uppercase">Total Logged</div>
+                    <div id="slidePanelTotalTime" class="text-2xl font-black text-gray-800">0h 0m</div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">Scheduled Blocks</h4>
+                    <div id="slidePanelBlocks" class="flex flex-col gap-3">
+                        </div>
                 </div>
             </div>
-            <button id="openAddBlockModalHeader" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all">+ Add Block</button>
         </div>
 
-        <div id="canvas-container" class="relative flex-1 overflow-hidden bg-slate-50 cursor-grab touch-none w-full h-full">
-            <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
-                <div id="canvas-grid"></div>
-                <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="left: -100000px; width: 200000px; height: calc(24 * 60px * var(--zoom));"></div>
+        <div id="focus" class="tab-content hidden bg-white p-6 rounded-lg shadow flex-1">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">🎯 Focus Mode</h2>
+                <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
+                    <button id="modeStopwatch" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all">Stopwatch</button>
+                    <button id="modePomodoro" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all">Pomodoro</button>
+                </div>
+            </div>
+            <div class="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-xl border-2 border-gray-100 relative h-96">
+                <div id="phaseIndicator" class="absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider">Study Phase</div>
+                <div id="timerDisplay" class="text-8xl font-bold font-mono text-gray-800 my-8 transition-colors">00:00</div>
+                <div class="flex gap-4">
+                    <button id="toggleTimerBtn" class="bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">START</button>
+                    <button id="switchPhaseBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">TAKE BREAK</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="stats" class="tab-content hidden bg-white rounded-lg shadow p-6 flex-1 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-gray-800">📊 Advanced Analytics</h2>
+                <div class="flex items-center gap-2">
+                    <select id="statsDateRange" class="p-2 border rounded font-bold text-gray-700 bg-gray-50">
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="custom">Custom Range...</option>
+                    </select>
+                    <div id="customDateInputs" class="hidden items-center gap-2">
+                        <input type="date" id="statsStart" class="p-2 border rounded text-sm">
+                        <span class="text-gray-400 font-bold">to</span>
+                        <input type="date" id="statsEnd" class="p-2 border rounded text-sm">
+                        <button id="applyCustomStats" class="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700">Apply</button>
+                    </div>
+                </div>
             </div>
 
-            <div class="absolute top-0 left-16 right-0 h-12 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200 pointer-events-none">
-                <div id="canvas-days" class="absolute top-0 h-12 flex items-end pb-2 font-bold text-gray-700 text-sm" style="left: calc(-100000px + var(--pan-x)); width: 200000px;"></div>
+            <div class="grid grid-cols-2 gap-6 mb-8">
+                <div class="bg-blue-50 border border-blue-100 p-6 rounded-xl flex flex-col justify-center items-center">
+                    <h3 class="text-sm font-bold text-blue-400 uppercase tracking-wide">Total Study Time</h3>
+                    <p id="statsTotalTime" class="text-4xl font-black text-blue-700 mt-2">0h 0m</p>
+                </div>
+                <div class="bg-green-50 border border-green-100 p-6 rounded-xl flex flex-col justify-center items-center">
+                    <h3 class="text-sm font-bold text-green-400 uppercase tracking-wide">Daily Average</h3>
+                    <p id="statsAvgTime" class="text-4xl font-black text-green-700 mt-2">0h 0m</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-8">
+                <div class="col-span-2 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 text-center">Study Trend</h3>
+                    <canvas id="trendBarChart" height="250"></canvas>
+                </div>
+                <div class="col-span-1 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 text-center">Subject Allocation</h3>
+                    <canvas id="subjectPieChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="exams" class="tab-content hidden bg-white rounded-lg shadow p-6 flex-1 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-2xl font-bold text-gray-800">🚨 Exam Deadlines</h2>
+                <button id="openAddExamBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Exam</button>
             </div>
             
-            <div class="absolute top-12 left-0 bottom-0 w-16 z-20 bg-white/90 backdrop-blur-md border-r border-gray-200 pointer-events-none">
-                <div id="canvas-times" class="absolute left-0 w-16 flex flex-col items-center text-xs font-bold text-gray-500" style="top: var(--pan-y); height: calc(24 * 60px * var(--zoom));"></div>
-            </div>
-            <div class="absolute top-0 left-0 w-16 h-12 z-30 bg-gray-100 border-b border-r border-gray-200"></div>
+            <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
         </div>
     </div>
 
@@ -83,6 +174,8 @@
 
             <label class="block text-sm font-bold text-gray-700 mb-1">Specific Topic (Optional)</label>
             <input type="text" id="newBlockTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Chapter 4 Review">
+            
+            <div class="flex gap-4 mb-3">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-gray-500 uppercase">Start Date</label>
                     <input type="date" id="newBlockStartDate" class="w-full p-2 border rounded font-bold text-gray-700">
@@ -114,32 +207,32 @@
         </div>
     </div>
 
-   <div id="focus" class="tab-content hidden bg-white p-6 rounded-lg shadow">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-bold text-gray-800">🎯 Focus Mode</h2>
+    <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center pointer-events-auto">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[400px]">
+            <h3 class="text-xl font-bold mb-4 text-red-600">🚨 Add Exam Deadline</h3>
             
-            <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
-                <button id="modeStopwatch" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all">Stopwatch</button>
-                <button id="modePomodoro" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all">Pomodoro</button>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Exam Title / Subject</label>
+            <input type="text" id="newExamTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Final Physics Paper 1">
+            
+            <div class="flex gap-4 mb-6">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Date</label>
+                    <input type="date" id="newExamDate" class="w-full p-2 border rounded font-bold text-gray-700">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Time</label>
+                    <input type="time" id="newExamTime" class="w-full p-2 border rounded font-bold text-gray-700" value="09:00">
+                </div>
             </div>
-        </div>
-
-        <div class="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-xl border-2 border-gray-100 relative">
             
-            <div id="phaseIndicator" class="absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider">
-                Study Phase
-            </div>
-
-            <div id="timerDisplay" class="text-8xl font-bold font-mono text-gray-800 my-8 transition-colors">00:00</div>
-            
-            <div class="flex gap-4">
-                <button id="toggleTimerBtn" class="bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">START</button>
-                <button id="switchPhaseBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">TAKE BREAK</button>
+            <div class="flex justify-end gap-2">
+                <button id="cancelAddExam" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
+                <button id="saveNewExam" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold shadow-md">Save Exam</button>
             </div>
         </div>
     </div>
 
-    <button id="openAddBlockModal" class="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform hover:scale-110 z-[999]">
+    <button id="openAddBlockModal" class="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform hover:scale-110 z-[900]">
         +
     </button>
 
