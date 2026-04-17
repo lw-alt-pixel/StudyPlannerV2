@@ -9,15 +9,18 @@ class CanvasUI {
         this.panY = -480; 
         this.zoom = 1;
         this.isPanning = false; this.startX = 0; this.startY = 0;
-        this.hasDragged = false; // Track if the user dragged or just clicked
+        this.hasDragged = false; 
         
         this.pxPerHour = 60; 
         this.dayWidth = 180;
         this.root = document.documentElement;
         
-        // Lock the "Center" of the grid to Today at Midnight (China Time)
         this.baseDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
         this.baseDate.setHours(0,0,0,0);
+        
+        // Tracks what month is showing in the Calendar View
+        this.currentMonth = new Date(this.baseDate);
+        this.currentMonth.setDate(1); 
     }
 
     init() {
@@ -41,8 +44,18 @@ class CanvasUI {
         this.bindEvents();
         this.enforceBoundsAndUpdate();
         
-        store.subscribe('blocks', (blocks) => this.renderBlocks(blocks));
-        this.renderBlocks(store.state.blocks);
+        // Re-render blocks and calendar when either blocks OR exams change!
+        store.subscribe('blocks', () => {
+            this.renderBlocks();
+            this.renderMonthCalendar();
+        });
+        store.subscribe('exams', () => {
+            this.renderBlocks();
+            this.renderMonthCalendar();
+        });
+        
+        this.renderBlocks();
+        this.renderMonthCalendar();
     }
 
     getChinaTime() {
@@ -53,6 +66,35 @@ class CanvasUI {
         const now = this.getChinaTime();
         const minsFromMidnight = (now.getHours() * 60) + now.getMinutes();
         this.currentTimeLine.style.top = `calc(${minsFromMidnight}px * var(--zoom))`;
+    }
+
+    switchView(viewMode) {
+        const canvasView = document.getElementById('canvas-container');
+        const calView = document.getElementById('calendar-container');
+        const canvasCtrl = document.getElementById('canvasControls');
+        const calCtrl = document.getElementById('calendarControls');
+        const btnCanvas = document.getElementById('viewCanvasBtn');
+        const btnCal = document.getElementById('viewCalendarBtn');
+
+        if (viewMode === 'canvas') {
+            canvasView.classList.replace('hidden', 'block');
+            calView.classList.replace('flex', 'hidden');
+            canvasCtrl.classList.replace('hidden', 'flex');
+            calCtrl.classList.replace('flex', 'hidden');
+            
+            btnCanvas.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
+            btnCal.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+        } else {
+            canvasView.classList.replace('block', 'hidden');
+            calView.classList.replace('hidden', 'flex');
+            canvasCtrl.classList.replace('flex', 'hidden');
+            calCtrl.classList.replace('hidden', 'flex');
+            
+            btnCal.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
+            btnCanvas.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            
+            this.renderMonthCalendar();
+        }
     }
 
     drawGridLabels() {
@@ -80,12 +122,10 @@ class CanvasUI {
             });
         }
 
-        // Generate Dates based on center
         this.daysLayer.innerHTML = '';
         for (let i = -30; i <= 60; i++) {
             let targetDate = new Date(this.baseDate);
             targetDate.setDate(this.baseDate.getDate() + i);
-            
             const dateStr = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             
             const dayEl = document.createElement('div');
@@ -124,22 +164,45 @@ class CanvasUI {
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
         this.root.style.setProperty('--zoom', this.zoom);
     }
-bindEvents() {
-        // --- HEADER BUTTON NAVIGATION ---
+
+    bindEvents() {
+        // --- VIEW TOGGLES ---
+        document.getElementById('viewCanvasBtn')?.addEventListener('click', () => this.switchView('canvas'));
+        document.getElementById('viewCalendarBtn')?.addEventListener('click', () => this.switchView('calendar'));
+        
+        // --- CALENDAR MONTH NAVIGATION ---
+        document.getElementById('prevMonthBtn')?.addEventListener('click', () => {
+            this.currentMonth.setMonth(this.currentMonth.getMonth() - 1);
+            this.renderMonthCalendar();
+        });
+        document.getElementById('nextMonthBtn')?.addEventListener('click', () => {
+            this.currentMonth.setMonth(this.currentMonth.getMonth() + 1);
+            this.renderMonthCalendar();
+        });
+
+        // --- SLIDE-OVER PANEL CONTROLS ---
+        document.getElementById('calendar-grid')?.addEventListener('click', (e) => {
+            const dayCard = e.target.closest('[data-date]');
+            if (dayCard) this.openSlidePanel(dayCard.dataset.date);
+        });
+        document.getElementById('closeSlidePanel')?.addEventListener('click', () => {
+            document.getElementById('daySlidePanel').classList.add('translate-x-full');
+        });
+
+        // --- CANVAS NAVIGATION ---
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('centerTodayBtn')?.addEventListener('click', () => { 
             this.panX = 10; 
             this.updateCurrentTimeLine(); 
-            this.panY = -(parseFloat(this.currentTimeLine.style.top) || 480) + 200; // Center camera on red line
+            this.panY = -(parseFloat(this.currentTimeLine.style.top) || 480) + 200; 
             this.enforceBoundsAndUpdate(); 
         });
 
-        // --- GRID INTERACTION ---
+        // --- CANVAS GRID INTERACTION ---
         this.container.addEventListener('pointerdown', (e) => {
-            this.hasDragged = false; // Reset drag tracker
+            this.hasDragged = false; 
             
-            // 1. DELETE BUTTON (Kill Ghosts instantly)
             const deleteBtn = e.target.closest('.delete-btn');
             if (deleteBtn) {
                 const id = parseInt(deleteBtn.dataset.id);
@@ -147,49 +210,40 @@ bindEvents() {
                 return;
             }
 
-            // 2. PLAY BUTTON
             const clickedBtn = e.target.closest('button');
-            
             if (clickedBtn && clickedBtn.classList.contains('play-btn')) {
                 const id = parseInt(clickedBtn.dataset.id);
                 const block = store.state.blocks.find(b => b.id === id);
-                
-                // Keep existing start time if resuming, otherwise stamp new China Time
                 const startTime = block.actualStart || this.getChinaTime().getTime();
                 
                 store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualStart: startTime, status: 'active' } : b));
-                
                 store.update('timer', t => ({ 
-                    ...t, 
-                    activeBlockId: id, 
-                    isRunning: true,
-                    studySeconds: block.studySeconds || 0,
-                    breakSeconds: block.breakSeconds || 0,
-                    secondsElapsed: block.studySeconds || 0
+                    ...t, activeBlockId: id, isRunning: true, studySeconds: block.studySeconds || 0, breakSeconds: block.breakSeconds || 0, secondsElapsed: block.studySeconds || 0
                 }));
-
-                timerEngine.start(); // <-- Turn on the engine!
-                
+                timerEngine.start();
                 document.querySelector('[data-tab="focus"]')?.click();
                 return;
             }
 
-            // 3. FINISH BUTTON
             if (clickedBtn && clickedBtn.classList.contains('finish-btn')) {
                 const id = parseInt(clickedBtn.dataset.id);
-                
                 store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualEnd: this.getChinaTime().getTime(), status: 'completed' } : b));
-                
                 store.update('timer', t => ({ ...t, isRunning: false, activeBlockId: null }));
-                
-                timerEngine.stop(); // <-- Turn off the engine!
+                timerEngine.stop();
                 return;
             }
-        }); // <--- THIS WAS THE MISSING CLOSING BRACKET!
+
+            if (!e.target.closest('.ypt-block')) {
+                this.isPanning = true;
+                this.startX = e.clientX - this.panX;
+                this.startY = e.clientY - this.panY;
+                this.container.classList.add('cursor-grabbing');
+            }
+        });
 
         window.addEventListener('pointermove', (e) => {
             if (this.isPanning) {
-                this.hasDragged = true; // User is moving the mouse
+                this.hasDragged = true;
                 this.panX = e.clientX - this.startX;
                 this.panY = e.clientY - this.startY;
                 this.enforceBoundsAndUpdate();
@@ -201,7 +255,6 @@ bindEvents() {
                 this.isPanning = false;
                 this.container.classList.remove('cursor-grabbing');
                 
-                // CLICK-TO-ADD LOGIC!
                 if (!this.hasDragged && !e.target.closest('.ypt-block')) {
                     const rect = this.container.getBoundingClientRect();
                     const clickX = e.clientX - rect.left - 64; 
@@ -215,79 +268,211 @@ bindEvents() {
                     clickedDate.setDate(this.baseDate.getDate() + dayOffset);
                     const dateStr = clickedDate.toISOString().split('T')[0];
 
-                    // --- SMART SNAPPING LOGIC ---
-                    let snapInterval = 60; // Default 1 hour
-                    if (this.zoom >= 2.0) snapInterval = 15; // Zoom Level 2: 15 mins
-                    else if (this.zoom >= 1.5) snapInterval = 30; // Zoom Level 1: 30 mins
+                    let snapInterval = 60; 
+                    if (this.zoom >= 2.0) snapInterval = 15; 
+                    else if (this.zoom >= 1.5) snapInterval = 30; 
 
                     let totalMins = Math.floor(gridY);
-                    
-                    // We use Math.floor so clicking *inside* the 14:30 box snaps to 14:30, not 15:00
                     totalMins = Math.floor(totalMins / snapInterval) * snapInterval;
                     
-                    // Clamp to boundaries
                     if(totalMins < 0) totalMins = 0; 
                     if(totalMins > 1440 - snapInterval) totalMins = 1440 - snapInterval; 
 
                     const h = Math.floor(totalMins / 60).toString().padStart(2, '0');
                     const m = (totalMins % 60).toString().padStart(2, '0');
-                    const timeStr = `${h}:${m}`;
-
-                    // Open the Modal pre-filled with the exact Start Time AND Duration!
-                    blockManager.openModalWithPreFill(dateStr, timeStr, snapInterval);
+                    
+                    blockManager.openModalWithPreFill(dateStr, `${h}:${m}`, snapInterval);
                 }
             }
         });
 
-        // DAMPENED SCROLLING (Slower tracking)
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
                 const delta = e.deltaY > 0 ? -0.1 : 0.1;
                 this.zoom = Math.min(Math.max(0.7, this.zoom + delta), 3);
             } else {
-                this.panX -= (e.deltaX * 0.5); // Dampen left/right
-                this.panY -= (e.deltaY * 0.5); // Dampen up/down
+                this.panX -= (e.deltaX * 0.5); 
+                this.panY -= (e.deltaY * 0.5); 
             }
             this.enforceBoundsAndUpdate();
         }, { passive: false });
     }
 
-    renderBlocks(blocks) {
+    // --- CALENDAR DAY PANEL LOGIC ---
+    openSlidePanel(dateStr) {
+        const panel = document.getElementById('daySlidePanel');
+        panel.classList.remove('translate-x-full'); 
+        
+        const dObj = new Date(dateStr);
+        document.getElementById('slidePanelDate').innerText = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+        const dayBlocks = store.state.blocks.filter(b => b.startDate === dateStr);
+        const dayExams = (store.state.exams || []).filter(e => e.date === dateStr);
+
+        let totalSecs = 0;
+        const blocksContainer = document.getElementById('slidePanelBlocks');
+        blocksContainer.innerHTML = '';
+
+        if (dayExams.length > 0) {
+            dayExams.forEach(ex => {
+                blocksContainer.innerHTML += `
+                    <div class="bg-red-50 border border-red-200 p-3 rounded-lg shadow-sm">
+                        <div class="font-black text-red-700 text-xs uppercase mb-1">🚨 EXAM DEADLINE</div>
+                        <div class="font-bold text-gray-800">${ex.title}</div>
+                        <div class="text-xs text-gray-500 mt-1">Scheduled Time: ${ex.time}</div>
+                    </div>
+                `;
+            });
+        }
+
+        if (dayBlocks.length === 0 && dayExams.length === 0) {
+            blocksContainer.innerHTML = `<div class="text-gray-400 text-sm text-center mt-4 font-bold">No tasks scheduled.</div>`;
+        } else {
+            dayBlocks.sort((a,b) => a.scheduledStart.localeCompare(b.scheduledStart)).forEach(b => {
+                totalSecs += (b.studySeconds || 0);
+                const statusHtml = b.status === 'completed' ? `<span class="text-green-600 text-[10px] font-black uppercase">✅ Done</span>` : `<span class="text-blue-500 text-[10px] font-black uppercase">▶ Active</span>`;
+                
+                blocksContainer.innerHTML += `
+                    <div class="bg-white border p-3 rounded-lg shadow-sm flex flex-col gap-1" style="border-left: 4px solid ${b.color || '#3b82f6'}">
+                        <div class="flex justify-between items-start">
+                            <div class="font-bold text-gray-800 text-sm">${b.title}</div>
+                            ${statusHtml}
+                        </div>
+                        <div class="text-xs font-bold text-gray-500">${b.scheduledStart} - ${b.scheduledEnd}</div>
+                        ${b.studySeconds > 0 ? `<div class="text-xs font-mono font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded mt-1">Logged: ${Math.floor(b.studySeconds/60)}m</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+        document.getElementById('slidePanelTotalTime').innerText = `${Math.floor(totalSecs/3600)}h ${Math.floor((totalSecs%3600)/60)}m`;
+    }
+
+    // --- MONTH GRID RENDERER ---
+    renderMonthCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        const label = document.getElementById('currentMonthLabel');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+        label.innerText = this.currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+        const year = this.currentMonth.getFullYear();
+        const month = this.currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1).getDay(); 
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Pad start of month
+        for (let i = 0; i < firstDay; i++) {
+            grid.innerHTML += `<div class="bg-gray-100 rounded-lg opacity-50"></div>`;
+        }
+
+        const todayStr = this.getChinaTime().toISOString().split('T')[0];
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
+            
+            const dayBlocks = store.state.blocks.filter(b => b.startDate === dateStr);
+            const dayExams = (store.state.exams || []).filter(e => e.date === dateStr);
+            
+            const isToday = dateStr === todayStr;
+            const hasExam = dayExams.length > 0;
+            
+            // THE RED BLOOD MOON EXAM OVERRIDE!
+            let bgClass = 'bg-white border border-gray-200';
+            let textClass = 'text-gray-700';
+            
+            if (hasExam) {
+                bgClass = 'bg-red-600 border border-red-700 shadow-md';
+                textClass = 'text-white';
+            } else if (isToday) {
+                bgClass = 'bg-blue-50 border-2 border-blue-400';
+                textClass = 'text-blue-700';
+            }
+
+            let html = `
+                <div class="${bgClass} rounded-lg p-2 cursor-pointer hover:shadow-md transition-all relative overflow-hidden flex flex-col h-24" data-date="${dateStr}">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold ${textClass}">${day}</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-1 overflow-hidden">
+            `;
+            
+            if (hasExam) {
+                html += `<div class="bg-red-800 text-white text-[9px] px-1 rounded truncate font-bold">🚨 ${dayExams.length} Exam(s)</div>`;
+            }
+            
+            if (dayBlocks.length > 0) {
+                const totalSecs = dayBlocks.reduce((sum, b) => sum + (b.studySeconds || 0), 0);
+                if (totalSecs > 0) {
+                    html += `<div class="bg-green-100 text-green-800 text-[9px] px-1 rounded truncate font-bold shadow-sm">⏱️ ${Math.floor(totalSecs/3600)}h ${Math.floor((totalSecs%3600)/60)}m</div>`;
+                }
+                html += `<div class="bg-blue-100 text-blue-800 text-[9px] px-1 rounded truncate font-bold shadow-sm">📚 ${dayBlocks.length} Task(s)</div>`;
+            }
+
+            html += `</div></div>`;
+            grid.insertAdjacentHTML('beforeend', html);
+        }
+    }
+
+    // --- INFINITE CANVAS RENDERER ---
+    renderBlocks() {
+        const blocks = store.state.blocks;
+        const exams = store.state.exams || [];
+        
         if (!this.blocksLayer) return;
+        
+        // Clean out all blocks and exam lines, keep the Red NOW line
         Array.from(this.blocksLayer.children).forEach(child => {
             if (child !== this.currentTimeLine) child.remove();
         });
 
+        // 1. Draw Red Exam Lines
+        exams.forEach(ex => {
+            if(!ex.date || !ex.time) return;
+            const exDate = new Date(`${ex.date}T${ex.time}:00`);
+            const dayOffset = Math.floor((exDate.setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
+            
+            const [eH, eM] = ex.time.split(':').map(Number);
+            const topPx = (eH * 60) + eM;
+            const leftPx = 100000 + (dayOffset * this.dayWidth);
+
+            const lineEl = document.createElement('div');
+            lineEl.className = 'absolute border-l-4 border-red-600 z-[30] pointer-events-none drop-shadow-md opacity-80';
+            lineEl.style.left = `${leftPx}px`;
+            lineEl.style.top = `calc(${topPx}px * var(--zoom))`;
+            lineEl.style.height = `calc(1440px * var(--zoom))`; 
+            
+            lineEl.innerHTML = `
+                <div class="absolute top-0 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap">
+                    🚨 EXAM: ${ex.title} @ ${ex.time}
+                </div>
+            `;
+            this.blocksLayer.appendChild(lineEl);
+        });
+
+        // 2. Draw normal schedule blocks
         blocks.forEach(b => {
-            // Must have dates and times to render
             if(!b.startDate || !b.scheduledStart || !b.endDate || !b.scheduledEnd) return;
 
-            const el = document.createElement('div');
-            
-            // MATH: Convert string Dates back to absolute Time to find height
             const startStr = `${b.startDate}T${b.scheduledStart}:00`;
             const endStr = `${b.endDate}T${b.scheduledEnd}:00`;
             
             const startObj = new Date(startStr);
             const endObj = new Date(endStr);
             
-            // Difference in days from the BaseDate (Today)
             const dayOffset = Math.floor((startObj.setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
-            
-            // Calculate Top Px relative to midnight of its start date
             const [sH, sM] = b.scheduledStart.split(':').map(Number);
             const topPx = (sH * 60) + sM;
             
-            // Calculate total duration in minutes (Handles OVERNIGHT automatically!)
             const startObjReal = new Date(startStr);
             let durationMins = (endObj - startObjReal) / 60000;
-            if (durationMins <= 0) durationMins = 60; // Fallback if dates are messed up
+            if (durationMins <= 0) durationMins = 60; 
 
             const leftPx = 100000 + (dayOffset * this.dayWidth);
+            const el = document.createElement('div');
 
-            // FIXING THE THIN BLOCKS: 0 border, tiny padding, hidden overflow.
-            el.className = `ypt-block absolute rounded-lg text-white shadow-lg flex flex-col justify-between transition-all ${b.status === 'completed' ? 'opacity-60 grayscale' : ''}`;
+            el.className = `ypt-block absolute rounded-lg text-white shadow-lg flex flex-col justify-between transition-all ${b.status === 'completed' ? 'opacity-60 grayscale' : ''} z-[35]`;
             el.style.left = `${leftPx + 4}px`;
             el.style.width = `${this.dayWidth - 8}px`; 
             el.style.top = `calc(${topPx}px * var(--zoom))`;
@@ -296,8 +481,8 @@ bindEvents() {
             el.style.padding = '4px 6px';
             el.style.overflow = 'hidden';
 
-            const totalSecs = b.studySeconds || 0;            
-            // Button Logic
+            const totalSecs = (b.studySeconds || 0); 
+            
             let actionHtml = '';
             if (b.status === 'completed') {
                 actionHtml = `<div class="text-center text-[9px] bg-black/20 rounded py-0.5 mt-1 font-bold">✅ Done</div>`;
@@ -309,12 +494,11 @@ bindEvents() {
 
             el.innerHTML = `
                 <button class="delete-btn absolute top-1 right-1 bg-red-600 hover:bg-red-800 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black pointer-events-auto shadow-md transition-transform hover:scale-125 z-50" data-id="${b.id}">X</button>
-                
                 <div class="pointer-events-none z-10 flex-1 flex flex-col min-h-0">
+                    <div class="font-bold text-[10px] truncate drop-shadow-md pr-4 uppercase text-white/80">${b.subject || ''}</div>
                     <div class="font-bold text-xs truncate drop-shadow-md pr-4">${b.title}</div>
                     <div class="text-[9px] opacity-90 drop-shadow-md leading-tight">${b.scheduledStart} - ${b.scheduledEnd}</div>
                 </div>
-                
                 <div class="mt-auto z-10 shrink-0">
                     ${totalSecs > 0 ? `<div class="text-[9px] font-mono font-bold bg-black/30 rounded px-1 text-center mb-0.5">⏱️ ${Math.floor(totalSecs/60)}m ${totalSecs%60}s</div>` : ''}
                     ${actionHtml}
