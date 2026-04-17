@@ -3,7 +3,6 @@ const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
 
-// NEW: Global Dictionary of Subjects and their Official Colors
 const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
     'Mathematics': '#3b82f6',
     'Physics': '#ef4444',
@@ -14,12 +13,19 @@ const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
     'Computer Science': '#14b8a6'
 };
 
+const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
+const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
+    bgType: 'color', bgColor: '#f3f4f6', bgImage: null,
+    actionColor: '#2563eb', actionSize: 'md', tabColor: '#2563eb'
+};
+
 export const defaultState = {
     activeTab: 'schedule', 
     blocks: savedBlocks, 
     exams: savedExams, 
-    subjects: savedSubjects, // Wires it to the brain!
-    theme: { appBgColor: '#f3f4f6', isGlassMode: true },
+    subjects: savedSubjects, 
+    theme: savedTheme,
+    settings: savedSettings,
     timer: { 
         activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false,
         studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 
@@ -44,6 +50,8 @@ class Store {
         if (key === 'blocks') localStorage.setItem('studyBlocks', JSON.stringify(newValue));
         if (key === 'exams') localStorage.setItem('studyExams', JSON.stringify(newValue));
         if (key === 'subjects') localStorage.setItem('studySubjects', JSON.stringify(newValue));
+        if (key === 'theme') localStorage.setItem('studyTheme', JSON.stringify(newValue));
+        if (key === 'settings') localStorage.setItem('studySettings', JSON.stringify(newValue));
 
         if (this.listeners[key]) {
             this.listeners[key].forEach(listener => listener(newValue));
