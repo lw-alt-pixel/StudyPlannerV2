@@ -8,7 +8,6 @@ class CanvasUI {
         this.panX = 10; this.panY = -480; this.zoom = 1;
         this.isPanning = false; this.startX = 0; this.startY = 0; this.hasDragged = false; 
         
-        // DRAG & DROP PHYSICS
         this.isDraggingBlock = false; this.draggedBlockEl = null; this.draggedBlockId = null;
         this.blockOffsetX = 0; this.blockOffsetY = 0; this.hasMovedBlock = false;
 
@@ -40,7 +39,15 @@ class CanvasUI {
         this.bindEvents();
         this.enforceBoundsAndUpdate();
         
-        const repaint = () => { this.renderBlocks(); this.renderMonthCalendar(); this.drawGridLabels(); };
+        // Live auto-refresh of panel!
+        const repaint = () => { 
+            this.renderBlocks(); 
+            this.renderMonthCalendar(); 
+            this.drawGridLabels(); 
+            if (this.currentSlideDate && !document.getElementById('daySlidePanel').classList.contains('translate-x-full')) {
+                this.openSlidePanel(this.currentSlideDate);
+            }
+        };
         store.subscribe('blocks', repaint); store.subscribe('exams', repaint); store.subscribe('subjects', repaint);
         repaint();
     }
@@ -93,7 +100,6 @@ class CanvasUI {
                 this.timesLayer.appendChild(m15);
             });
 
-            // NEW DEEP ZOOM: 5 MINUTE LABELS
             [5, 10, 20, 25, 35, 40, 50, 55].forEach(min => {
                 let m5 = document.createElement('div');
                 m5.className = 'absolute w-full text-center text-gray-200 font-normal text-[8px] time-label-fraction time-label-5';
@@ -129,7 +135,6 @@ class CanvasUI {
     }
 
     enforceBoundsAndUpdate() {
-        // Deep Zoom Grid Dynamics
         this.root.style.setProperty('--grid-30', 'transparent'); this.root.style.setProperty('--grid-15', 'transparent'); this.root.style.setProperty('--grid-5', 'transparent');
         this.container.className = 'relative w-full h-[700px] overflow-hidden bg-slate-50/90 cursor-grab touch-none block';
 
@@ -153,6 +158,17 @@ class CanvasUI {
         this.root.style.setProperty('--zoom', this.zoom);
     }
 
+    // NEW: Central Anchor Zoom function for Buttons
+    applyZoomWithCenterAnchor(newZoom) {
+        const viewHeight = this.container.clientHeight - 48;
+        const centerY = viewHeight / 2;
+        const timeAtCenter = (centerY - this.panY) / this.zoom;
+        
+        this.zoom = newZoom;
+        this.panY = centerY - (timeAtCenter * this.zoom);
+        this.enforceBoundsAndUpdate();
+    }
+
     bindEvents() {
         document.getElementById('viewCanvasBtn')?.addEventListener('click', () => this.switchView('canvas'));
         document.getElementById('viewCalendarBtn')?.addEventListener('click', () => this.switchView('calendar'));
@@ -167,7 +183,14 @@ class CanvasUI {
             document.getElementById('daySlidePanel').classList.add('translate-x-full');
         });
 
-        // DIARY AUTO-SAVE
+        // LIVE SIDE-PANEL EDITOR CLICKS!
+        document.getElementById('slidePanelBlocks')?.addEventListener('click', (e) => {
+            const blockEl = e.target.closest('.agenda-block-interactive');
+            if (blockEl && blockEl.dataset.id) {
+                blockManager.openEditModal(parseInt(blockEl.dataset.id));
+            }
+        });
+
         this.diaryEl?.addEventListener('input', (e) => {
             if (this.currentSlideDate) store.update('diaries', d => ({...d, [this.currentSlideDate]: e.target.value}));
         });
@@ -178,20 +201,28 @@ class CanvasUI {
             this.panX = 10; this.updateCurrentTimeLine(); this.panY = -(parseFloat(this.currentTimeLine.style.top) || 480) + 200; this.enforceBoundsAndUpdate(); 
         });
 
-        // 1. POINTER DOWN (Canvas Pan OR Block Drag)
+        // 🎯 NEW: SNAP ZOOM BUTTON LOGIC
+        const zoomLevels = [0.75, 1, 1.5, 2, 4, 10, 20];
+        document.getElementById('canvasZoomIn')?.addEventListener('click', () => {
+            let nextZoom = zoomLevels.find(z => z > this.zoom) || 20;
+            this.applyZoomWithCenterAnchor(nextZoom);
+        });
+        document.getElementById('canvasZoomOut')?.addEventListener('click', () => {
+            let prevZoom = zoomLevels.slice().reverse().find(z => z < this.zoom) || 0.75;
+            this.applyZoomWithCenterAnchor(prevZoom);
+        });
+        document.getElementById('canvasZoomReset')?.addEventListener('click', () => {
+            this.applyZoomWithCenterAnchor(1);
+        });
+
         this.container.addEventListener('pointerdown', (e) => {
             this.hasDragged = false; 
-
-            // Check if clicking inside a block
             const blockEl = e.target.closest('.ypt-block');
             if (blockEl) {
                 const id = parseInt(blockEl.dataset.id);
                 const block = store.state.blocks.find(b => b.id === id);
-                
-                // If it's a button inside the block, let it click naturally, DO NOT drag or open modal!
                 if (e.target.closest('button')) return; 
 
-                // ONLY allow dragging if block is Pending!
                 if (block && block.status === 'pending') {
                     this.isDraggingBlock = true; this.draggedBlockEl = blockEl; this.draggedBlockId = id;
                     const rect = blockEl.getBoundingClientRect();
@@ -201,23 +232,17 @@ class CanvasUI {
                     e.stopPropagation();
                     return;
                 } else {
-                    // Clicked an active/completed block background -> just wait for pointerup to open modal
-                    this.pendingClickBlockId = id;
-                    return;
+                    this.pendingClickBlockId = id; return;
                 }
             }
-
-            // Otherwise, pan the canvas
             this.isPanning = true; this.startX = e.clientX - this.panX; this.startY = e.clientY - this.panY;
             this.container.classList.add('cursor-grabbing');
         });
 
-        // 2. POINTER MOVE
         window.addEventListener('pointermove', (e) => {
             if (this.isDraggingBlock && this.draggedBlockEl) {
                 this.hasMovedBlock = true;
                 const canvasRect = this.container.getBoundingClientRect();
-                // Move physically across the zoomed grid
                 const newLeft = (e.clientX - canvasRect.left - 64) - this.panX - this.blockOffsetX;
                 const newTop = (e.clientY - canvasRect.top - 48) - this.panY - this.blockOffsetY;
                 this.draggedBlockEl.style.left = `${newLeft}px`;
@@ -228,9 +253,7 @@ class CanvasUI {
             }
         });
 
-       // 3. POINTER UP
        window.addEventListener('pointerup', (e) => {
-            // Drag-and-Drop Drop Logic
             if (this.isDraggingBlock) {
                 this.isDraggingBlock = false;
                 this.draggedBlockEl.classList.remove('dragging-block');
@@ -244,17 +267,13 @@ class CanvasUI {
                     targetLocal.setDate(targetLocal.getDate() + dayOffset);
                     const newDateStr = `${targetLocal.getFullYear()}-${String(targetLocal.getMonth() + 1).padStart(2, '0')}-${String(targetLocal.getDate()).padStart(2, '0')}`;
                     
-                    // Snap to 5 mins
                     let totalMins = Math.floor(topPx / 5) * 5;
                     if(totalMins < 0) totalMins = 0; if(totalMins > 1435) totalMins = 1435; 
                     const h = Math.floor(totalMins / 60).toString().padStart(2, '0'); const m = (totalMins % 60).toString().padStart(2, '0');
                     const newTimeStr = `${h}:${m}`;
 
-                    // Ask for confirmation
                     if (confirm(`Reschedule block to ${newDateStr} @ ${newTimeStr}?`)) {
                         const block = store.state.blocks.find(b => b.id === this.draggedBlockId);
-                        
-                        // Calculate new end time based on original duration
                         const sObj = new Date(`${block.startDate}T${block.scheduledStart}:00`);
                         const eObj = new Date(`${block.endDate}T${block.scheduledEnd}:00`);
                         const durMins = (eObj - sObj) / 60000;
@@ -270,24 +289,21 @@ class CanvasUI {
                             ...b, startDate: newDateStr, scheduledStart: newTimeStr, endDate: newEndStr, scheduledEnd: newEndTimeStr 
                         } : b));
                     } else {
-                        this.renderBlocks(); // snap back
+                        this.renderBlocks(); 
                     }
                 } else {
-                    // It was just a click, open Editor
                     blockManager.openEditModal(this.draggedBlockId);
                 }
                 this.draggedBlockEl = null; this.draggedBlockId = null;
                 return;
             }
 
-            // Clicked active/completed block without dragging
             if (this.pendingClickBlockId) {
                 blockManager.openEditModal(this.pendingClickBlockId);
                 this.pendingClickBlockId = null;
                 return;
             }
 
-            // Canvas Pan / Add Block Click Logic
             if (this.isPanning) {
                 this.isPanning = false; this.container.classList.remove('cursor-grabbing');
                 if (!this.hasDragged && !e.target.closest('.ypt-block')) {
@@ -312,23 +328,29 @@ class CanvasUI {
             }
         });
 
-        // DEEP ZOOM ENABLED! UP TO 20x ZOOM!
+        // 🎯 NEW: CURSOR-ANCHORED ZOOM PHYSICS!
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
-                const delta = e.deltaY > 0 ? -0.2 : 0.2; 
-                this.zoom = Math.min(Math.max(0.7, this.zoom + delta), 20); // 20x ZOOM LIMIT!
+                const rect = this.container.getBoundingClientRect();
+                const cursorY = e.clientY - rect.top - 48; 
+                const timeUnderCursor = (cursorY - this.panY) / this.zoom;
+
+                const delta = e.deltaY > 0 ? -0.05 : 0.05; // Lower sensitivity for smooth zoom!
+                this.zoom = Math.min(Math.max(0.7, this.zoom + delta), 20);
+
+                // Re-anchor panY so time under cursor stays frozen in place
+                this.panY = cursorY - (timeUnderCursor * this.zoom);
             } else {
                 this.panX -= (e.deltaX * 0.5); this.panY -= (e.deltaY * 0.5); 
             }
             this.enforceBoundsAndUpdate();
         }, { passive: false });
 
-        // IMPORTANT FIX: Stop Action Buttons from triggering Modal Opening!
         this.blocksLayer.addEventListener('click', (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
-            e.stopPropagation(); // Kills the background click event!
+            e.stopPropagation(); 
             
             const id = parseInt(btn.dataset.id);
             if (btn.classList.contains('delete-btn')) {
@@ -355,7 +377,6 @@ class CanvasUI {
         const dObj = new Date(dateStr);
         document.getElementById('slidePanelDate').innerText = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
-        // Load Diary text!
         if (this.diaryEl) this.diaryEl.value = store.state.diaries[dateStr] || '';
 
         const dayBlocks = store.state.blocks.filter(b => b.startDate === dateStr);
@@ -381,8 +402,10 @@ class CanvasUI {
                 totalSecs += (b.studySeconds || 0);
                 const statusHtml = b.status === 'completed' ? `<span class="text-green-600 text-[10px] font-black uppercase">✅ Done</span>` : `<span class="text-blue-500 text-[10px] font-black uppercase">▶ Active</span>`;
                 const subColor = store.state.subjects[b.subject] || '#3b82f6';
+                
+                // 🎯 NEW: SHAKING INTERACTIVE AGENDA BLOCKS
                 blocksContainer.innerHTML += `
-                    <div class="bg-white border p-3 rounded-lg shadow-sm flex flex-col gap-1" style="border-left: 4px solid ${subColor}">
+                    <div class="agenda-block-interactive bg-white border p-3 rounded-lg shadow-sm flex flex-col gap-1 cursor-pointer" style="border-left: 4px solid ${subColor}" data-id="${b.id}">
                         <div class="flex justify-between items-start"><div class="font-bold text-gray-800 text-sm">${b.title}</div>${statusHtml}</div>
                         <div class="text-xs font-bold text-gray-500">${b.scheduledStart} - ${b.scheduledEnd}</div>
                         ${b.studySeconds > 0 ? `<div class="text-xs font-mono font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded mt-1">Logged: ${Math.floor(b.studySeconds/60)}m</div>` : ''}
@@ -462,8 +485,6 @@ class CanvasUI {
             const subColor = store.state.subjects[b.subject] || '#3b82f6';
 
             const el = document.createElement('div');
-            
-            // INCREASED Z-INDEX to ensure buttons inside are clickable!
             el.className = `ypt-block absolute rounded-lg text-white shadow-lg flex flex-col justify-between transition-all z-[45] ${b.status === 'completed' ? 'opacity-60 grayscale' : ''}`;
             el.style.left = `${leftPx + 4}px`; el.style.width = `${this.dayWidth - 8}px`; 
             el.style.top = `calc(${topPx}px * var(--zoom))`; el.style.height = `calc(${durationMins}px * var(--zoom))`;
@@ -473,7 +494,6 @@ class CanvasUI {
             const totalSecs = (b.studySeconds || 0); 
             
             let actionHtml = '';
-            // Buttons forced to pointer-events-auto and Top z-index
             if (b.status === 'completed') {
                 actionHtml = `<div class="text-center text-[9px] bg-black/20 rounded py-0.5 mt-1 font-bold pointer-events-none">✅ Done</div>`;
             } else if (b.status === 'active') {
