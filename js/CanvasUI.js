@@ -11,12 +11,16 @@ class CanvasUI {
         this.isDraggingBlock = false; this.draggedBlockEl = null; this.draggedBlockId = null;
         this.blockOffsetX = 0; this.blockOffsetY = 0; this.hasMovedBlock = false;
 
-        // 🎯 MULTI-TOUCH VARIABLES
+        // MULTI-TOUCH VARIABLES
         this.activePointers = new Map();
         this.initialPinchDistance = null;
         this.initialPinchZoom = null;
         this.pinchCenterY = null;
         this.hasPinched = false;
+
+        // 🎯 PERFORMANCE OPTIMIZATION VARIABLES
+        this.currentZoomTier = 1;
+        this.rafPending = false;
 
         this.pxPerHour = 60; this.dayWidth = 180;
         this.root = document.documentElement;
@@ -159,29 +163,51 @@ class CanvasUI {
     enforceBoundsAndUpdate() {
         if (this.zoom < 1) this.zoom = 1;
 
-        this.root.style.setProperty('--grid-30', 'transparent'); this.root.style.setProperty('--grid-15', 'transparent'); this.root.style.setProperty('--grid-5', 'transparent');
-        
-        this.container.classList.remove('show-15-mins', 'show-30-mins', 'show-5-mins');
-        
-        if (this.zoom >= 4) {
-            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.04)'); this.root.style.setProperty('--grid-5', 'rgba(0,0,0,0.02)');
-            this.container.classList.add('show-15-mins', 'show-30-mins', 'show-5-mins');
-        } else if (this.zoom >= 2) {
-            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.03)');
-            this.container.classList.add('show-15-mins', 'show-30-mins');
-        } else if (this.zoom >= 1.5) {
-            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); 
-            this.container.classList.add('show-30-mins');
+        // 🎯 OPTIMIZATION 1: ZOOM TIER CACHING (Stops DOM Thrashing)
+        let newTier = 1;
+        if (this.zoom >= 4) newTier = 4;
+        else if (this.zoom >= 2) newTier = 2;
+        else if (this.zoom >= 1.5) newTier = 1.5;
+
+        // ONLY modify the grid DOM if we actually crossed a zoom threshold!
+        if (this.currentZoomTier !== newTier) {
+            this.currentZoomTier = newTier;
+            
+            this.root.style.setProperty('--grid-30', 'transparent'); 
+            this.root.style.setProperty('--grid-15', 'transparent'); 
+            this.root.style.setProperty('--grid-5', 'transparent');
+            this.container.classList.remove('show-15-mins', 'show-30-mins', 'show-5-mins');
+            
+            if (newTier === 4) {
+                this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); 
+                this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.04)'); 
+                this.root.style.setProperty('--grid-5', 'rgba(0,0,0,0.02)');
+                this.container.classList.add('show-15-mins', 'show-30-mins', 'show-5-mins');
+            } else if (newTier === 2) {
+                this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); 
+                this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.03)');
+                this.container.classList.add('show-15-mins', 'show-30-mins');
+            } else if (newTier === 1.5) {
+                this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); 
+                this.container.classList.add('show-30-mins');
+            }
         }
 
         const canvasHeight = 24 * 60 * this.zoom;
-        const viewHeight = this.container.clientHeight; 
+        const viewHeight = this.container.clientHeight || 700; 
         const minPanY = Math.min(0, viewHeight - canvasHeight - 48); 
         this.panY = Math.max(minPanY, Math.min(0, this.panY));
 
-        this.root.style.setProperty('--pan-x', `${this.panX}px`);
-        this.root.style.setProperty('--pan-y', `${this.panY}px`);
-        this.root.style.setProperty('--zoom', this.zoom);
+        // 🎯 OPTIMIZATION 2: GPU FRAME SYNC (Prevents Safari lag loop)
+        if (!this.rafPending) {
+            this.rafPending = true;
+            requestAnimationFrame(() => {
+                this.root.style.setProperty('--pan-x', `${this.panX}px`);
+                this.root.style.setProperty('--pan-y', `${this.panY}px`);
+                this.root.style.setProperty('--zoom', this.zoom);
+                this.rafPending = false;
+            });
+        }
     }
 
     applyZoomWithCenterAnchor(newZoom) {
@@ -240,13 +266,11 @@ class CanvasUI {
             this.applyZoomWithCenterAnchor(1);
         });
 
-        // 🎯 MULTI-TOUCH POINTER DOWN
         this.container.addEventListener('pointerdown', (e) => {
             if (e.target.closest('button')) return;
 
             this.activePointers.set(e.pointerId, e);
 
-            // 🎯 PINCH TO ZOOM DETECTED
             if (this.activePointers.size === 2 && !this.isDraggingBlock) {
                 this.isPanning = false;
                 this.hasPinched = true;
@@ -281,13 +305,11 @@ class CanvasUI {
             this.container.classList.add('cursor-grabbing');
         });
 
-        // 🎯 MULTI-TOUCH POINTER MOVE
         window.addEventListener('pointermove', (e) => {
             if (this.activePointers.has(e.pointerId)) {
                 this.activePointers.set(e.pointerId, e);
             }
 
-            // 🎯 EXECUTE PINCH SCALING
             if (this.activePointers.size === 2 && !this.isDraggingBlock) {
                 const pointers = Array.from(this.activePointers.values());
                 const currentDist = Math.hypot(pointers[0].clientX - pointers[1].clientX, pointers[0].clientY - pointers[1].clientY);
@@ -317,11 +339,9 @@ class CanvasUI {
             }
         });
 
-        // 🎯 MULTI-TOUCH POINTER UP
         window.addEventListener('pointerup', (e) => {
             this.activePointers.delete(e.pointerId);
 
-            // If user releases one finger after a pinch, switch back to seamless panning for the remaining finger!
             if (this.activePointers.size === 1 && this.hasPinched) {
                 const remaining = Array.from(this.activePointers.values())[0];
                 this.startX = remaining.clientX - this.panX;
@@ -331,7 +351,6 @@ class CanvasUI {
                 return;
             }
 
-            // If user releases all fingers after a pinch, do NOT trigger the "Add Block" modal!
             if (this.activePointers.size === 0) {
                 this.initialPinchDistance = null;
                 if (this.hasPinched) {
@@ -417,7 +436,6 @@ class CanvasUI {
             }
         });
 
-        // 🎯 SAFETY: If gesture is interrupted by iOS system call/notification
         window.addEventListener('pointercancel', (e) => {
             this.activePointers.delete(e.pointerId);
             this.initialPinchDistance = null;
