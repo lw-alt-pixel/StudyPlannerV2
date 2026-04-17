@@ -15,12 +15,19 @@ class ExamManager {
     }
 
     bindEvents() {
+        // 1. Force the Modal to open
         document.getElementById('openAddExamBtn')?.addEventListener('click', () => {
             this.modal.classList.remove('hidden');
+            this.modal.classList.add('flex'); // Ensure Flexbox turns on
         });
+        
+        // 2. Force the Modal to close
         document.getElementById('cancelAddExam')?.addEventListener('click', () => {
             this.modal.classList.add('hidden');
+            this.modal.classList.remove('flex');
         });
+
+        // 3. Save the Exam
         document.getElementById('saveNewExam')?.addEventListener('click', () => {
             const newExam = {
                 id: Date.now(),
@@ -31,10 +38,17 @@ class ExamManager {
             if (!newExam.date) return alert("Please select a date!");
             
             store.update('exams', ex => [...ex, newExam].sort((a,b) => new Date(a.date) - new Date(b.date)));
+            
+            // Close modal after save
             this.modal.classList.add('hidden');
+            this.modal.classList.remove('flex');
+            
+            // Clear inputs for next time
+            document.getElementById('newExamTitle').value = '';
+            document.getElementById('newExamDate').value = '';
         });
 
-        // Delete buttons via event delegation
+        // 4. Delete buttons
         this.listEl.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-exam')) {
                 const id = parseInt(e.target.dataset.id);
