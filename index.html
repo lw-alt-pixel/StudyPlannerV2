@@ -136,14 +136,17 @@
             <div class="grid grid-cols-3 gap-8">
                 <div class="col-span-2 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
                     <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 text-center">Study Trend</h3>
-                    <canvas id="trendBarChart" height="250"></canvas>
+                    <div class="relative w-full h-[250px]">
+                        <canvas id="trendBarChart"></canvas>
+                    </div>
                 </div>
                 <div class="col-span-1 bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
                     <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 text-center">Subject Allocation</h3>
-                    <canvas id="subjectPieChart" height="250"></canvas>
+                    <div class="relative w-full h-[250px]">
+                        <canvas id="subjectPieChart"></canvas>
+                    </div>
                 </div>
             </div>
-        </div>
 
         <div id="exams" class="tab-content hidden bg-white rounded-lg shadow p-6 flex-1 overflow-y-auto">
             <div class="flex justify-between items-center mb-6 border-b pb-4">
