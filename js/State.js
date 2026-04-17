@@ -1,52 +1,47 @@
 // js/State.js
 
-// 1. Try to load saved blocks, otherwise use defaults
-const savedBlocks = JSON.parse(localStorage.getItem('ypt_blocks'));
-const defaultBlocks = savedBlocks || [
-    { id: 1, title: 'Math Study', x: 200, y: 150, w: 200, h: 100, color: '#3b82f6' },
-    { id: 2, title: 'Break', x: 450, y: 150, w: 100, h: 50, color: '#10b981' }
-];
+// Load existing blocks from your hard drive, just like your old app!
+const savedBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 
 export const defaultState = {
     activeTab: 'schedule', 
-    blocks: defaultBlocks, 
+    blocks: savedBlocks, 
     theme: {
         appBgColor: '#f3f4f6',
         isGlassMode: true
     },
-    // NEW TIMER MEMORY:
     timer: {
-        mode: 'stopwatch', // Can be 'stopwatch' or 'pomodoro'
-        phase: 'study',    // Can be 'study' or 'break'
-        studySeconds: 0,
-        breakSeconds: 0,
+        activeBlockId: null, // NEW: The Brain now knows WHICH block we are studying
+        mode: 'stopwatch', 
+        phase: 'study',    
         isRunning: false
     }
 };
 
-class AppStore {
+class Store {
     constructor(initialState) {
         this.state = initialState;
-        this.listeners = new Map();
+        this.listeners = {};
     }
 
-    subscribe(key, callback) {
-        if (!this.listeners.has(key)) this.listeners.set(key, []);
-        this.listeners.get(key).push(callback);
+    subscribe(key, listener) {
+        if (!this.listeners[key]) this.listeners[key] = [];
+        this.listeners[key].push(listener);
     }
 
-    update(key, updaterFunction) {
-        this.state[key] = updaterFunction(this.state[key]);
+    update(key, updater) {
+        const newValue = updater(this.state[key]);
+        this.state[key] = newValue;
         
-        // 2. LONG TERM MEMORY: If blocks were updated, save them to the browser!
+        // NEW: Every time blocks update, save them permanently!
         if (key === 'blocks') {
-            localStorage.setItem('ypt_blocks', JSON.stringify(this.state.blocks));
+            localStorage.setItem('studyBlocks', JSON.stringify(newValue));
         }
 
-        if (this.listeners.has(key)) {
-            this.listeners.get(key).forEach(cb => cb(this.state[key], this.state));
+        if (this.listeners[key]) {
+            this.listeners[key].forEach(listener => listener(newValue));
         }
     }
 }
 
-export const store = new AppStore(defaultState);
+export const store = new Store(defaultState);
