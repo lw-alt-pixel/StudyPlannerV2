@@ -1,21 +1,14 @@
 // js/State.js
 
-// Load existing blocks from your hard drive, just like your old app!
-const savedBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
+// Load blocks, but DESTROY old V1 "Ghost Blocks" that don't have a schedule!
+const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
+const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 
 export const defaultState = {
     activeTab: 'schedule', 
     blocks: savedBlocks, 
-    theme: {
-        appBgColor: '#f3f4f6',
-        isGlassMode: true
-    },
-    timer: {
-        activeBlockId: null, // NEW: The Brain now knows WHICH block we are studying
-        mode: 'stopwatch', 
-        phase: 'study',    
-        isRunning: false
-    }
+    theme: { appBgColor: '#f3f4f6', isGlassMode: true },
+    timer: { activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false }
 };
 
 class Store {
@@ -33,7 +26,6 @@ class Store {
         const newValue = updater(this.state[key]);
         this.state[key] = newValue;
         
-        // NEW: Every time blocks update, save them permanently!
         if (key === 'blocks') {
             localStorage.setItem('studyBlocks', JSON.stringify(newValue));
         }
