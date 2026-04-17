@@ -8,7 +8,7 @@
     --grid-60: rgba(0,0,0,0.1);
     --grid-30: transparent;
     --grid-15: transparent;
-    --grid-5: transparent; /* NEW: 5 min grid */
+    --grid-5: transparent; 
 
     --action-color: #3b82f6;
     --tab-color: #3b82f6;
@@ -30,10 +30,7 @@
         var(--day-width) calc(5px * var(--zoom)), 
         var(--day-width) calc(60px * var(--zoom));
     position: absolute;
-    top: 0; 
-    left: -100800px; 
-    width: 201600px; 
-    height: calc(24 * 60px * var(--zoom));
+    top: 0; left: -100800px; width: 201600px; height: calc(24 * 60px * var(--zoom));
     pointer-events: none;
 }
 
@@ -44,10 +41,8 @@
 .time-label-30, .time-label-15, .time-label-5 { opacity: 0; }
 
 .custom-action-btn {
-    background-color: var(--action-color) !important;
-    color: white !important;
-    padding: var(--action-padding) !important;
-    font-size: var(--action-font-size) !important;
+    background-color: var(--action-color) !important; color: white !important;
+    padding: var(--action-padding) !important; font-size: var(--action-font-size) !important;
     transition: filter 0.2s, transform 0.2s, background-color 0.5s;
     border: none; cursor: pointer;
 }
@@ -55,11 +50,24 @@
 .custom-action-btn:active { transform: scale(0.95); }
 
 .active-tab {
-    background-color: var(--tab-color) !important;
-    color: white !important;
+    background-color: var(--tab-color) !important; color: white !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
 }
 
 .dragging-widget { transition: none !important; opacity: 0.9; cursor: grabbing !important; }
 .ypt-block { cursor: pointer; }
 .ypt-block.dragging-block { cursor: grabbing !important; z-index: 100 !important; opacity: 0.8; transition: none !important; }
+
+/* THE "SHAKE & LIGHT UP" SIDE PANEL INTERACTION */
+@keyframes slight-shake {
+    0%, 100% { transform: translateX(0) scale(1.02); }
+    25% { transform: translateX(-2px) rotate(-1deg) scale(1.02); }
+    75% { transform: translateX(2px) rotate(1deg) scale(1.02); }
+}
+.agenda-block-interactive { transition: all 0.2s ease-in-out; cursor: pointer; }
+.agenda-block-interactive:hover {
+    animation: slight-shake 0.4s ease-in-out infinite;
+    filter: brightness(1.08);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
