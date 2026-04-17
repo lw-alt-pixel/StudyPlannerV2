@@ -13,10 +13,13 @@ class BlockManager {
     }
 
     bindEvents() {
-        document.getElementById('openAddBlockModal')?.addEventListener('click', () => {
-            this.modal.classList.remove('hidden');
-            this.titleInput.value = ''; 
-            this.titleInput.focus();
+        // FIX: Find ALL Add Block buttons (header and floating) and activate them
+        document.querySelectorAll('#openAddBlockModal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.modal.classList.remove('hidden');
+                this.titleInput.value = ''; 
+                this.titleInput.focus();
+            });
         });
 
         document.getElementById('cancelAddBlock')?.addEventListener('click', () => {
@@ -38,12 +41,12 @@ class BlockManager {
             id: Date.now(),
             title: title,
             color: color,
-            dayOffset: 0, // 0 = Today
+            dayOffset: 0, 
             scheduledStart: start,
             scheduledEnd: end,
             actualStart: null,
             actualEnd: null,
-            status: 'pending', // pending, active, completed
+            status: 'pending',
             studySeconds: 0,
             breakSeconds: 0
         };
