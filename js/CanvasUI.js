@@ -18,7 +18,6 @@ class CanvasUI {
         this.baseDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
         this.baseDate.setHours(0,0,0,0);
         
-        // Tracks what month is showing in the Calendar View
         this.currentMonth = new Date(this.baseDate);
         this.currentMonth.setDate(1); 
     }
@@ -31,7 +30,6 @@ class CanvasUI {
         
         if (!this.container) return;
 
-        // The Red "NOW" Line
         this.currentTimeLine = document.createElement('div');
         this.currentTimeLine.className = 'absolute left-0 w-[200000px] border-t-2 border-red-500 z-[40] pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.6)] transition-all';
         this.currentTimeLine.innerHTML = `<div class="bg-red-500 text-white text-[10px] px-2 font-bold rounded-r-full absolute -top-2.5 shadow-md">NOW</div>`;
@@ -44,18 +42,12 @@ class CanvasUI {
         this.bindEvents();
         this.enforceBoundsAndUpdate();
         
-        // Re-render blocks and calendar when either blocks OR exams change!
-        store.subscribe('blocks', () => {
-            this.renderBlocks();
-            this.renderMonthCalendar();
-        });
-        store.subscribe('exams', () => {
-            this.renderBlocks();
-            this.renderMonthCalendar();
-        });
-        
-        this.renderBlocks();
-        this.renderMonthCalendar();
+        // Ensure changes to Subjects force a repaint!
+        const repaint = () => { this.renderBlocks(); this.renderMonthCalendar(); };
+        store.subscribe('blocks', repaint);
+        store.subscribe('exams', repaint);
+        store.subscribe('subjects', repaint);
+        repaint();
     }
 
     getChinaTime() {
@@ -166,11 +158,9 @@ class CanvasUI {
     }
 
     bindEvents() {
-        // --- VIEW TOGGLES ---
         document.getElementById('viewCanvasBtn')?.addEventListener('click', () => this.switchView('canvas'));
         document.getElementById('viewCalendarBtn')?.addEventListener('click', () => this.switchView('calendar'));
         
-        // --- CALENDAR MONTH NAVIGATION ---
         document.getElementById('prevMonthBtn')?.addEventListener('click', () => {
             this.currentMonth.setMonth(this.currentMonth.getMonth() - 1);
             this.renderMonthCalendar();
@@ -180,7 +170,6 @@ class CanvasUI {
             this.renderMonthCalendar();
         });
 
-        // --- SLIDE-OVER PANEL CONTROLS ---
         document.getElementById('calendar-grid')?.addEventListener('click', (e) => {
             const dayCard = e.target.closest('[data-date]');
             if (dayCard) this.openSlidePanel(dayCard.dataset.date);
@@ -189,7 +178,6 @@ class CanvasUI {
             document.getElementById('daySlidePanel').classList.add('translate-x-full');
         });
 
-        // --- CANVAS NAVIGATION ---
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('centerTodayBtn')?.addEventListener('click', () => { 
@@ -199,7 +187,6 @@ class CanvasUI {
             this.enforceBoundsAndUpdate(); 
         });
 
-        // --- CANVAS GRID INTERACTION ---
         this.container.addEventListener('pointerdown', (e) => {
             this.hasDragged = false; 
             
@@ -299,7 +286,6 @@ class CanvasUI {
         }, { passive: false });
     }
 
-    // --- CALENDAR DAY PANEL LOGIC ---
     openSlidePanel(dateStr) {
         const panel = document.getElementById('daySlidePanel');
         panel.classList.remove('translate-x-full'); 
@@ -316,9 +302,10 @@ class CanvasUI {
 
         if (dayExams.length > 0) {
             dayExams.forEach(ex => {
+                const subColor = store.state.subjects[ex.subject] || '#dc2626';
                 blocksContainer.innerHTML += `
-                    <div class="bg-red-50 border border-red-200 p-3 rounded-lg shadow-sm">
-                        <div class="font-black text-red-700 text-xs uppercase mb-1">🚨 EXAM DEADLINE</div>
+                    <div class="bg-white border p-3 rounded-lg shadow-sm" style="border-left: 4px solid ${subColor}">
+                        <div class="font-black text-xs uppercase mb-1" style="color: ${subColor}">🚨 EXAM DEADLINE</div>
                         <div class="font-bold text-gray-800">${ex.title}</div>
                         <div class="text-xs text-gray-500 mt-1">Scheduled Time: ${ex.time}</div>
                     </div>
@@ -332,9 +319,10 @@ class CanvasUI {
             dayBlocks.sort((a,b) => a.scheduledStart.localeCompare(b.scheduledStart)).forEach(b => {
                 totalSecs += (b.studySeconds || 0);
                 const statusHtml = b.status === 'completed' ? `<span class="text-green-600 text-[10px] font-black uppercase">✅ Done</span>` : `<span class="text-blue-500 text-[10px] font-black uppercase">▶ Active</span>`;
+                const subColor = store.state.subjects[b.subject] || '#3b82f6';
                 
                 blocksContainer.innerHTML += `
-                    <div class="bg-white border p-3 rounded-lg shadow-sm flex flex-col gap-1" style="border-left: 4px solid ${b.color || '#3b82f6'}">
+                    <div class="bg-white border p-3 rounded-lg shadow-sm flex flex-col gap-1" style="border-left: 4px solid ${subColor}">
                         <div class="flex justify-between items-start">
                             <div class="font-bold text-gray-800 text-sm">${b.title}</div>
                             ${statusHtml}
@@ -348,7 +336,6 @@ class CanvasUI {
         document.getElementById('slidePanelTotalTime').innerText = `${Math.floor(totalSecs/3600)}h ${Math.floor((totalSecs%3600)/60)}m`;
     }
 
-    // --- MONTH GRID RENDERER ---
     renderMonthCalendar() {
         const grid = document.getElementById('calendar-grid');
         const label = document.getElementById('currentMonthLabel');
@@ -362,7 +349,6 @@ class CanvasUI {
         const firstDay = new Date(year, month, 1).getDay(); 
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        // Pad start of month
         for (let i = 0; i < firstDay; i++) {
             grid.innerHTML += `<div class="bg-gray-100 rounded-lg opacity-50"></div>`;
         }
@@ -378,28 +364,30 @@ class CanvasUI {
             const isToday = dateStr === todayStr;
             const hasExam = dayExams.length > 0;
             
-            // THE RED BLOOD MOON EXAM OVERRIDE!
             let bgClass = 'bg-white border border-gray-200';
-            let textClass = 'text-gray-700';
+            let inlineStyle = '';
             
             if (hasExam) {
-                bgClass = 'bg-red-600 border border-red-700 shadow-md';
-                textClass = 'text-white';
+                // EXAM OVERRIDE! Colors the background specifically to match the Subject!
+                const subColor = store.state.subjects[dayExams[0].subject] || '#dc2626';
+                bgClass = 'shadow-md border-0';
+                inlineStyle = `background-color: ${subColor}; color: white;`;
             } else if (isToday) {
-                bgClass = 'bg-blue-50 border-2 border-blue-400';
-                textClass = 'text-blue-700';
+                bgClass = 'bg-blue-50 border-2 border-blue-400 text-blue-700';
+            } else {
+                bgClass = 'bg-white border border-gray-200 text-gray-700';
             }
 
             let html = `
-                <div class="${bgClass} rounded-lg p-2 cursor-pointer hover:shadow-md transition-all relative overflow-hidden flex flex-col h-24" data-date="${dateStr}">
+                <div class="${bgClass} rounded-lg p-2 cursor-pointer hover:shadow-md transition-all relative overflow-hidden flex flex-col h-24" style="${inlineStyle}" data-date="${dateStr}">
                     <div class="flex justify-between items-center mb-1">
-                        <span class="font-bold ${textClass}">${day}</span>
+                        <span class="font-bold">${day}</span>
                     </div>
                     <div class="flex-1 flex flex-col gap-1 overflow-hidden">
             `;
             
             if (hasExam) {
-                html += `<div class="bg-red-800 text-white text-[9px] px-1 rounded truncate font-bold">🚨 ${dayExams.length} Exam(s)</div>`;
+                html += `<div class="bg-black/20 text-white text-[9px] px-1 rounded truncate font-bold shadow-sm">🚨 ${dayExams.length} Exam(s)</div>`;
             }
             
             if (dayBlocks.length > 0) {
@@ -415,19 +403,16 @@ class CanvasUI {
         }
     }
 
-    // --- INFINITE CANVAS RENDERER ---
     renderBlocks() {
         const blocks = store.state.blocks;
         const exams = store.state.exams || [];
         
         if (!this.blocksLayer) return;
         
-        // Clean out all blocks and exam lines, keep the Red NOW line
         Array.from(this.blocksLayer.children).forEach(child => {
             if (child !== this.currentTimeLine) child.remove();
         });
 
-        // 1. Draw Red Exam Lines
         exams.forEach(ex => {
             if(!ex.date || !ex.time) return;
             const exDate = new Date(`${ex.date}T${ex.time}:00`);
@@ -437,21 +422,23 @@ class CanvasUI {
             const topPx = (eH * 60) + eM;
             const leftPx = 100000 + (dayOffset * this.dayWidth);
 
+            const subColor = store.state.subjects[ex.subject] || '#dc2626';
+
             const lineEl = document.createElement('div');
-            lineEl.className = 'absolute border-l-4 border-red-600 z-[30] pointer-events-none drop-shadow-md opacity-80';
+            lineEl.className = 'absolute border-l-4 z-[30] pointer-events-none drop-shadow-md opacity-80';
             lineEl.style.left = `${leftPx}px`;
             lineEl.style.top = `calc(${topPx}px * var(--zoom))`;
             lineEl.style.height = `calc(1440px * var(--zoom))`; 
+            lineEl.style.borderColor = subColor;
             
             lineEl.innerHTML = `
-                <div class="absolute top-0 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap">
+                <div class="absolute top-0 left-2 text-white text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap" style="background-color: ${subColor}">
                     🚨 EXAM: ${ex.title} @ ${ex.time}
                 </div>
             `;
             this.blocksLayer.appendChild(lineEl);
         });
 
-        // 2. Draw normal schedule blocks
         blocks.forEach(b => {
             if(!b.startDate || !b.scheduledStart || !b.endDate || !b.scheduledEnd) return;
 
@@ -472,12 +459,14 @@ class CanvasUI {
             const leftPx = 100000 + (dayOffset * this.dayWidth);
             const el = document.createElement('div');
 
+            const subColor = store.state.subjects[b.subject] || '#3b82f6';
+
             el.className = `ypt-block absolute rounded-lg text-white shadow-lg flex flex-col justify-between transition-all ${b.status === 'completed' ? 'opacity-60 grayscale' : ''} z-[35]`;
             el.style.left = `${leftPx + 4}px`;
             el.style.width = `${this.dayWidth - 8}px`; 
             el.style.top = `calc(${topPx}px * var(--zoom))`;
             el.style.height = `calc(${durationMins}px * var(--zoom))`;
-            el.style.backgroundColor = b.color || '#3b82f6';
+            el.style.backgroundColor = subColor;
             el.style.padding = '4px 6px';
             el.style.overflow = 'hidden';
 
