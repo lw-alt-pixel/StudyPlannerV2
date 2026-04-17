@@ -3,7 +3,6 @@ import { store } from './State.js';
 
 class CanvasUI {
     constructor() {
-        // Camera state
         this.panX = 0;
         this.panY = 0;
         this.scale = 1;
@@ -11,7 +10,6 @@ class CanvasUI {
         this.startX = 0;
         this.startY = 0;
 
-        // Block Dragging state
         this.isDraggingBlock = false;
         this.draggedBlock = null;
         this.draggedBlockId = null;
@@ -30,78 +28,69 @@ class CanvasUI {
 
         this.bindEvents();
         
-        // Listen to the Brain for any block updates
         store.subscribe('blocks', (blocks) => {
             this.renderBlocks(blocks);
         });
 
-        // Load initial blocks
         this.renderBlocks(store.state.blocks);
     }
 
     bindEvents() {
-        // 1. POINTER DOWN: Decide if we are panning or dragging a block
         this.container.addEventListener('pointerdown', (e) => {
+            // NEW: 1. Check if we clicked the red Delete button FIRST
+            const deleteBtn = e.target.closest('.delete-btn');
+            if (deleteBtn) {
+                // Get the ID of the block we want to kill
+                const blockId = parseInt(deleteBtn.dataset.id);
+                
+                // Tell the Brain to filter this block out of existence
+                store.update('blocks', oldBlocks => oldBlocks.filter(b => b.id !== blockId));
+                return; // Stop right here so we don't accidentally drag the block!
+            }
+
+            // 2. Check if we are dragging a block
             const blockEl = e.target.closest('.ypt-block');
-            
             if (blockEl) {
-                // START DRAGGING A BLOCK
                 this.isDraggingBlock = true;
                 this.draggedBlock = blockEl;
                 this.draggedBlockId = parseInt(blockEl.dataset.id);
-                
-                // Record where the mouse started
                 this.blockStartX = e.clientX;
                 this.blockStartY = e.clientY;
-                
-                // Record where the block started
                 this.originalBlockX = parseFloat(blockEl.style.left);
                 this.originalBlockY = parseFloat(blockEl.style.top);
                 
-                // Visual pop effect
                 blockEl.style.zIndex = '100';
                 blockEl.classList.add('shadow-2xl', 'opacity-90');
-                
-                // Stop the canvas from taking the click
                 e.stopPropagation(); 
             } else {
-                // START PANNING THE CANVAS
+                // 3. Otherwise, pan the canvas
                 this.isPanning = true;
                 this.startX = e.clientX - this.panX;
                 this.startY = e.clientY - this.panY;
-                
                 this.container.classList.remove('cursor-grab');
                 this.container.classList.add('cursor-grabbing');
             }
         });
 
-        // 2. POINTER MOVE: Move either the block or the canvas
         window.addEventListener('pointermove', (e) => {
             if (this.isDraggingBlock && this.draggedBlock) {
-                // Move the Block
-                // We divide by `this.scale` so the block moves exactly with your mouse even if zoomed in/out!
                 const dx = (e.clientX - this.blockStartX) / this.scale;
                 const dy = (e.clientY - this.blockStartY) / this.scale;
-                
                 const newX = this.originalBlockX + dx;
                 const newY = this.originalBlockY + dy;
                 
-                // Update HTML instantly for smooth 60fps movement
                 this.draggedBlock.style.left = `${newX}px`;
                 this.draggedBlock.style.top = `${newY}px`;
             } 
             else if (this.isPanning) {
-                // Move the Canvas Camera
                 this.panX = e.clientX - this.startX;
                 this.panY = e.clientY - this.startY;
                 this.updateTransform();
             }
         });
 
-        // 3. POINTER UP: Drop the block or stop panning
         window.addEventListener('pointerup', () => {
             if (this.isDraggingBlock && this.draggedBlock) {
-                // DROP THE BLOCK
                 this.draggedBlock.classList.remove('shadow-2xl', 'opacity-90');
                 this.draggedBlock.style.zIndex = '';
                 
@@ -109,7 +98,6 @@ class CanvasUI {
                 const finalY = parseFloat(this.draggedBlock.style.top);
                 const blockId = this.draggedBlockId;
 
-                // Tell the Brain to permanently save the new location!
                 store.update('blocks', oldBlocks => {
                     return oldBlocks.map(b => b.id === blockId ? { ...b, x: finalX, y: finalY } : b);
                 });
@@ -119,7 +107,6 @@ class CanvasUI {
             }
 
             if (this.isPanning) {
-                // STOP PANNING
                 this.isPanning = false;
                 if (this.container) {
                     this.container.classList.remove('cursor-grabbing');
@@ -128,7 +115,6 @@ class CanvasUI {
             }
         });
 
-        // 4. ZOOMING
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault(); 
             const zoomIntensity = 0.05;
@@ -150,18 +136,22 @@ class CanvasUI {
 
         safeBlocks.forEach(b => {
             const el = document.createElement('div');
-            // We store the ID in the dataset so we know which one we clicked!
             el.dataset.id = b.id; 
             
-            el.className = 'ypt-block absolute rounded-xl shadow-lg p-3 text-white font-bold cursor-pointer transition-transform hover:scale-105 pointer-events-auto flex flex-col justify-between';
+            // Note: I added 'relative' here so the delete button positions itself correctly inside the block
+            el.className = 'ypt-block relative absolute rounded-xl shadow-lg p-3 text-white font-bold cursor-pointer transition-transform hover:scale-105 pointer-events-auto flex flex-col justify-between';
             el.style.left = `${b.x}px`;
             el.style.top = `${b.y}px`;
             el.style.width = `${b.w}px`;
             el.style.height = `${b.h}px`;
             el.style.backgroundColor = b.color;
             
+            // NEW: Added the red 'X' button to the HTML of the block!
             el.innerHTML = `
-                <span class="text-sm shadow-sm">${b.title}</span>
+                <button class="delete-btn absolute -top-2 -right-2 bg-red-500 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-black shadow-md z-50 transition-transform hover:scale-125" data-id="${b.id}">
+                    X
+                </button>
+                <span class="text-sm shadow-sm mt-1">${b.title}</span>
                 <span class="text-xs opacity-75 text-right"><i class="fas fa-play"></i></span>
             `;
             
