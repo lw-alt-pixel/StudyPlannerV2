@@ -10,7 +10,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800 transition-colors duration-500 overflow-x-hidden flex flex-col h-screen">
     
-    <div id="globalExamBanner" class="hidden bg-red-600 text-white text-center py-2 px-4 font-black tracking-wide z-[9999] shadow-md flex justify-center items-center gap-2">
+    <div id="globalExamBanner" class="hidden text-white text-center py-2 px-4 font-black tracking-wide z-[9999] shadow-md flex justify-center items-center gap-2">
         🚨 <span id="bannerText">Next Exam: Physics in 14 Days</span> 🚨
     </div>
 
@@ -66,8 +66,7 @@
                 <div class="grid grid-cols-7 gap-2 mb-2 text-center font-bold text-gray-500 text-sm uppercase">
                     <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                 </div>
-                <div id="calendar-grid" class="grid grid-cols-7 gap-2 flex-1 auto-rows-fr">
-                    </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2 flex-1 auto-rows-fr"></div>
             </div>
 
             <div id="daySlidePanel" class="absolute top-0 right-0 bottom-0 w-80 bg-white shadow-[-10px_0_20px_rgba(0,0,0,0.1)] border-l transform translate-x-full transition-transform duration-300 z-[100] flex flex-col">
@@ -81,8 +80,7 @@
                 </div>
                 <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
                     <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">Agenda</h4>
-                    <div id="slidePanelBlocks" class="flex flex-col gap-3">
-                        </div>
+                    <div id="slidePanelBlocks" class="flex flex-col gap-3"></div>
                 </div>
             </div>
         </div>
@@ -153,9 +151,7 @@
                 <h2 class="text-2xl font-bold text-gray-800">🚨 Exam Deadlines</h2>
                 <button id="openAddExamBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Exam</button>
             </div>
-            
-            <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                </div>
+            <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
     </div>
 
@@ -164,21 +160,23 @@
             <h3 class="text-xl font-bold mb-4">Add Study Block</h3>
             
             <label class="block text-sm font-bold text-gray-700 mb-1">Subject</label>
-            <select id="newBlockSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700">
-                <option value="Mathematics">📐 Mathematics</option>
-                <option value="Physics">⚛️ Physics</option>
-                <option value="Chemistry">🧪 Chemistry</option>
-                <option value="Biology">🧬 Biology</option>
-                <option value="English">📚 English</option>
-                <option value="History">🏛️ History</option>
-                <option value="Computer Science">💻 Computer Science</option>
-                <option value="Other">📌 Other</option>
-            </select>
+            <select id="newBlockSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select>
+
+            <div id="newBlockCustomSubjectDiv" class="hidden gap-4 mb-3 border p-3 rounded bg-gray-50">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">New Subject Name</label>
+                    <input type="text" id="newBlockCustomName" class="w-full p-2 border rounded font-bold text-gray-700" placeholder="e.g. Art">
+                </div>
+                <div class="w-20">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Color</label>
+                    <input type="color" id="newBlockCustomColor" class="w-full h-10 border rounded cursor-pointer" value="#ff0000">
+                </div>
+            </div>
 
             <label class="block text-sm font-bold text-gray-700 mb-1">Specific Topic (Optional)</label>
             <input type="text" id="newBlockTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Chapter 4 Review">
             
-            <div class="flex gap-4 mb-3">
+            <div class="flex gap-4 mb-6">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-gray-500 uppercase">Start Date</label>
                     <input type="date" id="newBlockStartDate" class="w-full p-2 border rounded font-bold text-gray-700">
@@ -189,7 +187,7 @@
                 </div>
             </div>
 
-            <div class="flex gap-4 mb-4">
+            <div class="flex gap-4 mb-6">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-gray-500 uppercase">End Date</label>
                     <input type="date" id="newBlockEndDate" class="w-full p-2 border rounded font-bold text-gray-700">
@@ -199,9 +197,6 @@
                     <input type="time" id="newBlockEnd" class="w-full p-2 border rounded font-bold text-gray-700">
                 </div>
             </div>
-            
-            <label class="block text-sm font-bold text-gray-700 mb-1">Color</label>
-            <input type="color" id="newBlockColor" class="w-full h-10 border rounded mb-6 cursor-pointer" value="#3b82f6">
             
             <div class="flex justify-end gap-2">
                 <button id="cancelAddBlock" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
@@ -213,8 +208,24 @@
     <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center pointer-events-auto">
         <div class="bg-white p-6 rounded-xl shadow-2xl w-[400px]">
             <h3 class="text-xl font-bold mb-4 text-red-600">🚨 Add Exam Deadline</h3>
-            <label class="block text-sm font-bold text-gray-700 mb-1">Exam Title / Subject</label>
-            <input type="text" id="newExamTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Final Physics Paper 1">
+            
+            <label class="block text-sm font-bold text-gray-700 mb-1">Subject</label>
+            <select id="newExamSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select>
+
+            <div id="newExamCustomSubjectDiv" class="hidden gap-4 mb-3 border p-3 rounded bg-gray-50">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">New Subject Name</label>
+                    <input type="text" id="newExamCustomName" class="w-full p-2 border rounded font-bold text-gray-700" placeholder="e.g. Art">
+                </div>
+                <div class="w-20">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Color</label>
+                    <input type="color" id="newExamCustomColor" class="w-full h-10 border rounded cursor-pointer" value="#ff0000">
+                </div>
+            </div>
+
+            <label class="block text-sm font-bold text-gray-700 mb-1">Specific Exam Title (Optional)</label>
+            <input type="text" id="newExamTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Final Paper 1">
+            
             <div class="flex gap-4 mb-6">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-gray-500 uppercase">Date</label>
@@ -225,6 +236,7 @@
                     <input type="time" id="newExamTime" class="w-full p-2 border rounded font-bold text-gray-700" value="09:00">
                 </div>
             </div>
+            
             <div class="flex justify-end gap-2">
                 <button id="cancelAddExam" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
                 <button id="saveNewExam" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold shadow-md">Save Exam</button>
