@@ -37,7 +37,9 @@ class CanvasUI {
         this.updateCurrentTimeLine();
         this.drawGridLabels();
         this.bindEvents();
-        this.enforceBoundsAndUpdate();
+        
+        // 🎯 SNAP TO CURRENT TIME ON LOAD
+        this.centerOnCurrentTime();
         
         const repaint = () => { 
             this.renderBlocks(); 
@@ -55,6 +57,16 @@ class CanvasUI {
     getTodayStr() {
         const d = this.getChinaTime();
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // 🎯 NEW FUNCTION: Calculates exact current time and centers screen!
+    centerOnCurrentTime() {
+        const now = this.getChinaTime();
+        const minsFromMidnight = (now.getHours() * 60) + now.getMinutes();
+        const viewHeight = this.container.clientHeight || 700;
+        this.panX = 10; // Snap horizontally to Today
+        this.panY = -(minsFromMidnight * this.zoom) + (viewHeight / 2);
+        this.enforceBoundsAndUpdate();
     }
 
     updateCurrentTimeLine() {
@@ -140,7 +152,14 @@ class CanvasUI {
     }
 
     enforceBoundsAndUpdate() {
+        // 🎯 CLAMP ZOOM: Never let zoom fall below 1 (1 hour = 60 pixels)
+        if (this.zoom < 1) this.zoom = 1;
+
         this.root.style.setProperty('--grid-30', 'transparent'); this.root.style.setProperty('--grid-15', 'transparent'); this.root.style.setProperty('--grid-5', 'transparent');
+        
+        // Remove old classes
+        this.container.classList.remove('show-15-mins', 'show-30-mins', 'show-5-mins');
+        
         if (this.zoom >= 4) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.04)'); this.root.style.setProperty('--grid-5', 'rgba(0,0,0,0.02)');
             this.container.classList.add('show-15-mins', 'show-30-mins', 'show-5-mins');
@@ -148,7 +167,8 @@ class CanvasUI {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.03)');
             this.container.classList.add('show-15-mins', 'show-30-mins');
         } else if (this.zoom >= 1.5) {
-            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.container.classList.add('show-30-mins');
+            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); 
+            this.container.classList.add('show-30-mins');
         }
 
         const canvasHeight = 24 * 60 * this.zoom;
@@ -182,7 +202,6 @@ class CanvasUI {
             if (dayCard) this.openSlidePanel(dayCard.dataset.date);
         });
 
-        // 🎯 NEW: CLICK OUTSIDE DIARY TO CLOSE IT
         const closeDiary = () => {
             document.getElementById('daySlidePanel').classList.add('translate-x-full');
             document.getElementById('diaryOverlay')?.classList.add('hidden');
@@ -203,17 +222,16 @@ class CanvasUI {
 
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
-        document.getElementById('centerTodayBtn')?.addEventListener('click', () => { 
-            this.panX = 10; this.updateCurrentTimeLine(); this.panY = -(parseFloat(this.currentTimeLine.style.top) || 480) + 200; this.enforceBoundsAndUpdate(); 
-        });
+        document.getElementById('centerTodayBtn')?.addEventListener('click', () => { this.centerOnCurrentTime(); });
 
-        const zoomLevels = [0.75, 1, 1.5, 2, 4, 10, 20];
+        // 🎯 ZOOM LIMITS: Removed 0.75. Lowest is now 1.
+        const zoomLevels = [1, 1.5, 2, 4, 10, 20];
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => {
             let nextZoom = zoomLevels.find(z => z > this.zoom) || 20;
             this.applyZoomWithCenterAnchor(nextZoom);
         });
         document.getElementById('canvasZoomOut')?.addEventListener('click', () => {
-            let prevZoom = zoomLevels.slice().reverse().find(z => z < this.zoom) || 0.75;
+            let prevZoom = zoomLevels.slice().reverse().find(z => z < this.zoom) || 1;
             this.applyZoomWithCenterAnchor(prevZoom);
         });
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => {
@@ -342,8 +360,9 @@ class CanvasUI {
                 const cursorY = e.clientY - rect.top - 48; 
                 const timeUnderCursor = (cursorY - this.panY) / this.zoom;
 
+                // 🎯 ZOOM LIMITS: Math.max(1, ...)
                 const delta = e.deltaY > 0 ? -0.05 : 0.05; 
-                this.zoom = Math.min(Math.max(0.7, this.zoom + delta), 20);
+                this.zoom = Math.min(Math.max(1, this.zoom + delta), 20);
                 this.panY = cursorY - (timeUnderCursor * this.zoom);
             } else {
                 this.panX -= (e.deltaX * 0.5); this.panY -= (e.deltaY * 0.5); 
@@ -378,7 +397,7 @@ class CanvasUI {
         this.currentSlideDate = dateStr;
         const panel = document.getElementById('daySlidePanel');
         panel.classList.remove('translate-x-full'); 
-        document.getElementById('diaryOverlay')?.classList.remove('hidden'); // SHOW OVERLAY
+        document.getElementById('diaryOverlay')?.classList.remove('hidden'); 
 
         const dObj = new Date(dateStr);
         document.getElementById('slidePanelDate').innerText = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -488,6 +507,9 @@ class CanvasUI {
 
             const leftPx = 100800 + (dayOffset * this.dayWidth);
             const subColor = store.state.subjects[b.subject] || '#3b82f6';
+            
+            // 🎯 NEW: MATHEMATICAL PIXEL HEIGHT FOR DYNAMIC TEXT SCALING
+            const pixelHeight = durationMins * this.zoom;
 
             const el = document.createElement('div');
             el.className = `ypt-block absolute rounded-lg text-white shadow-lg flex flex-col justify-between transition-all z-[45] ${b.status === 'completed' ? 'opacity-60 grayscale' : ''}`;
@@ -497,29 +519,56 @@ class CanvasUI {
             el.dataset.id = b.id;
 
             const totalSecs = (b.studySeconds || 0); 
-            
-            let actionHtml = '';
-            if (b.status === 'completed') {
-                actionHtml = `<div class="text-center text-[9px] bg-black/20 rounded py-0.5 mt-1 font-bold pointer-events-none">✅ Done</div>`;
-            } else if (b.status === 'active') {
-                actionHtml = `<button class="finish-btn bg-red-500 hover:bg-red-600 rounded text-[9px] font-bold py-0.5 w-full mt-1 pointer-events-auto relative z-50" data-id="${b.id}">🏁 FINISH</button>`;
-            } else {
-                actionHtml = `<button class="play-btn bg-white/30 hover:bg-white/50 rounded text-[9px] font-bold py-0.5 w-full mt-1 flex justify-center items-center pointer-events-auto relative z-50" data-id="${b.id}">▶ START</button>`;
-            }
-
             const displayStart = startObjReal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
             const displayEnd = endObjReal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+            
+            // 🎯 DYNAMIC TEXT & BUTTON SCALING LOGIC
+            let actionHtml = '';
+            let actionBtnClass = pixelHeight < 50 ? 'absolute right-1 bottom-1 px-1.5 py-0.5 rounded text-[8px] leading-none' : 'w-full mt-1 py-0.5 rounded text-[9px]';
+            let actionText = pixelHeight < 50 ? '▶' : '▶ START';
+            let finishText = pixelHeight < 50 ? '🏁' : '🏁 FINISH';
+
+            if (b.status === 'completed') {
+                actionHtml = `<div class="text-center text-[9px] bg-black/20 rounded py-0.5 mt-1 font-bold pointer-events-none ${pixelHeight < 50 ? 'hidden' : ''}">✅ Done</div>`;
+            } else if (b.status === 'active') {
+                actionHtml = `<button class="finish-btn bg-red-500 hover:bg-red-600 font-bold pointer-events-auto relative z-50 ${actionBtnClass}" data-id="${b.id}">${finishText}</button>`;
+            } else {
+                actionHtml = `<button class="play-btn bg-white/30 hover:bg-white/50 font-bold flex justify-center items-center pointer-events-auto relative z-50 ${actionBtnClass}" data-id="${b.id}">${actionText}</button>`;
+            }
+
+            let contentHtml = '';
+            if (pixelHeight < 30) {
+                // Ultra thin block: Just title, heavily center-aligned
+                contentHtml = `
+                    <div class="pointer-events-none z-10 flex-1 flex items-center min-h-0 pr-6">
+                        <div class="font-bold text-[10px] truncate drop-shadow-md w-full leading-tight">${b.title}</div>
+                    </div>
+                `;
+            } else if (pixelHeight < 50) {
+                // Medium block: Subject and Title, no timestamps
+                contentHtml = `
+                    <div class="pointer-events-none z-10 flex-1 flex flex-col min-h-0 justify-center pr-6">
+                        <div class="font-bold text-[9px] truncate drop-shadow-md uppercase text-white/80 leading-tight">${b.subject || ''}</div>
+                        <div class="font-bold text-[10px] truncate drop-shadow-md leading-tight">${b.title}</div>
+                    </div>
+                `;
+            } else {
+                // Normal large block: Shows everything
+                contentHtml = `
+                    <div class="pointer-events-none z-10 flex-1 flex flex-col min-h-0">
+                        <div class="font-bold text-[10px] truncate drop-shadow-md pr-4 uppercase text-white/80">${b.subject || ''}</div>
+                        <div class="font-bold text-xs truncate drop-shadow-md pr-4">${b.title}</div>
+                        <div class="text-[9px] opacity-90 drop-shadow-md leading-tight mt-0.5">${displayStart} - ${displayEnd}</div>
+                    </div>
+                    <div class="mt-auto z-10 shrink-0 pointer-events-none">
+                        ${totalSecs > 0 ? `<div class="text-[9px] font-mono font-bold bg-black/30 rounded px-1 text-center mb-0.5">⏱️ ${Math.floor(totalSecs/60)}m ${totalSecs%60}s</div>` : ''}
+                    </div>
+                `;
+            }
 
             el.innerHTML = `
                 <button class="delete-btn absolute top-1 right-1 bg-red-600 hover:bg-red-800 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black pointer-events-auto shadow-md transition-transform hover:scale-125 z-50" data-id="${b.id}">X</button>
-                <div class="pointer-events-none z-10 flex-1 flex flex-col min-h-0">
-                    <div class="font-bold text-[10px] truncate drop-shadow-md pr-4 uppercase text-white/80">${b.subject || ''}</div>
-                    <div class="font-bold text-xs truncate drop-shadow-md pr-4">${b.title}</div>
-                    <div class="text-[9px] opacity-90 drop-shadow-md leading-tight">${displayStart} - ${displayEnd}</div>
-                </div>
-                <div class="mt-auto z-10 shrink-0 pointer-events-none">
-                    ${totalSecs > 0 ? `<div class="text-[9px] font-mono font-bold bg-black/30 rounded px-1 text-center mb-0.5">⏱️ ${Math.floor(totalSecs/60)}m ${totalSecs%60}s</div>` : ''}
-                </div>
+                ${contentHtml}
                 ${actionHtml}
             `;
             this.blocksLayer.appendChild(el);
@@ -527,4 +576,3 @@ class CanvasUI {
     }
 }
 export const canvasUI = new CanvasUI();
-
