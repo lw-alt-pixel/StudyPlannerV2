@@ -7,26 +7,41 @@ class TimerEngine {
     }
 
     start() {
-        // Prevent multiple intervals running at once (fixing old bugs!)
         if (this.interval) clearInterval(this.interval);
         
-        // Tell the Brain the timer is running
-        store.update('timer', t => ({ ...t, activeType: 'RUNNING' }));
-
-        // Start the heartbeat
         this.interval = setInterval(() => {
-            store.update('timer', t => ({
+            const t = store.state.timer;
+            if (!t.isRunning) return; // Safety check
+            
+            // 1. Calculate new time safely (fallback to 0 so we never get NaN)
+            const s = t.studySeconds || 0;
+            const b = t.breakSeconds || 0;
+            const e = t.secondsElapsed || 0;
+            
+            const newTimerState = {
                 ...t,
-                secondsElapsed: t.secondsElapsed + 1
-            }));
+                studySeconds: t.phase === 'study' ? s + 1 : s,
+                breakSeconds: t.phase === 'break' ? b + 1 : b,
+                secondsElapsed: e + 1
+            };
+            
+            // 2. Update the Timer
+            store.update('timer', () => newTimerState);
+
+            // 3. LIVE SYNC: Automatically save this time to the active block so the canvas updates!
+            if (t.activeBlockId) {
+                store.update('blocks', blocks => blocks.map(block => 
+                    block.id === t.activeBlockId 
+                        ? { ...block, studySeconds: newTimerState.studySeconds, breakSeconds: newTimerState.breakSeconds }
+                        : block
+                ));
+            }
         }, 1000);
     }
 
     stop() {
         if (this.interval) clearInterval(this.interval);
-        store.update('timer', t => ({ ...t, activeType: null }));
     }
 }
 
 export const timerEngine = new TimerEngine();
-
