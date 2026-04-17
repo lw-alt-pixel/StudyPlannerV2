@@ -9,15 +9,18 @@ const defaultBlocks = savedBlocks || [
 
 export const defaultState = {
     activeTab: 'schedule', 
-    blocks: defaultBlocks, // <-- Now uses saved memory!
+    blocks: defaultBlocks, 
     theme: {
         appBgColor: '#f3f4f6',
         isGlassMode: true
     },
+    // NEW TIMER MEMORY:
     timer: {
-        activeType: null,
-        phase: 'STUDY',
-        secondsElapsed: 0
+        mode: 'stopwatch', // Can be 'stopwatch' or 'pomodoro'
+        phase: 'study',    // Can be 'study' or 'break'
+        studySeconds: 0,
+        breakSeconds: 0,
+        isRunning: false
     }
 };
 
