@@ -1,19 +1,22 @@
 /* styles.css */
 
 :root {
-    --pan-x: 0px; 
-    --pan-y: 0px; 
+    --pan-x: 10px; 
+    --pan-y: -480px; /* Starts camera exactly at 08:00 AM */
     --zoom: 1;
-    --px-per-hour: 60px; /* 1 pixel = 1 minute */
+    --px-per-hour: 60px;
     --day-width: 180px;
 }
 
 #canvas-grid {
     background-image: 
-        linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px),
-        linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px);
-    background-size: var(--day-width) calc(60px * var(--zoom)), var(--day-width) calc(15px * var(--zoom));
+        linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px);
+    background-size: 
+        var(--day-width) calc(60px * var(--zoom)), 
+        var(--day-width) calc(15px * var(--zoom)), 
+        var(--day-width) calc(60px * var(--zoom));
     position: absolute;
     top: 0; 
     left: -100000px; 
