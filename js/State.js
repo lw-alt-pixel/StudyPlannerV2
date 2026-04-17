@@ -16,7 +16,8 @@ const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
 const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
     bgType: 'color', bgColor: '#f3f4f6', bgImage: null,
-    actionColor: '#2563eb', actionSize: 'md', tabColor: '#2563eb'
+    actionColor: '#2563eb', actionSize: 'md', tabColor: '#2563eb',
+    bannerBgColor: '#dc2626', bannerTextColor: '#ffffff'
 };
 
 export const defaultState = {
