@@ -177,7 +177,9 @@ class TimerUI {
         }
 
     
+        // Send the final numbers to the screen
         this.display.textContent = this.formatTime(displaySeconds);
     }
+} // <--- THIS IS THE MISSING BRACKET!
 
 export const timerUI = new TimerUI();
