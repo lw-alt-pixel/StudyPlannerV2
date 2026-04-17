@@ -4,7 +4,6 @@ class FloatingWidgetManager {
         this.makeDraggable('openAddBlockModal');
         this.makeDraggable('openSettingsBtn');
         
-        // Let settings button trigger the panel opening
         document.getElementById('openSettingsBtn')?.addEventListener('click', () => {
             document.getElementById('settingsPanel').classList.remove('translate-x-full');
         });
@@ -24,6 +23,7 @@ class FloatingWidgetManager {
             const rect = el.getBoundingClientRect();
             initialLeft = rect.left; initialTop = rect.top;
             
+            el.style.transition = 'none'; // Kills lag for consecutive drags
             el.classList.add('dragging-widget');
             el.setPointerCapture(e.pointerId);
         });
@@ -36,7 +36,7 @@ class FloatingWidgetManager {
             
             el.style.left = `${initialLeft + dx}px`;
             el.style.top = `${initialTop + dy}px`;
-            el.style.bottom = 'auto'; // override html defaults
+            el.style.bottom = 'auto'; 
             el.style.right = 'auto';
         });
 
@@ -46,7 +46,6 @@ class FloatingWidgetManager {
             el.classList.remove('dragging-widget');
             el.releasePointerCapture(e.pointerId);
             
-            // PHYSICS: Snap Magnetically to Edges!
             const rect = el.getBoundingClientRect();
             const snapX = (rect.left + rect.width/2 < window.innerWidth/2) ? 20 : window.innerWidth - rect.width - 20;
             const snapY = (rect.top + rect.height/2 < window.innerHeight/2) ? 20 : window.innerHeight - rect.height - 20;
@@ -54,9 +53,12 @@ class FloatingWidgetManager {
             el.style.transition = 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
             el.style.left = `${snapX}px`;
             el.style.top = `${snapY}px`;
+        });
 
-            // Prevent click event if it was a drag
+        // Prevents the physics engine from swallowing real clicks!
+        el.addEventListener('click', (e) => {
             if (hasMoved) {
+                e.preventDefault();
                 e.stopPropagation();
             }
         });
