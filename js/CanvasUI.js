@@ -3,8 +3,8 @@ import { store } from './State.js';
 
 class CanvasUI {
     constructor() {
-        this.panX = 100000 + 10; 
-        this.panY = -480; // Start canvas focused at 08:00 AM
+        this.panX = 10;    
+        this.panY = -480;  // Start canvas focused at 08:00 AM
         this.zoom = 1;
         this.isPanning = false; this.startX = 0; this.startY = 0;
         
