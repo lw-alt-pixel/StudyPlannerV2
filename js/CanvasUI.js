@@ -42,7 +42,6 @@ class CanvasUI {
         this.bindEvents();
         this.enforceBoundsAndUpdate();
         
-        // Ensure changes to Subjects force a repaint!
         const repaint = () => { this.renderBlocks(); this.renderMonthCalendar(); };
         store.subscribe('blocks', repaint);
         store.subscribe('exams', repaint);
@@ -148,7 +147,7 @@ class CanvasUI {
         }
 
         const canvasHeight = 24 * 60 * this.zoom;
-        const viewHeight = this.container.clientHeight;
+        const viewHeight = this.container.clientHeight; 
         const minPanY = Math.min(0, viewHeight - canvasHeight - 48); 
         this.panY = Math.max(minPanY, Math.min(0, this.panY));
 
@@ -247,13 +246,20 @@ class CanvasUI {
                     const clickX = e.clientX - rect.left - 64; 
                     const clickY = e.clientY - rect.top - 48;  
                     
-                    const gridX = (clickX - this.panX) / this.zoom;
+                    // FIX: REMOVED ZOOM DIVISION FROM X-AXIS MATH!
+                    const gridX = (clickX - this.panX); 
                     const gridY = (clickY - this.panY) / this.zoom;
 
                     const dayOffset = Math.floor((gridX - 100000) / this.dayWidth);
-                    let clickedDate = new Date(this.baseDate);
-                    clickedDate.setDate(this.baseDate.getDate() + dayOffset);
-                    const dateStr = clickedDate.toISOString().split('T')[0];
+                    
+                    // FIX: Pure Date Generation, immune to Timezone jumps!
+                    const targetLocal = new Date(this.baseDate.getFullYear(), this.baseDate.getMonth(), this.baseDate.getDate());
+                    targetLocal.setDate(targetLocal.getDate() + dayOffset);
+                    
+                    const dateY = targetLocal.getFullYear();
+                    const dateM = String(targetLocal.getMonth() + 1).padStart(2, '0');
+                    const dateD = String(targetLocal.getDate()).padStart(2, '0');
+                    const dateStr = `${dateY}-${dateM}-${dateD}`;
 
                     let snapInterval = 60; 
                     if (this.zoom >= 2.0) snapInterval = 15; 
@@ -368,7 +374,6 @@ class CanvasUI {
             let inlineStyle = '';
             
             if (hasExam) {
-                // EXAM OVERRIDE! Colors the background specifically to match the Subject!
                 const subColor = store.state.subjects[dayExams[0].subject] || '#dc2626';
                 bgClass = 'shadow-md border-0';
                 inlineStyle = `background-color: ${subColor}; color: white;`;
@@ -413,13 +418,19 @@ class CanvasUI {
             if (child !== this.currentTimeLine) child.remove();
         });
 
+        // FIX: Timezone-immune pure day calculation!
+        const baseLocal = new Date(this.baseDate.getFullYear(), this.baseDate.getMonth(), this.baseDate.getDate());
+
         exams.forEach(ex => {
             if(!ex.date || !ex.time) return;
-            const exDate = new Date(`${ex.date}T${ex.time}:00`);
-            const dayOffset = Math.floor((exDate.setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
             
-            const [eH, eM] = ex.time.split(':').map(Number);
-            const topPx = (eH * 60) + eM;
+            // Generate perfectly exact Day Offsets matching the grid calculation
+            const [eY, eM, eD] = ex.date.split('-').map(Number);
+            const exDateLocal = new Date(eY, eM - 1, eD);
+            const dayOffset = Math.round((exDateLocal - baseLocal) / 86400000);
+            
+            const [eH, eM_val] = ex.time.split(':').map(Number);
+            const topPx = (eH * 60) + eM_val;
             const leftPx = 100000 + (dayOffset * this.dayWidth);
 
             const subColor = store.state.subjects[ex.subject] || '#dc2626';
@@ -442,18 +453,20 @@ class CanvasUI {
         blocks.forEach(b => {
             if(!b.startDate || !b.scheduledStart || !b.endDate || !b.scheduledEnd) return;
 
-            const startStr = `${b.startDate}T${b.scheduledStart}:00`;
-            const endStr = `${b.endDate}T${b.scheduledEnd}:00`;
+            // Generate perfectly exact Day Offsets matching the grid calculation
+            const [bY, bM, bD] = b.startDate.split('-').map(Number);
+            const bDateLocal = new Date(bY, bM - 1, bD);
+            const dayOffset = Math.round((bDateLocal - baseLocal) / 86400000);
             
-            const startObj = new Date(startStr);
-            const endObj = new Date(endStr);
-            
-            const dayOffset = Math.floor((startObj.setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
             const [sH, sM] = b.scheduledStart.split(':').map(Number);
             const topPx = (sH * 60) + sM;
             
+            // Duration relies purely on total time differences, immune to timezones
+            const startStr = `${b.startDate}T${b.scheduledStart}:00`;
+            const endStr = `${b.endDate}T${b.scheduledEnd}:00`;
             const startObjReal = new Date(startStr);
-            let durationMins = (endObj - startObjReal) / 60000;
+            const endObjReal = new Date(endStr);
+            let durationMins = (endObjReal - startObjReal) / 60000;
             if (durationMins <= 0) durationMins = 60; 
 
             const leftPx = 100000 + (dayOffset * this.dayWidth);
