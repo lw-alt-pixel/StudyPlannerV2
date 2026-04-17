@@ -1,26 +1,33 @@
-/* styles.css */
-
 :root {
     --pan-x: 10px; 
-    --pan-y: -480px; /* Starts camera exactly at 08:00 AM */
+    --pan-y: -480px; 
     --zoom: 1;
-    --px-per-hour: 60px;
+    --px-per-hour: 60px; 
     --day-width: 180px;
+    
+    /* Dynamic Grid Colors controlled by JS Zoom Level */
+    --grid-60: rgba(0,0,0,0.1);
+    --grid-30: transparent;
+    --grid-15: transparent;
 }
 
 #canvas-grid {
     background-image: 
-        linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px),
-        linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px);
+        linear-gradient(to bottom, var(--grid-60) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-30) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-15) 1px, transparent 1px),
+        linear-gradient(to right, var(--grid-60) 1px, transparent 1px);
     background-size: 
         var(--day-width) calc(60px * var(--zoom)), 
+        var(--day-width) calc(30px * var(--zoom)), 
         var(--day-width) calc(15px * var(--zoom)), 
         var(--day-width) calc(60px * var(--zoom));
     position: absolute;
-    top: 0; 
-    left: -100000px; 
-    width: 200000px; 
-    height: calc(24 * 60px * var(--zoom));
+    top: 0; left: -100000px; width: 200000px; height: calc(24 * 60px * var(--zoom));
     pointer-events: none;
 }
+
+/* Hide fractional time labels by default, let JS show them via classes */
+.time-label-fraction { opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.show-30-mins .time-label-30 { opacity: 1; }
+.show-15-mins .time-label-30, .show-15-mins .time-label-15 { opacity: 1; }
