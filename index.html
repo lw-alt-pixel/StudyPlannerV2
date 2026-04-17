@@ -20,12 +20,18 @@
     <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative flex flex-col" style="height: 700px;">
         
         <div class="p-4 border-b bg-gray-50 flex justify-between items-center z-50 relative shadow-sm">
-            <h2 class="text-xl font-bold text-gray-800">🗓️ Timeline Engine</h2>
-            <button id="openAddBlockModal" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all">+ Add Block</button>
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold text-gray-800">🗓️ Timeline</h2>
+                <div class="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <button id="prevDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600 transition-colors">&lt;</button>
+                    <button id="centerTodayBtn" class="px-4 py-1 hover:bg-blue-50 font-bold text-sm text-blue-600 transition-colors">Go to Today</button>
+                    <button id="nextDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600 transition-colors">&gt;</button>
+                </div>
+            </div>
+            <button id="openAddBlockModalHeader" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all">+ Add Block</button>
         </div>
 
         <div id="canvas-container" class="relative flex-1 overflow-hidden bg-slate-50 cursor-grab touch-none w-full h-full">
-            
             <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
                 <div id="canvas-grid"></div>
                 <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="left: -100000px; width: 200000px; height: calc(24 * 60px * var(--zoom));"></div>
@@ -38,8 +44,46 @@
             <div class="absolute top-12 left-0 bottom-0 w-16 z-20 bg-white/90 backdrop-blur-md border-r border-gray-200 pointer-events-none">
                 <div id="canvas-times" class="absolute left-0 w-16 flex flex-col items-center text-xs font-bold text-gray-500" style="top: var(--pan-y); height: calc(24 * 60px * var(--zoom));"></div>
             </div>
-            
             <div class="absolute top-0 left-0 w-16 h-12 z-30 bg-gray-100 border-b border-r border-gray-200"></div>
+        </div>
+    </div>
+
+    <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center pointer-events-auto">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[450px] transform transition-all">
+            <h3 class="text-xl font-bold mb-4">Add Study Block</h3>
+            
+            <label class="block text-sm font-bold text-gray-700 mb-1">Subject / Title</label>
+            <input type="text" id="newBlockTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Physics Chapter 4">
+            
+            <div class="flex gap-4 mb-3">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Start Date</label>
+                    <input type="date" id="newBlockStartDate" class="w-full p-2 border rounded font-bold text-gray-700">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Start Time</label>
+                    <input type="time" id="newBlockStart" class="w-full p-2 border rounded font-bold text-gray-700">
+                </div>
+            </div>
+
+            <div class="flex gap-4 mb-4">
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">End Date</label>
+                    <input type="date" id="newBlockEndDate" class="w-full p-2 border rounded font-bold text-gray-700">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">End Time</label>
+                    <input type="time" id="newBlockEnd" class="w-full p-2 border rounded font-bold text-gray-700">
+                </div>
+            </div>
+            
+            <label class="block text-sm font-bold text-gray-700 mb-1">Color</label>
+            <input type="color" id="newBlockColor" class="w-full h-10 border rounded mb-6 cursor-pointer" value="#3b82f6">
+            
+            <div class="flex justify-end gap-2">
+                <button id="cancelAddBlock" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
+                <button id="saveNewBlock" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-md">Save Block</button>
+            </div>
         </div>
     </div>
 
@@ -69,36 +113,7 @@
     </div>
 
     <button id="openAddBlockModal" class="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform hover:scale-110 z-[999]">
-        +
-    </button>
-
-    <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center pointer-events-auto">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-96 transform transition-all">
-            <h3 class="text-xl font-bold mb-4">Add Study Block</h3>
-            
-            <label class="block text-sm font-bold text-gray-700 mb-1">Subject / Title</label>
-            <input type="text" id="newBlockTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Physics Chapter 4">
-            
-            <div class="flex gap-4 mb-4">
-                <div class="flex-1">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Start Time</label>
-                    <input type="time" id="newBlockStart" class="w-full p-2 border rounded" value="09:00">
-                </div>
-                <div class="flex-1">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">End Time</label>
-                    <input type="time" id="newBlockEnd" class="w-full p-2 border rounded" value="10:00">
-                </div>
-            </div>
-            
-            <label class="block text-sm font-bold text-gray-700 mb-1">Color</label>
-            <input type="color" id="newBlockColor" class="w-full h-10 border rounded mb-6 cursor-pointer" value="#3b82f6">
-            
-            <div class="flex justify-end gap-2">
-                <button id="cancelAddBlock" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
-                <button id="saveNewBlock" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-md">Save Block</button>
-            </div>
-        </div>
-    </div>
+       
 
     <script type="module" src="js/App.js"></script>
 </body>
