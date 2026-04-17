@@ -15,37 +15,40 @@ class BlockManager {
         this.bindEvents();
     }
 
-    // Helper to get Today in YYYY-MM-DD for China Time
     getTodayStr() {
         const d = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
         return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
     }
 
-    // NEW: Called by CanvasUI when you click the grid!
-    openModalWithPreFill(dateStr, timeStr) {
+    // UPGRADED: Now accepts `durationMins` to dynamically calculate the End Time!
+    openModalWithPreFill(dateStr, timeStr, durationMins = 60) {
         this.modal.classList.remove('hidden');
         this.titleInput.value = ''; 
         
         this.startDateInput.value = dateStr;
         this.startInput.value = timeStr;
         
-        // Default end time to 1 hour later
-        this.endDateInput.value = dateStr;
+        // Calculate exact End Time based on the zoom duration
         let [h, m] = timeStr.split(':').map(Number);
-        h = (h + 1) % 24;
-        if (h === 0) { // Rolled over midnight
-            let d = new Date(dateStr);
-            d.setDate(d.getDate() + 1);
-            this.endDateInput.value = d.toISOString().split('T')[0];
+        let endTotalMins = (h * 60) + m + durationMins;
+        
+        let endDateObj = new Date(dateStr);
+        if (endTotalMins >= 1440) { // Rollover past midnight!
+            endTotalMins -= 1440;
+            endDateObj.setDate(endDateObj.getDate() + 1);
         }
-        this.endInput.value = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+        
+        this.endDateInput.value = endDateObj.toISOString().split('T')[0];
+        
+        let endH = Math.floor(endTotalMins / 60);
+        let endM = endTotalMins % 60;
+        this.endInput.value = `${endH.toString().padStart(2,'0')}:${endM.toString().padStart(2,'0')}`;
         
         this.titleInput.focus();
     }
 
     bindEvents() {
-        // Standard Add Block Buttons
-        const openHandler = () => this.openModalWithPreFill(this.getTodayStr(), "09:00");
+        const openHandler = () => this.openModalWithPreFill(this.getTodayStr(), "09:00", 60);
         document.getElementById('openAddBlockModal')?.addEventListener('click', openHandler);
         document.getElementById('openAddBlockModalHeader')?.addEventListener('click', openHandler);
 
