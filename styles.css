@@ -8,8 +8,8 @@
     --grid-60: rgba(0,0,0,0.1);
     --grid-30: transparent;
     --grid-15: transparent;
+    --grid-5: transparent; /* NEW: 5 min grid */
 
-    /* Theme Engine Variables */
     --action-color: #3b82f6;
     --tab-color: #3b82f6;
     --action-padding: 0.5rem 1rem;
@@ -21,11 +21,13 @@
         linear-gradient(to bottom, var(--grid-60) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-30) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-15) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-5) 1px, transparent 1px),
         linear-gradient(to right, var(--grid-60) 1px, transparent 1px);
     background-size: 
         var(--day-width) calc(60px * var(--zoom)), 
         var(--day-width) calc(30px * var(--zoom)), 
         var(--day-width) calc(15px * var(--zoom)), 
+        var(--day-width) calc(5px * var(--zoom)), 
         var(--day-width) calc(60px * var(--zoom));
     position: absolute;
     top: 0; 
@@ -38,28 +40,26 @@
 .time-label-fraction { transition: opacity 0.2s; }
 .show-30-mins .time-label-30 { opacity: 1 !important; }
 .show-15-mins .time-label-15 { opacity: 1 !important; }
-.time-label-30, .time-label-15 { opacity: 0; }
+.show-5-mins .time-label-5 { opacity: 1 !important; }
+.time-label-30, .time-label-15, .time-label-5 { opacity: 0; }
 
-/* THEME ENGINE: Unified Action Buttons */
 .custom-action-btn {
     background-color: var(--action-color) !important;
     color: white !important;
     padding: var(--action-padding) !important;
     font-size: var(--action-font-size) !important;
     transition: filter 0.2s, transform 0.2s, background-color 0.5s;
-    border: none;
-    cursor: pointer;
+    border: none; cursor: pointer;
 }
 .custom-action-btn:hover { filter: brightness(1.15); transform: scale(1.02); }
 .custom-action-btn:active { transform: scale(0.95); }
 
-/* THEME ENGINE: Active Tab Buttons */
 .active-tab {
     background-color: var(--tab-color) !important;
     color: white !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Physics Dragging overrides */
 .dragging-widget { transition: none !important; opacity: 0.9; cursor: grabbing !important; }
-
+.ypt-block { cursor: pointer; }
+.ypt-block.dragging-block { cursor: grabbing !important; z-index: 100 !important; opacity: 0.8; transition: none !important; }
