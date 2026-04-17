@@ -37,17 +37,25 @@ class CanvasUI {
 
     bindEvents() {
         this.container.addEventListener('pointerdown', (e) => {
-            // NEW: 1. Check if we clicked the red Delete button FIRST
+            // 1. Check if we clicked the red Delete button
             const deleteBtn = e.target.closest('.delete-btn');
             if (deleteBtn) {
-                // Get the ID of the block we want to kill
                 const blockId = parseInt(deleteBtn.dataset.id);
-                
-                // Tell the Brain to filter this block out of existence
                 store.update('blocks', oldBlocks => oldBlocks.filter(b => b.id !== blockId));
-                return; // Stop right here so we don't accidentally drag the block!
+                return; 
             }
 
+            // NEW: 2. Check if we clicked the Play button
+            const playBtn = e.target.closest('.play-btn');
+            if (playBtn) {
+                // Tell the Brain to switch to the Pomodoro tab!
+                store.update('activeTab', () => 'pomodoro');
+                return; // Stop here so we don't drag the block
+            }
+
+            // 3. Check if we are dragging a block
+            const blockEl = e.target.closest('.ypt-block');
+            // ... (the rest of the dragging logic stays exactly the same)
             // 2. Check if we are dragging a block
             const blockEl = e.target.closest('.ypt-block');
             if (blockEl) {
@@ -147,12 +155,13 @@ class CanvasUI {
             el.style.backgroundColor = b.color;
             
             // NEW: Added the red 'X' button to the HTML of the block!
+           // Notice I added 'play-btn cursor-pointer hover:text-blue-200' to the span!
             el.innerHTML = `
                 <button class="delete-btn absolute -top-2 -right-2 bg-red-500 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-black shadow-md z-50 transition-transform hover:scale-125" data-id="${b.id}">
                     X
                 </button>
                 <span class="text-sm shadow-sm mt-1">${b.title}</span>
-                <span class="text-xs opacity-75 text-right"><i class="fas fa-play"></i></span>
+                <span class="play-btn text-xs opacity-75 text-right cursor-pointer hover:text-blue-200 transition-colors p-1"><i class="fas fa-play"></i></span>
             `;
             
             this.blocksLayer.appendChild(el);
