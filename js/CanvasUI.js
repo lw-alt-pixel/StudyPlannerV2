@@ -148,11 +148,12 @@ class CanvasUI {
                 return;
             }
 
-            const btn = e.target.closest('button');
-           // 1. PLAY BUTTON
-            const btn = e.target.closest('button');
-            if (btn && btn.classList.contains('play-btn')) {
-                const id = parseInt(btn.dataset.id);
+            // 1. PLAY BUTTON
+            // We use 'clickedBtn' here to guarantee it doesn't conflict with anything else!
+            const clickedBtn = e.target.closest('button');
+            
+            if (clickedBtn && clickedBtn.classList.contains('play-btn')) {
+                const id = parseInt(clickedBtn.dataset.id);
                 const block = store.state.blocks.find(b => b.id === id);
                 
                 // Keep existing start time if resuming, otherwise stamp new China Time
@@ -169,29 +170,23 @@ class CanvasUI {
                     secondsElapsed: block.studySeconds || 0
                 }));
 
-                timerEngine.start(); // <-- CRITICAL: Actually turn on the engine!
+                timerEngine.start(); // <-- Turn on the engine!
                 
                 document.querySelector('[data-tab="focus"]')?.click();
                 return;
             }
-            if (btn && btn.classList.contains('finish-btn')) {
-                const id = parseInt(btn.dataset.id);
+
+            // 2. FINISH BUTTON
+            if (clickedBtn && clickedBtn.classList.contains('finish-btn')) {
+                const id = parseInt(clickedBtn.dataset.id);
                 
                 store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualEnd: this.getChinaTime().getTime(), status: 'completed' } : b));
                 
                 store.update('timer', t => ({ ...t, isRunning: false, activeBlockId: null }));
                 
-                timerEngine.stop(); // <-- CRITICAL: Turn off the engine!
+                timerEngine.stop(); // <-- Turn off the engine!
                 return;
             }
-
-            if (!e.target.closest('.ypt-block')) {
-                this.isPanning = true;
-                this.startX = e.clientX - this.panX;
-                this.startY = e.clientY - this.panY;
-                this.container.classList.add('cursor-grabbing');
-            }
-        });
 
         window.addEventListener('pointermove', (e) => {
             if (this.isPanning) {
