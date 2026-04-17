@@ -33,7 +33,7 @@ class CanvasUI {
         this.bindEvents();
         this.enforceBoundsAndUpdate();
         
-        const repaint = () => { this.renderBlocks(); this.renderMonthCalendar(); };
+        const repaint = () => { this.renderBlocks(); this.renderMonthCalendar(); this.drawGridLabels(); };
         store.subscribe('blocks', repaint); store.subscribe('exams', repaint); store.subscribe('subjects', repaint);
         repaint();
     }
@@ -93,12 +93,36 @@ class CanvasUI {
         this.daysLayer.innerHTML = '';
         for (let i = -30; i <= 60; i++) {
             let targetDate = new Date(this.baseDate); targetDate.setDate(this.baseDate.getDate() + i);
-            const dateStr = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const displayStr = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            
+            // Generate exact string for matching Exams
+            const dateY = targetDate.getFullYear();
+            const dateM = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const dateD = String(targetDate.getDate()).padStart(2, '0');
+            const exactDateStr = `${dateY}-${dateM}-${dateD}`;
+
+            const dayExams = (store.state.exams || []).filter(e => e.date === exactDateStr);
+            const hasExam = dayExams.length > 0;
+
             const dayEl = document.createElement('div');
-            dayEl.className = 'absolute text-center border-l border-gray-300 pl-2 bg-white/80 backdrop-blur';
+            
+            // RED EXAM HEADER OVERRIDE!
+            dayEl.className = `absolute text-center border-l border-gray-300 pl-2 backdrop-blur flex flex-col justify-end pb-1 ${hasExam ? 'bg-red-600 border-red-700 shadow-lg z-[60]' : 'bg-white/80'}`;
             dayEl.style.left = `calc(100800px + ${i * this.dayWidth}px)`; dayEl.style.width = `${this.dayWidth}px`;
-            dayEl.innerHTML = i === 0 ? `<span class="text-blue-600 font-black">⭐ Today</span> <br/> <span class="text-[10px] text-gray-500">${dateStr}</span>` 
-                                      : `<span class="text-gray-700 font-bold">${dateStr}</span>`;
+            dayEl.style.height = '100%';
+            
+            let html = '';
+            if (hasExam) {
+                html = `<span class="text-white font-black text-sm mb-1">${displayStr}</span>`;
+                dayExams.forEach(ex => {
+                    html += `<div class="text-[9px] bg-red-800 text-white rounded px-1 font-bold w-11/12 mx-auto truncate" title="${ex.title}">🚨 ${ex.time} - ${ex.title}</div>`;
+                });
+            } else {
+                html = i === 0 ? `<span class="text-blue-600 font-black">⭐ Today</span> <br/> <span class="text-[10px] text-gray-500">${displayStr}</span>` 
+                               : `<span class="text-gray-700 font-bold">${displayStr}</span>`;
+            }
+
+            dayEl.innerHTML = html;
             this.daysLayer.appendChild(dayEl);
         }
     }
@@ -230,13 +254,13 @@ class CanvasUI {
         const blocksContainer = document.getElementById('slidePanelBlocks'); blocksContainer.innerHTML = '';
 
         if (dayExams.length > 0) {
+            // RED EXAM OVERRIDE!
             dayExams.forEach(ex => {
-                const subColor = store.state.subjects[ex.subject] || '#dc2626';
                 blocksContainer.innerHTML += `
-                    <div class="bg-white border p-3 rounded-lg shadow-sm" style="border-left: 4px solid ${subColor}">
-                        <div class="font-black text-xs uppercase mb-1" style="color: ${subColor}">🚨 EXAM DEADLINE</div>
-                        <div class="font-bold text-gray-800">${ex.title}</div>
-                        <div class="text-xs text-gray-500 mt-1">Scheduled Time: ${ex.time}</div>
+                    <div class="bg-red-600 border border-red-700 p-3 rounded-lg shadow-sm">
+                        <div class="font-black text-xs uppercase mb-1 text-white">🚨 EXAM DEADLINE</div>
+                        <div class="font-bold text-white">${ex.title}</div>
+                        <div class="text-xs text-red-200 mt-1">Scheduled Time: ${ex.time}</div>
                     </div>`;
             });
         }
@@ -279,8 +303,8 @@ class CanvasUI {
             let bgClass = 'bg-white border border-gray-200'; let inlineStyle = '';
             
             if (hasExam) {
-                const subColor = store.state.subjects[dayExams[0].subject] || '#dc2626';
-                bgClass = 'shadow-md border-0 text-white'; inlineStyle = `background-color: ${subColor};`;
+                // FORCE RED FOR EXAM DAYS!
+                bgClass = 'bg-red-600 shadow-md border-0 text-white'; 
             } else if (isToday) { bgClass = 'bg-blue-50 border-2 border-blue-400 text-blue-700'; }
             else { bgClass = 'bg-white border border-gray-200 text-gray-700'; }
 
@@ -289,7 +313,7 @@ class CanvasUI {
                     <div class="flex justify-between items-center mb-1"><span class="font-bold">${day}</span></div>
                     <div class="flex-1 flex flex-col gap-1 overflow-hidden">`;
             
-            if (hasExam) html += `<div class="bg-black/20 text-white text-[9px] px-1 rounded truncate font-bold shadow-sm">🚨 ${dayExams.length} Exam(s)</div>`;
+            if (hasExam) html += `<div class="bg-red-800 text-white text-[9px] px-1 rounded truncate font-bold shadow-sm">🚨 ${dayExams.length} Exam(s)</div>`;
             if (dayBlocks.length > 0) {
                 const totalSecs = dayBlocks.reduce((sum, b) => sum + (b.studySeconds || 0), 0);
                 if (totalSecs > 0) html += `<div class="bg-green-100 text-green-800 text-[9px] px-1 rounded truncate font-bold shadow-sm">⏱️ ${Math.floor(totalSecs/3600)}h ${Math.floor((totalSecs%3600)/60)}m</div>`;
@@ -302,34 +326,14 @@ class CanvasUI {
     }
 
     renderBlocks() {
-        const blocks = store.state.blocks; const exams = store.state.exams || [];
+        const blocks = store.state.blocks; 
         if (!this.blocksLayer) return;
         Array.from(this.blocksLayer.children).forEach(child => { if (child !== this.currentTimeLine) child.remove(); });
         const baseLocal = new Date(this.baseDate.getFullYear(), this.baseDate.getMonth(), this.baseDate.getDate());
 
-        exams.forEach(ex => {
-            if(!ex.date || !ex.time) return;
-            const [eY, eM, eD] = ex.date.split('-').map(Number);
-            const exDateLocal = new Date(eY, eM - 1, eD);
-            const dayOffset = Math.round((exDateLocal - baseLocal) / 86400000);
-            const [eH, eM_val] = ex.time.split(':').map(Number);
-            
-            const topPx = (eH * 60) + eM_val;
-            const leftPx = 100800 + (dayOffset * this.dayWidth);
-            const subColor = store.state.subjects[ex.subject] || '#dc2626';
-
-            const lineEl = document.createElement('div');
-            lineEl.className = 'absolute border-l-4 z-[30] pointer-events-none drop-shadow-md opacity-80';
-            lineEl.style.left = `${leftPx}px`; lineEl.style.top = `calc(${topPx}px * var(--zoom))`;
-            lineEl.style.height = `calc(1440px * var(--zoom))`; lineEl.style.borderColor = subColor;
-            lineEl.innerHTML = `<div class="absolute top-0 left-2 text-white text-[10px] px-2 py-0.5 rounded font-black whitespace-nowrap" style="background-color: ${subColor}">🚨 EXAM: ${ex.title} @ ${ex.time}</div>`;
-            this.blocksLayer.appendChild(lineEl);
-        });
-
         blocks.forEach(b => {
             if(!b.startDate || !b.scheduledStart || !b.endDate || !b.scheduledEnd) return;
 
-            // NEW: REALITY-BASED BLOCK SIZING ALGORITHM!
             let startObjReal, endObjReal;
             if (b.status === 'completed' && b.actualStart && b.actualEnd) {
                 startObjReal = new Date(b.actualStart);
@@ -366,7 +370,6 @@ class CanvasUI {
                 actionHtml = `<button class="play-btn bg-white/30 hover:bg-white/50 rounded text-[9px] font-bold py-0.5 w-full mt-1 flex justify-center items-center pointer-events-auto" data-id="${b.id}">▶ START</button>`;
             }
 
-            // Display the exact rendered times
             const displayStart = startObjReal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
             const displayEnd = endObjReal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
 
