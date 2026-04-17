@@ -59,6 +59,12 @@ class TimerUI {
             ? 'bg-yellow-500 hover:bg-yellow-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all'
             : 'bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all';
 
+        // NEW: Fix the Take Break / Resume Study Button Text & Color
+        this.switchPhaseBtn.innerText = phase === 'study' ? 'TAKE BREAK' : 'RESUME STUDY';
+        this.switchPhaseBtn.className = phase === 'study'
+            ? 'bg-indigo-500 hover:bg-indigo-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all'
+            : 'bg-orange-500 hover:bg-orange-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all';
+
         let displaySeconds = 0;
         if (mode === 'stopwatch') {
             displaySeconds = phase === 'study' ? studySeconds : breakSeconds; 
