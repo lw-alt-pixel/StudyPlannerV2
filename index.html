@@ -166,12 +166,44 @@
     <button id="openAddBlockModal" class="custom-action-btn fixed w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform z-[900]" style="bottom: 30px; right: 30px; touch-action: none;">+</button>
     <button id="openSettingsBtn" class="custom-action-btn fixed w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform z-[900]" style="top: 30px; right: 30px; touch-action: none;">⚙️</button>
 
-    <div id="settingsPanel" class="fixed top-0 right-0 bottom-0 w-96 bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.2)] border-l transform translate-x-full transition-transform duration-300 z-[1000] flex flex-col">
-        <div class="p-4 border-b bg-gray-50 flex justify-between items-center shadow-sm z-10">
-            <h3 class="font-bold text-xl text-gray-800">⚙️ Settings</h3>
-            <button id="closeSettingsPanel" class="text-gray-400 hover:text-red-500 font-bold text-2xl">&times;</button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-8 bg-gray-50/50">
+    <div class="bg-white p-4 border rounded-xl shadow-sm">
+                <h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">🎨 Theme & Colors</h4>
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Background Mode</label>
+                <select id="settingsBgMode" class="w-full p-2 border rounded mb-3 bg-gray-50">
+                    <option value="color">Solid Color</option>
+                    <option value="image">Custom Photo</option>
+                </select>
+                
+                <div id="settingsBgColorDiv">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Background Color</label>
+                    <input type="color" id="settingsBgColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                </div>
+                
+                <div id="settingsBgImageDiv" class="hidden">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Photo</label>
+                    <input type="file" accept="image/*" id="settingsBgImage" class="w-full p-2 border rounded text-xs mb-3 bg-gray-50">
+                </div>
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Tab Buttons Color</label>
+                <input type="color" id="settingsTabColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Unified Action Color</label>
+                <input type="color" id="settingsActionColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Action Button Size</label>
+                <select id="settingsActionSize" class="w-full p-2 border rounded mb-3 bg-gray-50">
+                    <option value="sm">Small</option>
+                    <option value="md">Medium</option>
+                    <option value="lg">Large</option>
+                </select>
+
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Banner Background</label>
+                <input type="color" id="settingsBannerBgColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Banner Text Color</label>
+                <input type="color" id="settingsBannerTextColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+            </div>
             
             <div class="bg-white p-4 border rounded-xl shadow-sm">
                 <h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">📚 Manage Subjects</h4>
