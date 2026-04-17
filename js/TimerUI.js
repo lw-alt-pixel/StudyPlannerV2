@@ -176,8 +176,8 @@ class TimerUI {
             if (titleEl) titleEl.innerHTML = `🎯 Focus Mode: <span class="text-blue-600">${activeBlock.title}</span>`;
         }
 
-        // Send the final numbers to the screen
-        this.display.textContent = this.formatTime(displaySeconds);
-    }
+    
+        this.display.textContent = this.formatTime(displaySeconds);
+    }
 
 export const timerUI = new TimerUI();
