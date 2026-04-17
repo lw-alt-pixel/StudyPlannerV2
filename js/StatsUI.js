@@ -12,7 +12,6 @@ class StatsUI {
         this.totalTimeEl = document.getElementById('statsTotalTime');
         this.avgTimeEl = document.getElementById('statsAvgTime');
 
-        // Chart.js instances
         this.barChart = null;
         this.pieChart = null;
 
@@ -57,7 +56,6 @@ class StatsUI {
             startDate.setDate(today.getDate() - parseInt(rangeVal) + 1);
         }
 
-        // 1. Filter blocks to date range
         let totalSecs = 0;
         const subjectTotals = {};
         const dailyTotals = {};
@@ -70,16 +68,13 @@ class StatsUI {
             if (bDate >= startDate && bDate <= endDate) {
                 totalSecs += b.studySeconds;
                 
-                // Subject Aggregation
                 const sub = b.subject || 'Other';
                 subjectTotals[sub] = (subjectTotals[sub] || 0) + b.studySeconds;
 
-                // Daily Aggregation
                 dailyTotals[b.startDate] = (dailyTotals[b.startDate] || 0) + b.studySeconds;
             }
         });
 
-        // 2. Update Top Cards
         const totalDays = Math.max(1, Math.ceil((endDate - startDate) / 86400000) + 1);
         const avgSecs = totalSecs / totalDays;
         
@@ -92,10 +87,13 @@ class StatsUI {
 
     drawPieChart(data) {
         const ctx = document.getElementById('subjectPieChart').getContext('2d');
-        if (this.pieChart) this.pieChart.destroy(); // Clear old chart
+        if (this.pieChart) this.pieChart.destroy(); 
 
         const labels = Object.keys(data);
-        const values = Object.values(data).map(secs => (secs / 3600).toFixed(1)); // Convert to hours
+        const values = Object.values(data).map(secs => (secs / 3600).toFixed(1)); 
+        
+        // Dynamically pull exact assigned hex colors from the Brain!
+        const bgColors = labels.map(sub => store.state.subjects[sub] || '#888888');
 
         this.pieChart = new Chart(ctx, {
             type: 'doughnut',
@@ -103,7 +101,7 @@ class StatsUI {
                 labels: labels,
                 datasets: [{
                     data: values,
-                    backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280'],
+                    backgroundColor: bgColors,
                     borderWidth: 0
                 }]
             },
@@ -118,7 +116,6 @@ class StatsUI {
         const labels = [];
         const values = [];
 
-        // THE MATH: Group into max 10 bars
         let groupSizeDays = 1;
         if (totalDays > 10 && totalDays <= 70) groupSizeDays = 7;
         else if (totalDays > 70) groupSizeDays = 30;
@@ -128,7 +125,6 @@ class StatsUI {
             let groupLabel = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             let groupSecs = 0;
 
-            // Sum up the group
             for (let i = 0; i < groupSizeDays; i++) {
                 if (currentDate > end) break;
                 const dStr = currentDate.toISOString().split('T')[0];
@@ -137,7 +133,7 @@ class StatsUI {
             }
             
             labels.push(groupLabel);
-            values.push((groupSecs / 3600).toFixed(1)); // Hours
+            values.push((groupSecs / 3600).toFixed(1)); 
         }
 
         this.barChart = new Chart(ctx, {
