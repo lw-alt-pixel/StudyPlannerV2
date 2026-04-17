@@ -7,8 +7,20 @@ const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 export const defaultState = {
     activeTab: 'schedule', 
     blocks: savedBlocks, 
-    theme: { appBgColor: '#f3f4f6', isGlassMode: true },
-    timer: { activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false }
+    theme: {
+        appBgColor: '#f3f4f6',
+        isGlassMode: true
+    },
+    timer: {
+        activeBlockId: null, 
+        mode: 'stopwatch', 
+        phase: 'study',    
+        isRunning: false,
+        // NEW: Add these default values so we never get NaN!
+        studySeconds: 0,
+        breakSeconds: 0,
+        secondsElapsed: 0 
+    }
 };
 
 class Store {
