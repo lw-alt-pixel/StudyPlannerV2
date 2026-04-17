@@ -139,7 +139,7 @@ class CanvasUI {
             el.dataset.id = b.id; 
             
             // Note: I added 'relative' here so the delete button positions itself correctly inside the block
-            el.className = 'ypt-block relative absolute rounded-xl shadow-lg p-3 text-white font-bold cursor-pointer transition-transform hover:scale-105 pointer-events-auto flex flex-col justify-between';
+            el.className = 'ypt-block absolute rounded-xl shadow-lg p-3 text-white font-bold cursor-pointer transition-transform hover:scale-105 pointer-events-auto flex flex-col justify-between';
             el.style.left = `${b.x}px`;
             el.style.top = `${b.y}px`;
             el.style.width = `${b.w}px`;
