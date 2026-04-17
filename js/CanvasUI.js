@@ -45,18 +45,16 @@ class CanvasUI {
                 return; 
             }
 
-            // NEW: 2. Check if we clicked the Play button
+            // 2. Check if we clicked the Play button
             const playBtn = e.target.closest('.play-btn');
             if (playBtn) {
-                // Tell the Brain to switch to the Pomodoro tab!
-                store.update('activeTab', () => 'pomodoro');
-                return; // Stop here so we don't drag the block
+                // Click the Focus tab button to switch tabs automatically
+                const focusTabBtn = document.querySelector('[data-tab="focus"]');
+                if (focusTabBtn) focusTabBtn.click();
+                return; 
             }
 
-            // 3. Check if we are dragging a block
-            const blockEl = e.target.closest('.ypt-block');
-            // ... (the rest of the dragging logic stays exactly the same)
-            // 2. Check if we are dragging a block
+            // 3. Check if we are dragging a block (Only declared ONCE now!)
             const blockEl = e.target.closest('.ypt-block');
             if (blockEl) {
                 this.isDraggingBlock = true;
@@ -71,7 +69,7 @@ class CanvasUI {
                 blockEl.classList.add('shadow-2xl', 'opacity-90');
                 e.stopPropagation(); 
             } else {
-                // 3. Otherwise, pan the canvas
+                // 4. Otherwise, pan the canvas
                 this.isPanning = true;
                 this.startX = e.clientX - this.panX;
                 this.startY = e.clientY - this.panY;
@@ -146,7 +144,6 @@ class CanvasUI {
             const el = document.createElement('div');
             el.dataset.id = b.id; 
             
-            // Note: I added 'relative' here so the delete button positions itself correctly inside the block
             el.className = 'ypt-block absolute rounded-xl shadow-lg p-3 text-white font-bold cursor-pointer transition-transform hover:scale-105 pointer-events-auto flex flex-col justify-between';
             el.style.left = `${b.x}px`;
             el.style.top = `${b.y}px`;
@@ -154,8 +151,6 @@ class CanvasUI {
             el.style.height = `${b.h}px`;
             el.style.backgroundColor = b.color;
             
-            // NEW: Added the red 'X' button to the HTML of the block!
-           // Notice I added 'play-btn cursor-pointer hover:text-blue-200' to the span!
             el.innerHTML = `
                 <button class="delete-btn absolute -top-2 -right-2 bg-red-500 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-black shadow-md z-50 transition-transform hover:scale-125" data-id="${b.id}">
                     X
