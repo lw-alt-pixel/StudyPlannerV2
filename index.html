@@ -16,10 +16,51 @@
     </div>
 
     <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative" style="height: 600px;">
-        <div id="canvas-container" class="w-full h-full cursor-grab relative" style="touch-action: none;">
-            <div id="infinite-canvas" class="absolute top-0 left-0 origin-top-left transform-gpu" style="width: 5000px; height: 5000px; transform: translate(0px, 0px) scale(1);">
-                <div class="absolute inset-0" style="background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px); background-size: 40px 40px;"></div>
-                <div id="blocks-layer" class="absolute inset-0 pointer-events-none"></div>
+       <style>
+    /* Restore your original grid variables! */
+    :root {
+        --pan-x: 0px; 
+        --pan-y: 0px; 
+        --px-per-hour: 60px; 
+        --px-per-min: 1px; 
+        --day-width: 180px;
+        --zoom: 1;
+    }
+    
+    .canvas-container { touch-action: none; overscroll-behavior: none; }
+    
+    #canvas-grid {
+        background-image: 
+            linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px),
+            linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px);
+        background-size: var(--day-width) calc(var(--px-per-hour) * var(--zoom));
+    }
+</style>
+
+<div id="schedule" class="tab-content active h-[80vh] flex flex-col p-4">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">🗓️ Infinite Timeline</h2>
+        <button id="addBlockBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all">+ Add Block</button>
+    </div>
+
+    <div id="canvas-container" class="relative flex-1 overflow-hidden bg-gray-50 rounded-xl border-2 border-gray-200 canvas-container cursor-grab">
+        
+        <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
+            <div id="canvas-grid" class="absolute top-0 pointer-events-none" style="width: 200000px; left: -100000px; height: calc(24 * 60px * var(--zoom)); border-bottom: 1px solid rgba(0,0,0,0.1);"></div>
+            <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="width: 200000px; left: -100000px; height: calc(24 * 60px * var(--zoom));"></div>
+        </div>
+
+        <div class="absolute top-0 left-16 right-0 h-12 z-20 overflow-hidden pointer-events-none bg-white/90 backdrop-blur-md border-b border-gray-200">
+            <div id="canvas-days" class="absolute top-0 h-12 flex items-end pb-2 font-bold text-gray-700 text-sm" style="width: 200000px; left: calc(-100000px + var(--pan-x));"></div>
+        </div>
+
+        <div class="absolute top-12 left-0 bottom-0 w-16 z-20 bg-white/90 backdrop-blur-md border-r border-gray-200 overflow-hidden pointer-events-none">
+            <div id="canvas-times" class="absolute left-0 w-16 flex flex-col items-center text-xs font-bold text-gray-500" style="height: calc(24 * 60px * var(--zoom)); top: var(--pan-y);"></div>
+        </div>
+
+        <div class="absolute top-0 left-0 w-16 h-12 z-[30] bg-white border-b border-r border-gray-200 pointer-events-none"></div>
+    </div>
+</div>
             </div>
         </div>
         
