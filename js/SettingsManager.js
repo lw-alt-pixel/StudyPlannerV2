@@ -4,6 +4,7 @@ import { store } from './State.js';
 class SettingsManager {
     init() {
         this.panel = document.getElementById('settingsPanel');
+        this.overlay = document.getElementById('settingsOverlay');
         this.subjectList = document.getElementById('settingsSubjectList');
         this.bgMode = document.getElementById('settingsBgMode');
         this.bgColorDiv = document.getElementById('settingsBgColorDiv');
@@ -14,16 +15,17 @@ class SettingsManager {
     }
 
     bindEvents() {
-        document.getElementById('closeSettingsPanel')?.addEventListener('click', () => {
+        // 🎯 NEW: CLICK OUTSIDE (OR "X") TO CLOSE PANEL OVERLAYS
+        const closeSettings = () => {
             this.panel?.classList.add('translate-x-full');
-        });
+            this.overlay?.classList.add('hidden');
+        };
+        document.getElementById('closeSettingsPanel')?.addEventListener('click', closeSettings);
+        this.overlay?.addEventListener('click', closeSettings);
 
         this.bgMode?.addEventListener('change', (e) => {
-            if (e.target.value === 'color') {
-                this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden');
-            } else {
-                this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden');
-            }
+            if (e.target.value === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
+            else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
             store.update('theme', t => ({ ...t, bgType: e.target.value }));
         });
 
@@ -31,12 +33,15 @@ class SettingsManager {
         document.getElementById('settingsTabColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, tabColor: e.target.value })));
         document.getElementById('settingsActionColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, actionColor: e.target.value })));
         document.getElementById('settingsActionSize')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, actionSize: e.target.value })));
+        
+        // 🎯 NEW: FLOATING BUTTON SETTING
+        document.getElementById('settingsFloatingBtn')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, floatingBtn: e.target.value })));
+        
         document.getElementById('settingsBannerBgColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bannerBgColor: e.target.value })));
         document.getElementById('settingsBannerTextColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bannerTextColor: e.target.value })));
 
         document.getElementById('settingsBgImage')?.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const img = new Image();
@@ -54,33 +59,19 @@ class SettingsManager {
 
         document.getElementById('settingsPStudy')?.addEventListener('change', (e) => store.update('settings', s => ({ ...s, pStudy: parseInt(e.target.value) || 25 })));
         document.getElementById('settingsPBreak')?.addEventListener('change', (e) => store.update('settings', s => ({ ...s, pBreak: parseInt(e.target.value) || 5 })));
+        document.getElementById('settingsSaveSubjectsBtn')?.addEventListener('click', () => { this.saveSubjects(); alert("Subject changes saved globally!"); });
 
-        document.getElementById('settingsSaveSubjectsBtn')?.addEventListener('click', () => {
-            this.saveSubjects(); alert("Subject changes saved globally!");
-        });
-
-        // 💾 NEW: EXPORT BACKUP LOGIC
+        // Cloud Exports
         document.getElementById('settingsExportBtn')?.addEventListener('click', () => {
-            const data = {
-                blocks: store.state.blocks, exams: store.state.exams, subjects: store.state.subjects,
-                theme: store.state.theme, settings: store.state.settings, diaries: store.state.diaries
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `StudyPlanner_Backup_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
+            const data = { blocks: store.state.blocks, exams: store.state.exams, subjects: store.state.subjects, theme: store.state.theme, settings: store.state.settings, diaries: store.state.diaries };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `StudyPlanner_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url);
         });
 
-        // 📂 NEW: IMPORT BACKUP LOGIC
         document.getElementById('settingsImportProxyBtn')?.addEventListener('click', () => document.getElementById('settingsImportFile')?.click());
         document.getElementById('settingsImportFile')?.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[0]; if (!file) return;
             if (!confirm("⚠️ WARNING: Importing will completely overwrite your current planner data. Are you sure you want to continue?")) return;
-            
             const reader = new FileReader();
             reader.onload = (ev) => {
                 try {
@@ -91,8 +82,7 @@ class SettingsManager {
                     if (data.theme) store.update('theme', () => data.theme);
                     if (data.settings) store.update('settings', () => data.settings);
                     if (data.diaries) store.update('diaries', () => data.diaries);
-                    alert("✅ Import successful! Reloading your planner...");
-                    location.reload();
+                    alert("✅ Import successful! Reloading your planner..."); location.reload();
                 } catch(err) { alert("❌ Error: Invalid backup file format."); }
             };
             reader.readAsText(file);
@@ -108,6 +98,7 @@ class SettingsManager {
         const safelySetValue = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
         safelySetValue('settingsBgColor', theme.bgColor || '#f3f4f6'); safelySetValue('settingsTabColor', theme.tabColor || '#3b82f6');
         safelySetValue('settingsActionColor', theme.actionColor || '#2563eb'); safelySetValue('settingsActionSize', theme.actionSize || 'md');
+        safelySetValue('settingsFloatingBtn', theme.floatingBtn || 'md'); // NEW FLOATING SIZES
         safelySetValue('settingsBannerBgColor', theme.bannerBgColor || '#dc2626'); safelySetValue('settingsBannerTextColor', theme.bannerTextColor || '#ffffff');
         safelySetValue('settingsPStudy', setts.pStudy); safelySetValue('settingsPBreak', setts.pBreak);
         this.renderSubjectsList();
