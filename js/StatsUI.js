@@ -3,95 +3,160 @@ import { store } from './State.js';
 
 class StatsUI {
     init() {
-        this.heatmapContainer = document.getElementById('calendarHeatmap');
-        this.subjectStatsList = document.getElementById('subjectStatsList');
-        this.dailyAvgText = document.getElementById('dailyAvgText');
+        this.dateRangeSelect = document.getElementById('statsDateRange');
+        this.customDiv = document.getElementById('customDateInputs');
+        this.applyBtn = document.getElementById('applyCustomStats');
+        this.startDateInput = document.getElementById('statsStart');
+        this.endDateInput = document.getElementById('statsEnd');
+        
+        this.totalTimeEl = document.getElementById('statsTotalTime');
+        this.avgTimeEl = document.getElementById('statsAvgTime');
 
-        if (!this.heatmapContainer) return;
+        // Chart.js instances
+        this.barChart = null;
+        this.pieChart = null;
 
-        // Render stats whenever blocks change, or when we click the Stats tab
-        store.subscribe('blocks', () => this.renderStats());
+        this.bindEvents();
+
         store.subscribe('activeTab', (tab) => {
-            if (tab === 'stats') this.renderStats();
+            if (tab === 'stats') this.calculateAndDraw();
         });
     }
 
-    renderStats() {
-        const blocks = store.state.blocks;
-        
-        // --- 1. BUILD SUBJECT ANALYTICS ---
-        const subjectTimes = {};
-        let totalStudySecsAllTime = 0;
+    getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
 
-        blocks.forEach(b => {
-            if (!b.studySeconds) return;
-            const sub = b.subject || 'Other';
-            if (!subjectTimes[sub]) subjectTimes[sub] = 0;
-            subjectTimes[sub] += b.studySeconds;
-            totalStudySecsAllTime += b.studySeconds;
-        });
-
-        this.subjectStatsList.innerHTML = '';
-        Object.keys(subjectTimes).sort((a,b) => subjectTimes[b] - subjectTimes[a]).forEach(sub => {
-            const h = Math.floor(subjectTimes[sub] / 3600);
-            const m = Math.floor((subjectTimes[sub] % 3600) / 60);
-            this.subjectStatsList.innerHTML += `
-                <li class="flex justify-between items-center text-sm font-bold bg-white p-2 rounded shadow-sm">
-                    <span>${sub}</span>
-                    <span class="text-blue-600">${h}h ${m}m</span>
-                </li>`;
-        });
-
-        // --- 2. BUILD HEATMAP (Last 28 Days) ---
-        this.heatmapContainer.innerHTML = '';
-        
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        // Group study seconds by Date String (YYYY-MM-DD)
-        const dailyLogs = {};
-        blocks.forEach(b => {
-            if (b.studySeconds > 0 && b.startDate) {
-                if (!dailyLogs[b.startDate]) dailyLogs[b.startDate] = 0;
-                dailyLogs[b.startDate] += b.studySeconds;
+    bindEvents() {
+        this.dateRangeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                this.customDiv.classList.remove('hidden');
+                this.customDiv.classList.add('flex');
+            } else {
+                this.customDiv.classList.add('hidden');
+                this.customDiv.classList.remove('flex');
+                this.calculateAndDraw();
             }
         });
 
-        // Generate the last 28 days
-        let activeDaysCount = 0;
+        this.applyBtn.addEventListener('click', () => this.calculateAndDraw());
+    }
 
-        for (let i = 27; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            
-            const secs = dailyLogs[dateStr] || 0;
-            if (secs > 0) activeDaysCount++;
+    calculateAndDraw() {
+        const blocks = store.state.blocks;
+        const today = this.getChinaTime();
+        today.setHours(0,0,0,0);
+        
+        let startDate = new Date(today);
+        let endDate = new Date(today);
 
-            // Calculate Intensity (0 = gray, 1 = light blue, 4 = dark blue)
-            let intensityClass = 'bg-gray-100';
-            if (secs > 14400) intensityClass = 'bg-blue-800'; // > 4 hours
-            else if (secs > 7200) intensityClass = 'bg-blue-600'; // > 2 hours
-            else if (secs > 3600) intensityClass = 'bg-blue-400'; // > 1 hour
-            else if (secs > 0) intensityClass = 'bg-blue-200'; // < 1 hour
-
-            const dayDiv = document.createElement('div');
-            dayDiv.className = `h-10 rounded-md border flex items-center justify-center cursor-pointer transition-transform hover:scale-110 shadow-sm ${intensityClass}`;
-            dayDiv.title = `${dateStr}: ${Math.floor(secs/3600)}h ${Math.floor((secs%3600)/60)}m logged`;
-            
-            // Just show the day number inside the box
-            dayDiv.innerHTML = `<span class="text-[10px] font-bold ${secs > 0 ? 'text-white' : 'text-gray-400'}">${d.getDate()}</span>`;
-            
-            this.heatmapContainer.appendChild(dayDiv);
-        }
-
-        // Daily Average
-        if (activeDaysCount > 0) {
-            const avgSecs = totalStudySecsAllTime / activeDaysCount;
-            this.dailyAvgText.innerText = `${Math.floor(avgSecs/3600)}h ${Math.floor((avgSecs%3600)/60)}m`;
+        const rangeVal = this.dateRangeSelect.value;
+        if (rangeVal === 'custom') {
+            if(!this.startDateInput.value || !this.endDateInput.value) return;
+            startDate = new Date(this.startDateInput.value);
+            endDate = new Date(this.endDateInput.value);
         } else {
-            this.dailyAvgText.innerText = '0h 0m';
+            startDate.setDate(today.getDate() - parseInt(rangeVal) + 1);
         }
+
+        // 1. Filter blocks to date range
+        let totalSecs = 0;
+        const subjectTotals = {};
+        const dailyTotals = {};
+
+        blocks.forEach(b => {
+            if (!b.startDate || !b.studySeconds) return;
+            const bDate = new Date(b.startDate);
+            bDate.setHours(0,0,0,0);
+
+            if (bDate >= startDate && bDate <= endDate) {
+                totalSecs += b.studySeconds;
+                
+                // Subject Aggregation
+                const sub = b.subject || 'Other';
+                subjectTotals[sub] = (subjectTotals[sub] || 0) + b.studySeconds;
+
+                // Daily Aggregation
+                dailyTotals[b.startDate] = (dailyTotals[b.startDate] || 0) + b.studySeconds;
+            }
+        });
+
+        // 2. Update Top Cards
+        const totalDays = Math.max(1, Math.ceil((endDate - startDate) / 86400000) + 1);
+        const avgSecs = totalSecs / totalDays;
+        
+        this.totalTimeEl.innerText = `${Math.floor(totalSecs/3600)}h ${Math.floor((totalSecs%3600)/60)}m`;
+        this.avgTimeEl.innerText = `${Math.floor(avgSecs/3600)}h ${Math.floor((avgSecs%3600)/60)}m`;
+
+        this.drawPieChart(subjectTotals);
+        this.drawBarChart(dailyTotals, startDate, endDate, totalDays);
+    }
+
+    drawPieChart(data) {
+        const ctx = document.getElementById('subjectPieChart').getContext('2d');
+        if (this.pieChart) this.pieChart.destroy(); // Clear old chart
+
+        const labels = Object.keys(data);
+        const values = Object.values(data).map(secs => (secs / 3600).toFixed(1)); // Convert to hours
+
+        this.pieChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6b7280'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+    }
+
+    drawBarChart(dailyData, start, end, totalDays) {
+        const ctx = document.getElementById('trendBarChart').getContext('2d');
+        if (this.barChart) this.barChart.destroy();
+
+        const labels = [];
+        const values = [];
+
+        // THE MATH: Group into max 10 bars
+        let groupSizeDays = 1;
+        if (totalDays > 10 && totalDays <= 70) groupSizeDays = 7;
+        else if (totalDays > 70) groupSizeDays = 30;
+
+        let currentDate = new Date(start);
+        while (currentDate <= end) {
+            let groupLabel = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            let groupSecs = 0;
+
+            // Sum up the group
+            for (let i = 0; i < groupSizeDays; i++) {
+                if (currentDate > end) break;
+                const dStr = currentDate.toISOString().split('T')[0];
+                groupSecs += dailyData[dStr] || 0;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            labels.push(groupLabel);
+            values.push((groupSecs / 3600).toFixed(1)); // Hours
+        }
+
+        this.barChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Study Hours',
+                    data: values,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Hours' } } },
+                plugins: { legend: { display: false } }
+            }
+        });
     }
 }
 
