@@ -31,7 +31,8 @@ class CanvasUI {
         if (!this.container) return;
 
         this.currentTimeLine = document.createElement('div');
-        this.currentTimeLine.className = 'absolute left-0 w-[200000px] border-t-2 border-red-500 z-[40] pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.6)] transition-all';
+        // Scaled to match the new 100800px grid width!
+        this.currentTimeLine.className = 'absolute left-0 w-[201600px] border-t-2 border-red-500 z-[40] pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.6)] transition-all';
         this.currentTimeLine.innerHTML = `<div class="bg-red-500 text-white text-[10px] px-2 font-bold rounded-r-full absolute -top-2.5 shadow-md">NOW</div>`;
         this.blocksLayer.appendChild(this.currentTimeLine);
         
@@ -121,7 +122,8 @@ class CanvasUI {
             
             const dayEl = document.createElement('div');
             dayEl.className = 'absolute text-center border-l border-gray-300 pl-2 bg-white/80 backdrop-blur';
-            dayEl.style.left = `calc(100000px + ${i * this.dayWidth}px)`;
+            // FIX: Using the newly calculated 100800px offset for precise CSS grid alignment!
+            dayEl.style.left = `calc(100800px + ${i * this.dayWidth}px)`;
             dayEl.style.width = `${this.dayWidth}px`;
             
             dayEl.innerHTML = i === 0 ? `<span class="text-blue-600 font-black">⭐ Today</span> <br/> <span class="text-[10px] text-gray-500">${dateStr}</span>` 
@@ -246,13 +248,13 @@ class CanvasUI {
                     const clickX = e.clientX - rect.left - 64; 
                     const clickY = e.clientY - rect.top - 48;  
                     
-                    // FIX: REMOVED ZOOM DIVISION FROM X-AXIS MATH!
                     const gridX = (clickX - this.panX); 
                     const gridY = (clickY - this.panY) / this.zoom;
 
-                    const dayOffset = Math.floor((gridX - 100000) / this.dayWidth);
+                    // FIX: REMOVED THE "- 100000" PENALTY ENTIRELY! 
+                    // Mouse coordinates map 1:1 with the targeted Day!
+                    const dayOffset = Math.floor(gridX / this.dayWidth);
                     
-                    // FIX: Pure Date Generation, immune to Timezone jumps!
                     const targetLocal = new Date(this.baseDate.getFullYear(), this.baseDate.getMonth(), this.baseDate.getDate());
                     targetLocal.setDate(targetLocal.getDate() + dayOffset);
                     
@@ -418,20 +420,20 @@ class CanvasUI {
             if (child !== this.currentTimeLine) child.remove();
         });
 
-        // FIX: Timezone-immune pure day calculation!
         const baseLocal = new Date(this.baseDate.getFullYear(), this.baseDate.getMonth(), this.baseDate.getDate());
 
         exams.forEach(ex => {
             if(!ex.date || !ex.time) return;
             
-            // Generate perfectly exact Day Offsets matching the grid calculation
             const [eY, eM, eD] = ex.date.split('-').map(Number);
             const exDateLocal = new Date(eY, eM - 1, eD);
             const dayOffset = Math.round((exDateLocal - baseLocal) / 86400000);
             
             const [eH, eM_val] = ex.time.split(':').map(Number);
             const topPx = (eH * 60) + eM_val;
-            const leftPx = 100000 + (dayOffset * this.dayWidth);
+            
+            // FIX: Ensure Exam lines also align with the 100800px grid!
+            const leftPx = 100800 + (dayOffset * this.dayWidth);
 
             const subColor = store.state.subjects[ex.subject] || '#dc2626';
 
@@ -453,7 +455,6 @@ class CanvasUI {
         blocks.forEach(b => {
             if(!b.startDate || !b.scheduledStart || !b.endDate || !b.scheduledEnd) return;
 
-            // Generate perfectly exact Day Offsets matching the grid calculation
             const [bY, bM, bD] = b.startDate.split('-').map(Number);
             const bDateLocal = new Date(bY, bM - 1, bD);
             const dayOffset = Math.round((bDateLocal - baseLocal) / 86400000);
@@ -461,7 +462,6 @@ class CanvasUI {
             const [sH, sM] = b.scheduledStart.split(':').map(Number);
             const topPx = (sH * 60) + sM;
             
-            // Duration relies purely on total time differences, immune to timezones
             const startStr = `${b.startDate}T${b.scheduledStart}:00`;
             const endStr = `${b.endDate}T${b.scheduledEnd}:00`;
             const startObjReal = new Date(startStr);
@@ -469,7 +469,8 @@ class CanvasUI {
             let durationMins = (endObjReal - startObjReal) / 60000;
             if (durationMins <= 0) durationMins = 60; 
 
-            const leftPx = 100000 + (dayOffset * this.dayWidth);
+            // FIX: Ensure Blocks align with the 100800px grid!
+            const leftPx = 100800 + (dayOffset * this.dayWidth);
             const el = document.createElement('div');
 
             const subColor = store.state.subjects[b.subject] || '#3b82f6';
