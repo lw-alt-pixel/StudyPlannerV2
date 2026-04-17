@@ -4,6 +4,7 @@ import { store } from './State.js';
 class BlockManager {
     init() {
         this.modal = document.getElementById('addBlockModal');
+        this.subjectInput = document.getElementById('newBlockSubject');
         this.titleInput = document.getElementById('newBlockTitle');
         this.colorInput = document.getElementById('newBlockColor');
         
@@ -62,9 +63,14 @@ class BlockManager {
     }
 
     createBlock() {
+        const subject = this.subjectInput.value;
+        const topic = this.titleInput.value.trim();
+        const finalTitle = topic ? `${subject}: ${topic}` : subject;
+
         const newBlock = {
             id: Date.now(),
-            title: this.titleInput.value.trim() || 'New Study Block',
+            subject: subject, 
+            title: finalTitle,
             color: this.colorInput.value,
             startDate: this.startDateInput.value,
             scheduledStart: this.startInput.value,
