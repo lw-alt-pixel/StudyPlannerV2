@@ -4,12 +4,10 @@ import { store } from './State.js';
 class TimerUI {
     constructor() {
         this.interval = null;
-        // 25 minutes in seconds for a standard Pomodoro
         this.pomodoroDuration = 25 * 60; 
     }
 
     init() {
-        // Grab all our UI elements from the HTML
         this.display = document.getElementById('timerDisplay');
         this.toggleBtn = document.getElementById('toggleTimerBtn');
         this.switchPhaseBtn = document.getElementById('switchPhaseBtn');
@@ -20,41 +18,50 @@ class TimerUI {
         if (!this.display) return;
 
         this.bindEvents();
-        this.updateUI(); // Run once to set the initial colors and numbers
+        this.updateUI(); 
+
+        // NEW: Save data to the block if the user accidentally closes the browser!
+        window.addEventListener('beforeunload', () => this.saveTimeToBlock());
+    }
+
+    // NEW: Function to safely push the final time to the block
+    saveTimeToBlock() {
+        const { activeBlockId, studySeconds, breakSeconds } = store.state.timer;
+        if (!activeBlockId) return;
+        
+        store.update('blocks', oldBlocks => {
+            return oldBlocks.map(b => 
+                b.id === activeBlockId ? { ...b, studySeconds, breakSeconds } : b
+            );
+        });
     }
 
     bindEvents() {
-        // 1. START / PAUSE Button
         this.toggleBtn.addEventListener('click', () => {
             const { isRunning } = store.state.timer;
             store.update('timer', t => ({ ...t, isRunning: !isRunning }));
             
-            if (!isRunning) {
-                this.startTimer();
-            } else {
-                this.stopTimer();
-            }
+            if (!isRunning) this.startTimer();
+            else this.stopTimer();
         });
 
-        // 2. SWITCH PHASE (Study <--> Break)
         this.switchPhaseBtn.addEventListener('click', () => {
+            this.saveTimeToBlock(); // Save before switching!
+            
             const { phase } = store.state.timer;
             const newPhase = phase === 'study' ? 'break' : 'study';
             
             store.update('timer', t => ({ 
                 ...t, 
                 phase: newPhase,
-                // Reset the time for the new phase so it starts at 00:00
                 studySeconds: newPhase === 'study' ? 0 : t.studySeconds, 
                 breakSeconds: newPhase === 'break' ? 0 : t.breakSeconds,
-                isRunning: false // Automatically pause when switching phases
+                isRunning: false 
             }));
             
             this.stopTimer();
-            this.updateUI();
         });
 
-        // 3. TOGGLE MODES
         this.modeStopwatchBtn.addEventListener('click', () => {
             store.update('timer', t => ({ ...t, mode: 'stopwatch' }));
             this.updateUI();
@@ -69,39 +76,23 @@ class TimerUI {
     startTimer() {
         this.updateUI();
         
-        // The Master Clock Interval
         this.interval = setInterval(() => {
-            const { phase, mode, activeBlockId } = store.state.timer;
-            
-            // If we don't have an active block selected, do nothing.
+            const { phase, mode, activeBlockId, studySeconds, breakSeconds } = store.state.timer;
             if (!activeBlockId) return;
 
-            // Find the specific block in our blocks array
-            store.update('blocks', oldBlocks => {
-                return oldBlocks.map(b => {
-                    if (b.id === activeBlockId) {
-                        // Ensure it has tracking variables
-                        let studySecs = b.studySeconds || 0;
-                        let breakSecs = b.breakSeconds || 0;
+            if (mode === 'pomodoro' && phase === 'study' && studySeconds >= this.pomodoroDuration) {
+                this.stopTimer();
+                store.update('timer', t => ({ ...t, isRunning: false }));
+                alert("🎯 Pomodoro complete! Great focus. Time for a break.");
+                return;
+            }
 
-                        // Auto-stop Pomodoro when it hits 25 minutes (1500 seconds)
-                        if (mode === 'pomodoro' && phase === 'study' && studySecs >= this.pomodoroDuration) {
-                            this.stopTimer();
-                            store.update('timer', t => ({ ...t, isRunning: false }));
-                            alert("🎯 Pomodoro complete! Great focus. Time for a break.");
-                            return b;
-                        }
-
-                        // INJECT the time directly into the block's data!
-                        if (phase === 'study') {
-                            return { ...b, studySeconds: studySecs + 1 };
-                        } else {
-                            return { ...b, breakSeconds: breakSecs + 1 };
-                        }
-                    }
-                    return b;
-                });
-            });
+            // ONLY update the internal Timer memory, NOT the global blocks array
+            store.update('timer', t => ({
+                ...t,
+                studySeconds: phase === 'study' ? t.studySeconds + 1 : t.studySeconds,
+                breakSeconds: phase === 'break' ? t.breakSeconds + 1 : t.breakSeconds
+            }));
             
             this.updateUI();
         }, 1000);
@@ -109,10 +100,10 @@ class TimerUI {
 
     stopTimer() {
         clearInterval(this.interval);
+        this.saveTimeToBlock(); // Save only when pausing!
         this.updateUI();
     }
 
-    // Turns raw seconds (e.g., 65) into a nice digital format (01:05)
     formatTime(totalSeconds) {
         const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
         const s = (totalSeconds % 60).toString().padStart(2, '0');
@@ -120,9 +111,8 @@ class TimerUI {
     }
 
     updateUI() {
-        const { mode, phase, studySeconds, breakSeconds, isRunning } = store.state.timer;
+        const { mode, phase, studySeconds, breakSeconds, isRunning, activeBlockId } = store.state.timer;
 
-        // Visuals: Mode Switcher
         if (mode === 'stopwatch') {
             this.modeStopwatchBtn.className = 'px-4 py-1 rounded shadow bg-white text-gray-800 font-bold text-sm transition-all';
             this.modePomodoroBtn.className = 'px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:bg-gray-300';
@@ -131,7 +121,6 @@ class TimerUI {
             this.modeStopwatchBtn.className = 'px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:bg-gray-300';
         }
 
-        // Visuals: Phase Colors and Button Text
         if (phase === 'study') {
             this.phaseIndicator.textContent = 'Study Phase';
             this.phaseIndicator.className = 'absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider transition-colors';
@@ -144,42 +133,27 @@ class TimerUI {
             this.switchPhaseBtn.className = 'bg-blue-500 hover:bg-blue-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all';
         }
 
-        // Visuals: Start/Pause Button Colors
         this.toggleBtn.textContent = isRunning ? 'PAUSE' : 'START';
         this.toggleBtn.className = isRunning 
             ? 'bg-yellow-500 hover:bg-yellow-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all'
             : 'bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all';
 
-        // THE MAGIC: Calculate what numbers to actually show on the screen
-        // THE MAGIC: Calculate what numbers to actually show on the screen
         let displaySeconds = 0;
-        
-        // Find our active block to get its specific time data
-        const activeBlock = store.state.blocks.find(b => b.id === store.state.timer.activeBlockId);
-        
-        if (activeBlock) {
-            const currentStudySecs = activeBlock.studySeconds || 0;
-            const currentBreakSecs = activeBlock.breakSeconds || 0;
+        if (phase === 'break') {
+            displaySeconds = breakSeconds; 
+        } else {
+            if (mode === 'stopwatch') displaySeconds = studySeconds;
+            else displaySeconds = Math.max(0, this.pomodoroDuration - studySeconds); 
+        }
 
-            if (phase === 'break') {
-                displaySeconds = currentBreakSecs; // Break always counts up
-            } else {
-                if (mode === 'stopwatch') {
-                    displaySeconds = currentStudySecs; // Count up
-                } else {
-                    displaySeconds = Math.max(0, this.pomodoroDuration - currentStudySecs); // Count down
-                }
-            }
-            
-            // Update the title on the Focus screen so we know what we are studying!
+        const activeBlock = store.state.blocks.find(b => b.id === activeBlockId);
+        if (activeBlock) {
             const titleEl = document.querySelector('#focus h2');
             if (titleEl) titleEl.innerHTML = `🎯 Focus Mode: <span class="text-blue-600">${activeBlock.title}</span>`;
         }
 
-    
-        // Send the final numbers to the screen
-        this.display.textContent = this.formatTime(displaySeconds);
-    }
-} // <--- THIS IS THE MISSING BRACKET!
+        this.display.textContent = this.formatTime(displaySeconds);
+    }
+}
 
 export const timerUI = new TimerUI();
