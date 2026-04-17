@@ -8,13 +8,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-gray-100 text-gray-800 transition-colors duration-500 overflow-x-hidden flex flex-col h-screen">
+<body class="bg-gray-100 text-gray-800 transition-colors duration-500 overflow-x-hidden min-h-screen flex flex-col">
     
     <div id="globalExamBanner" class="hidden text-white text-center py-2 px-4 font-black tracking-wide z-[9999] shadow-md flex justify-center items-center gap-2">
         🚨 <span id="bannerText">Next Exam: Physics in 14 Days</span> 🚨
     </div>
 
-    <div class="p-8 flex-1 flex flex-col h-full max-h-full overflow-hidden">
+    <div class="p-8 flex-1 flex flex-col max-w-[1600px] mx-auto w-full">
         <h1 class="text-3xl font-bold mb-6 shrink-0">Study Planner Pro</h1>
 
         <div class="flex gap-4 mb-6 border-b pb-2 shrink-0">
@@ -24,7 +24,7 @@
             <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="exams">Exams</button>
         </div>
 
-        <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative flex flex-col flex-1 min-h-0">
+        <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative flex flex-col w-full">
             <div class="p-4 border-b bg-gray-50 flex justify-between items-center z-50 relative shadow-sm">
                 <div class="flex items-center gap-4">
                     
@@ -48,7 +48,7 @@
                 <button id="openAddBlockModalHeader" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Block</button>
             </div>
 
-            <div id="canvas-container" class="relative flex-1 overflow-hidden bg-slate-50 cursor-grab touch-none w-full h-full block">
+            <div id="canvas-container" class="relative w-full h-[700px] overflow-hidden bg-slate-50 cursor-grab touch-none block">
                 <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
                     <div id="canvas-grid"></div>
                     <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="left: -100000px; width: 200000px; height: calc(24 * 60px * var(--zoom));"></div>
@@ -62,7 +62,7 @@
                 <div class="absolute top-0 left-0 w-16 h-12 z-30 bg-gray-100 border-b border-r border-gray-200"></div>
             </div>
 
-            <div id="calendar-container" class="hidden flex-1 p-4 bg-gray-50 flex-col overflow-y-auto">
+            <div id="calendar-container" class="hidden w-full p-4 bg-gray-50 flex-col">
                 <div class="grid grid-cols-7 gap-2 mb-2 text-center font-bold text-gray-500 text-sm uppercase">
                     <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                 </div>
@@ -85,7 +85,7 @@
             </div>
         </div>
 
-        <div id="focus" class="tab-content hidden bg-white p-6 rounded-lg shadow flex-1">
+        <div id="focus" class="tab-content hidden bg-white p-6 rounded-lg shadow w-full">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold text-gray-800">🎯 Focus Mode</h2>
                 <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
@@ -103,7 +103,7 @@
             </div>
         </div>
 
-        <div id="stats" class="tab-content hidden bg-white rounded-lg shadow p-6 flex-1 overflow-y-auto">
+        <div id="stats" class="tab-content hidden bg-white rounded-lg shadow p-6 w-full">
             <div class="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 class="text-2xl font-bold text-gray-800">📊 Advanced Analytics</h2>
                 <div class="flex items-center gap-2">
@@ -146,7 +146,7 @@
             </div>
         </div>
 
-        <div id="exams" class="tab-content hidden bg-white rounded-lg shadow p-6 flex-1 overflow-y-auto">
+        <div id="exams" class="tab-content hidden bg-white rounded-lg shadow p-6 w-full">
             <div class="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 class="text-2xl font-bold text-gray-800">🚨 Exam Deadlines</h2>
                 <button id="openAddExamBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Exam</button>
