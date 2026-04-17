@@ -4,55 +4,34 @@ import { store } from './State.js';
 class UIManager {
     init() {
         this.bindEvents();
-
-        // 1. Subscribe to the Brain! Whenever 'activeTab' changes, run renderTab()
-        store.subscribe('activeTab', (newTabId) => {
-            this.renderTab(newTabId);
-        });
-
-        // 2. Trigger the first render based on the default state
+        store.subscribe('activeTab', (newTabId) => { this.renderTab(newTabId); });
         this.renderTab(store.state.activeTab);
     }
 
     bindEvents() {
-        // Listen for clicks on anything with the 'tab-btn' class
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.tab-btn');
-            if (btn && btn.dataset.tab) {
-                // Tell the Brain to update. The UI will change automatically!
-                store.update('activeTab', () => btn.dataset.tab);
-            }
+            if (btn && btn.dataset.tab) store.update('activeTab', () => btn.dataset.tab);
         });
     }
 
     renderTab(tabId) {
-        // Hide all contents
-        document.querySelectorAll('.tab-content').forEach(el => {
-            el.classList.add('hidden');
-            el.classList.remove('block');
-        });
-
-        // Show active content
+        document.querySelectorAll('.tab-content').forEach(el => { el.classList.add('hidden'); el.classList.remove('block'); });
         const activeContent = document.getElementById(tabId);
-        if (activeContent) {
-            activeContent.classList.remove('hidden');
-            activeContent.classList.add('block');
-        }
+        if (activeContent) { activeContent.classList.remove('hidden'); activeContent.classList.add('block'); }
 
-        // Update button styles
+        // Remove active class from all tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+            btn.classList.remove('active-tab', 'text-white', 'shadow');
             btn.classList.add('text-gray-500', 'hover:bg-gray-200');
         });
 
-        // Highlight active button
+        // Apply Theme engine active-tab CSS
         const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
         if (activeBtn) {
             activeBtn.classList.remove('text-gray-500', 'hover:bg-gray-200');
-            activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow');
+            activeBtn.classList.add('active-tab');
         }
     }
 }
-
 export const uiManager = new UIManager();
-
