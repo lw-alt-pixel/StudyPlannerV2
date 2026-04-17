@@ -5,7 +5,6 @@ class SettingsManager {
     init() {
         this.panel = document.getElementById('settingsPanel');
         this.subjectList = document.getElementById('settingsSubjectList');
-        
         this.bgMode = document.getElementById('settingsBgMode');
         this.bgColorDiv = document.getElementById('settingsBgColorDiv');
         this.bgImageDiv = document.getElementById('settingsBgImageDiv');
@@ -19,7 +18,6 @@ class SettingsManager {
             this.panel.classList.add('translate-x-full');
         });
 
-        // Background Toggle
         this.bgMode.addEventListener('change', (e) => {
             if (e.target.value === 'color') {
                 this.bgColorDiv.classList.remove('hidden');
@@ -31,7 +29,6 @@ class SettingsManager {
             store.update('theme', t => ({ ...t, bgType: e.target.value }));
         });
 
-        // Theme Inputs
         document.getElementById('settingsBgColor').addEventListener('input', (e) => {
             store.update('theme', t => ({ ...t, bgColor: e.target.value }));
         });
@@ -45,7 +42,14 @@ class SettingsManager {
             store.update('theme', t => ({ ...t, actionSize: e.target.value }));
         });
 
-        // Image Compressor (To prevent LocalStorage crashes!)
+        // NEW: Banner Colors
+        document.getElementById('settingsBannerBgColor').addEventListener('input', (e) => {
+            store.update('theme', t => ({ ...t, bannerBgColor: e.target.value }));
+        });
+        document.getElementById('settingsBannerTextColor').addEventListener('input', (e) => {
+            store.update('theme', t => ({ ...t, bannerTextColor: e.target.value }));
+        });
+
         document.getElementById('settingsBgImage').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -60,7 +64,7 @@ class SettingsManager {
                     if (width > maxW) { height = (maxW / width) * height; width = maxW; }
                     canvas.width = width; canvas.height = height;
                     ctx.drawImage(img, 0, 0, width, height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% quality compression
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
                     store.update('theme', t => ({ ...t, bgImage: dataUrl }));
                 };
                 img.src = ev.target.result;
@@ -68,7 +72,6 @@ class SettingsManager {
             reader.readAsDataURL(file);
         });
 
-        // Pomodoro Inputs
         document.getElementById('settingsPStudy').addEventListener('change', (e) => {
             store.update('settings', s => ({ ...s, pStudy: parseInt(e.target.value) || 25 }));
         });
@@ -76,7 +79,6 @@ class SettingsManager {
             store.update('settings', s => ({ ...s, pBreak: parseInt(e.target.value) || 5 }));
         });
 
-        // Subjects Save Button
         document.getElementById('settingsSaveSubjectsBtn').addEventListener('click', () => {
             this.saveSubjects();
             alert("Subject changes saved globally!");
@@ -94,10 +96,14 @@ class SettingsManager {
             this.bgColorDiv.classList.add('hidden'); this.bgImageDiv.classList.remove('hidden');
         }
 
-        document.getElementById('settingsBgColor').value = theme.bgColor;
-        document.getElementById('settingsTabColor').value = theme.tabColor;
-        document.getElementById('settingsActionColor').value = theme.actionColor;
-        document.getElementById('settingsActionSize').value = theme.actionSize;
+        document.getElementById('settingsBgColor').value = theme.bgColor || '#f3f4f6';
+        document.getElementById('settingsTabColor').value = theme.tabColor || '#3b82f6';
+        document.getElementById('settingsActionColor').value = theme.actionColor || '#2563eb';
+        document.getElementById('settingsActionSize').value = theme.actionSize || 'md';
+        
+        // NEW: Load Banner Colors
+        document.getElementById('settingsBannerBgColor').value = theme.bannerBgColor || '#dc2626';
+        document.getElementById('settingsBannerTextColor').value = theme.bannerTextColor || '#ffffff';
         
         document.getElementById('settingsPStudy').value = setts.pStudy;
         document.getElementById('settingsPBreak').value = setts.pBreak;
@@ -118,7 +124,6 @@ class SettingsManager {
         });
     }
 
-    // THE MASSIVE UPDATE LOGIC: Renames subjects globally in the database!
     saveSubjects() {
         const rows = document.querySelectorAll('.subject-row');
         const newSubjectsDict = {};
@@ -135,7 +140,6 @@ class SettingsManager {
 
         store.update('subjects', () => newSubjectsDict);
 
-        // Sweeps through all blocks and exams and overwrites their subjects if renamed!
         if (renames.length > 0) {
             store.update('blocks', blocks => blocks.map(b => {
                 const match = renames.find(r => r.old === b.subject);
