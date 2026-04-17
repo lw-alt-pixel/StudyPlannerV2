@@ -296,8 +296,7 @@ bindEvents() {
             el.style.padding = '4px 6px';
             el.style.overflow = 'hidden';
 
-            const totalSecs = (b.studySeconds || 0) + (b.breakSeconds || 0); 
-            
+            const totalSecs = b.studySeconds || 0;            
             // Button Logic
             let actionHtml = '';
             if (b.status === 'completed') {
