@@ -11,6 +11,13 @@ class CanvasUI {
         this.isDraggingBlock = false; this.draggedBlockEl = null; this.draggedBlockId = null;
         this.blockOffsetX = 0; this.blockOffsetY = 0; this.hasMovedBlock = false;
 
+        // 🎯 MULTI-TOUCH VARIABLES
+        this.activePointers = new Map();
+        this.initialPinchDistance = null;
+        this.initialPinchZoom = null;
+        this.pinchCenterY = null;
+        this.hasPinched = false;
+
         this.pxPerHour = 60; this.dayWidth = 180;
         this.root = document.documentElement;
         this.baseDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
@@ -38,7 +45,6 @@ class CanvasUI {
         this.drawGridLabels();
         this.bindEvents();
         
-        // 🎯 SNAP TO CURRENT TIME ON LOAD
         this.centerOnCurrentTime();
         
         const repaint = () => { 
@@ -59,12 +65,11 @@ class CanvasUI {
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
-    // 🎯 NEW FUNCTION: Calculates exact current time and centers screen!
     centerOnCurrentTime() {
         const now = this.getChinaTime();
         const minsFromMidnight = (now.getHours() * 60) + now.getMinutes();
         const viewHeight = this.container.clientHeight || 700;
-        this.panX = 10; // Snap horizontally to Today
+        this.panX = 10; 
         this.panY = -(minsFromMidnight * this.zoom) + (viewHeight / 2);
         this.enforceBoundsAndUpdate();
     }
@@ -152,12 +157,10 @@ class CanvasUI {
     }
 
     enforceBoundsAndUpdate() {
-        // 🎯 CLAMP ZOOM: Never let zoom fall below 1 (1 hour = 60 pixels)
         if (this.zoom < 1) this.zoom = 1;
 
         this.root.style.setProperty('--grid-30', 'transparent'); this.root.style.setProperty('--grid-15', 'transparent'); this.root.style.setProperty('--grid-5', 'transparent');
         
-        // Remove old classes
         this.container.classList.remove('show-15-mins', 'show-30-mins', 'show-5-mins');
         
         if (this.zoom >= 4) {
@@ -224,7 +227,6 @@ class CanvasUI {
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('centerTodayBtn')?.addEventListener('click', () => { this.centerOnCurrentTime(); });
 
-        // 🎯 ZOOM LIMITS: Removed 0.75. Lowest is now 1.
         const zoomLevels = [1, 1.5, 2, 4, 10, 20];
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => {
             let nextZoom = zoomLevels.find(z => z > this.zoom) || 20;
@@ -238,8 +240,24 @@ class CanvasUI {
             this.applyZoomWithCenterAnchor(1);
         });
 
+        // 🎯 MULTI-TOUCH POINTER DOWN
         this.container.addEventListener('pointerdown', (e) => {
             if (e.target.closest('button')) return;
+
+            this.activePointers.set(e.pointerId, e);
+
+            // 🎯 PINCH TO ZOOM DETECTED
+            if (this.activePointers.size === 2 && !this.isDraggingBlock) {
+                this.isPanning = false;
+                this.hasPinched = true;
+                const pointers = Array.from(this.activePointers.values());
+                this.initialPinchDistance = Math.hypot(pointers[0].clientX - pointers[1].clientX, pointers[0].clientY - pointers[1].clientY);
+                this.initialPinchZoom = this.zoom;
+                
+                const rect = this.container.getBoundingClientRect();
+                this.pinchCenterY = ((pointers[0].clientY + pointers[1].clientY) / 2) - rect.top - 48;
+                return;
+            }
 
             this.hasDragged = false; 
             const blockEl = e.target.closest('.ypt-block');
@@ -263,7 +281,29 @@ class CanvasUI {
             this.container.classList.add('cursor-grabbing');
         });
 
+        // 🎯 MULTI-TOUCH POINTER MOVE
         window.addEventListener('pointermove', (e) => {
+            if (this.activePointers.has(e.pointerId)) {
+                this.activePointers.set(e.pointerId, e);
+            }
+
+            // 🎯 EXECUTE PINCH SCALING
+            if (this.activePointers.size === 2 && !this.isDraggingBlock) {
+                const pointers = Array.from(this.activePointers.values());
+                const currentDist = Math.hypot(pointers[0].clientX - pointers[1].clientX, pointers[0].clientY - pointers[1].clientY);
+                
+                if (this.initialPinchDistance) {
+                    const scale = currentDist / this.initialPinchDistance;
+                    const newZoom = Math.min(Math.max(1, this.initialPinchZoom * scale), 20);
+                    const timeAtCenter = (this.pinchCenterY - this.panY) / this.zoom;
+                    
+                    this.zoom = newZoom;
+                    this.panY = this.pinchCenterY - (timeAtCenter * this.zoom);
+                    this.enforceBoundsAndUpdate();
+                }
+                return;
+            }
+
             if (this.isDraggingBlock && this.draggedBlockEl) {
                 this.hasMovedBlock = true;
                 const canvasRect = this.container.getBoundingClientRect();
@@ -277,7 +317,31 @@ class CanvasUI {
             }
         });
 
-       window.addEventListener('pointerup', (e) => {
+        // 🎯 MULTI-TOUCH POINTER UP
+        window.addEventListener('pointerup', (e) => {
+            this.activePointers.delete(e.pointerId);
+
+            // If user releases one finger after a pinch, switch back to seamless panning for the remaining finger!
+            if (this.activePointers.size === 1 && this.hasPinched) {
+                const remaining = Array.from(this.activePointers.values())[0];
+                this.startX = remaining.clientX - this.panX;
+                this.startY = remaining.clientY - this.panY;
+                this.isPanning = true;
+                this.initialPinchDistance = null;
+                return;
+            }
+
+            // If user releases all fingers after a pinch, do NOT trigger the "Add Block" modal!
+            if (this.activePointers.size === 0) {
+                this.initialPinchDistance = null;
+                if (this.hasPinched) {
+                    this.hasPinched = false;
+                    this.isPanning = false;
+                    this.container.classList.remove('cursor-grabbing');
+                    return; 
+                }
+            }
+
             if (this.isDraggingBlock) {
                 this.isDraggingBlock = false;
                 this.draggedBlockEl.classList.remove('dragging-block');
@@ -353,6 +417,17 @@ class CanvasUI {
             }
         });
 
+        // 🎯 SAFETY: If gesture is interrupted by iOS system call/notification
+        window.addEventListener('pointercancel', (e) => {
+            this.activePointers.delete(e.pointerId);
+            this.initialPinchDistance = null;
+            this.hasPinched = false;
+            this.isPanning = false;
+            this.isDraggingBlock = false;
+            if(this.draggedBlockEl) this.draggedBlockEl.classList.remove('dragging-block');
+            this.container.classList.remove('cursor-grabbing');
+        });
+
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
@@ -360,7 +435,6 @@ class CanvasUI {
                 const cursorY = e.clientY - rect.top - 48; 
                 const timeUnderCursor = (cursorY - this.panY) / this.zoom;
 
-                // 🎯 ZOOM LIMITS: Math.max(1, ...)
                 const delta = e.deltaY > 0 ? -0.05 : 0.05; 
                 this.zoom = Math.min(Math.max(1, this.zoom + delta), 20);
                 this.panY = cursorY - (timeUnderCursor * this.zoom);
@@ -508,7 +582,6 @@ class CanvasUI {
             const leftPx = 100800 + (dayOffset * this.dayWidth);
             const subColor = store.state.subjects[b.subject] || '#3b82f6';
             
-            // 🎯 NEW: MATHEMATICAL PIXEL HEIGHT FOR DYNAMIC TEXT SCALING
             const pixelHeight = durationMins * this.zoom;
 
             const el = document.createElement('div');
@@ -522,7 +595,6 @@ class CanvasUI {
             const displayStart = startObjReal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
             const displayEnd = endObjReal.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
             
-            // 🎯 DYNAMIC TEXT & BUTTON SCALING LOGIC
             let actionHtml = '';
             let actionBtnClass = pixelHeight < 50 ? 'absolute right-1 bottom-1 px-1.5 py-0.5 rounded text-[8px] leading-none' : 'w-full mt-1 py-0.5 rounded text-[9px]';
             let actionText = pixelHeight < 50 ? '▶' : '▶ START';
@@ -538,14 +610,12 @@ class CanvasUI {
 
             let contentHtml = '';
             if (pixelHeight < 30) {
-                // Ultra thin block: Just title, heavily center-aligned
                 contentHtml = `
                     <div class="pointer-events-none z-10 flex-1 flex items-center min-h-0 pr-6">
                         <div class="font-bold text-[10px] truncate drop-shadow-md w-full leading-tight">${b.title}</div>
                     </div>
                 `;
             } else if (pixelHeight < 50) {
-                // Medium block: Subject and Title, no timestamps
                 contentHtml = `
                     <div class="pointer-events-none z-10 flex-1 flex flex-col min-h-0 justify-center pr-6">
                         <div class="font-bold text-[9px] truncate drop-shadow-md uppercase text-white/80 leading-tight">${b.subject || ''}</div>
@@ -553,7 +623,6 @@ class CanvasUI {
                     </div>
                 `;
             } else {
-                // Normal large block: Shows everything
                 contentHtml = `
                     <div class="pointer-events-none z-10 flex-1 flex flex-col min-h-0">
                         <div class="font-bold text-[10px] truncate drop-shadow-md pr-4 uppercase text-white/80">${b.subject || ''}</div>
