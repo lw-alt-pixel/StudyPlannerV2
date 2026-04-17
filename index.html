@@ -8,14 +8,14 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-gray-100 text-gray-800 transition-colors duration-500 overflow-x-hidden min-h-screen flex flex-col">
+<body class="transition-colors duration-500 overflow-x-hidden min-h-screen flex flex-col">
     
     <div id="globalExamBanner" class="hidden text-white text-center py-2 px-4 font-black tracking-wide z-[9999] shadow-md flex justify-center items-center gap-2">
-        🚨 <span id="bannerText">Next Exam: Physics in 14 Days</span> 🚨
+        🚨 <span id="bannerText">Next Exam</span> 🚨
     </div>
 
-    <div class="p-8 flex-1 flex flex-col max-w-[1600px] mx-auto w-full">
-        <h1 class="text-3xl font-bold mb-6 shrink-0">Study Planner Pro</h1>
+    <div class="p-8 flex-1 flex flex-col max-w-[1600px] mx-auto w-full relative z-10">
+        <h1 class="text-3xl font-bold mb-6 shrink-0 drop-shadow-md">Study Planner Pro</h1>
 
         <div class="flex gap-4 mb-6 border-b pb-2 shrink-0">
             <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
@@ -24,31 +24,28 @@
             <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="exams">Exams</button>
         </div>
 
-        <div id="schedule" class="tab-content active bg-white rounded-lg shadow overflow-hidden relative flex flex-col w-full">
-            <div class="p-4 border-b bg-gray-50 flex justify-between items-center z-50 relative shadow-sm">
+        <div id="schedule" class="tab-content active bg-white/95 backdrop-blur-md rounded-lg shadow-lg overflow-hidden relative flex flex-col w-full">
+            <div class="p-4 border-b bg-gray-50/80 flex justify-between items-center z-50 relative shadow-sm">
                 <div class="flex items-center gap-4">
-                    
                     <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
                         <button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600">🗺️ Timeline</button>
                         <button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">📅 Month</button>
                     </div>
-
                     <div id="canvasControls" class="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                         <button id="prevDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600">&lt;</button>
                         <button id="centerTodayBtn" class="px-4 py-1 hover:bg-blue-50 font-bold text-sm text-blue-600">Go to Today</button>
                         <button id="nextDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600">&gt;</button>
                     </div>
-
                     <div id="calendarControls" class="hidden items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                         <button id="prevMonthBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600">&lt;</button>
                         <div id="currentMonthLabel" class="px-4 py-1 font-bold text-sm text-gray-700">April 2024</div>
                         <button id="nextMonthBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600">&gt;</button>
                     </div>
                 </div>
-                <button id="openAddBlockModalHeader" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Block</button>
+                <button id="openAddBlockModalHeader" class="custom-action-btn rounded-lg font-bold shadow-md">+ Add Block</button>
             </div>
 
-            <div id="canvas-container" class="relative w-full h-[700px] overflow-hidden bg-slate-50 cursor-grab touch-none block">
+            <div id="canvas-container" class="relative w-full h-[700px] overflow-hidden bg-slate-50/90 cursor-grab touch-none block">
                 <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
                     <div id="canvas-grid"></div>
                     <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="left: -100800px; width: 201600px; height: calc(24 * 60px * var(--zoom));"></div>
@@ -62,7 +59,7 @@
                 <div class="absolute top-0 left-0 w-16 h-12 z-30 bg-gray-100 border-b border-r border-gray-200"></div>
             </div>
 
-            <div id="calendar-container" class="hidden w-full p-4 bg-gray-50 flex-col">
+            <div id="calendar-container" class="hidden w-full p-4 bg-gray-50/90 flex-col">
                 <div class="grid grid-cols-7 gap-2 mb-2 text-center font-bold text-gray-500 text-sm uppercase">
                     <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                 </div>
@@ -71,7 +68,7 @@
 
             <div id="daySlidePanel" class="absolute top-0 right-0 bottom-0 w-80 bg-white shadow-[-10px_0_20px_rgba(0,0,0,0.1)] border-l transform translate-x-full transition-transform duration-300 z-[100] flex flex-col">
                 <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <h3 id="slidePanelDate" class="font-bold text-lg text-blue-600">Apr 14, 2024</h3>
+                    <h3 id="slidePanelDate" class="font-bold text-lg text-blue-600">Date</h3>
                     <button id="closeSlidePanel" class="text-gray-400 hover:text-red-500 font-bold text-2xl">&times;</button>
                 </div>
                 <div class="p-4 border-b">
@@ -85,7 +82,7 @@
             </div>
         </div>
 
-        <div id="focus" class="tab-content hidden bg-white p-6 rounded-lg shadow w-full">
+        <div id="focus" class="tab-content hidden bg-white/95 backdrop-blur-md p-6 rounded-lg shadow-lg w-full">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold text-gray-800">🎯 Focus Mode</h2>
                 <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer">
@@ -93,17 +90,28 @@
                     <button id="modePomodoro" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all">Pomodoro</button>
                 </div>
             </div>
+
+            <div class="mb-4 bg-gray-50 border p-4 rounded-xl flex justify-between items-center shadow-sm">
+                <div class="flex-1 mr-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Study Subject</label>
+                    <select id="focusSpontaneousSubject" class="w-full p-2 border rounded font-bold text-gray-700"></select>
+                </div>
+                <div class="flex items-end">
+                    <button id="finishTimerBtn" class="custom-action-btn rounded-lg font-bold shadow-md">🏁 Finish & Save</button>
+                </div>
+            </div>
+
             <div class="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-xl border-2 border-gray-100 relative h-96">
                 <div id="phaseIndicator" class="absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider">Study Phase</div>
                 <div id="timerDisplay" class="text-8xl font-bold font-mono text-gray-800 my-8 transition-colors">00:00</div>
                 <div class="flex gap-4">
-                    <button id="toggleTimerBtn" class="bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">START</button>
-                    <button id="switchPhaseBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all">TAKE BREAK</button>
+                    <button id="toggleTimerBtn" class="custom-action-btn rounded-lg font-bold shadow-md">START</button>
+                    <button id="switchPhaseBtn" class="custom-action-btn rounded-lg font-bold shadow-md opacity-80">TAKE BREAK</button>
                 </div>
             </div>
         </div>
 
-        <div id="stats" class="tab-content hidden bg-white rounded-lg shadow p-6 w-full">
+        <div id="stats" class="tab-content hidden bg-white/95 backdrop-blur-md rounded-lg shadow-lg p-6 w-full">
             <div class="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 class="text-2xl font-bold text-gray-800">📊 Advanced Analytics</h2>
                 <div class="flex items-center gap-2">
@@ -116,7 +124,7 @@
                         <input type="date" id="statsStart" class="p-2 border rounded text-sm">
                         <span class="text-gray-400 font-bold">to</span>
                         <input type="date" id="statsEnd" class="p-2 border rounded text-sm">
-                        <button id="applyCustomStats" class="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700">Apply</button>
+                        <button id="applyCustomStats" class="custom-action-btn rounded font-bold">Apply</button>
                     </div>
                 </div>
             </div>
@@ -146,33 +154,86 @@
             </div>
         </div>
 
-        <div id="exams" class="tab-content hidden bg-white rounded-lg shadow p-6 w-full">
+        <div id="exams" class="tab-content hidden bg-white/95 backdrop-blur-md rounded-lg shadow-lg p-6 w-full">
             <div class="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 class="text-2xl font-bold text-gray-800">🚨 Exam Deadlines</h2>
-                <button id="openAddExamBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold shadow-md">+ Add Exam</button>
+                <button id="openAddExamBtn" class="custom-action-btn rounded-lg font-bold shadow-md">+ Add Exam</button>
             </div>
             <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
     </div>
 
-    <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center pointer-events-auto">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-[450px] transform transition-all">
-            <h3 class="text-xl font-bold mb-4">Add Study Block</h3>
-            
-            <label class="block text-sm font-bold text-gray-700 mb-1">Subject</label>
-            <select id="newBlockSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select>
+    <button id="openAddBlockModal" class="custom-action-btn fixed w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform z-[900]" style="bottom: 30px; right: 30px; touch-action: none;">+</button>
+    <button id="openSettingsBtn" class="custom-action-btn fixed w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform z-[900]" style="top: 30px; right: 30px; touch-action: none;">⚙️</button>
 
-            <div id="newBlockCustomSubjectDiv" class="hidden gap-4 mb-3 border p-3 rounded bg-gray-50">
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-gray-500 uppercase">New Subject Name</label>
-                    <input type="text" id="newBlockCustomName" class="w-full p-2 border rounded font-bold text-gray-700" placeholder="e.g. Art">
-                </div>
-                <div class="w-20">
-                    <label class="block text-xs font-bold text-gray-500 uppercase">Color</label>
-                    <input type="color" id="newBlockCustomColor" class="w-full h-10 border rounded cursor-pointer" value="#ff0000">
-                </div>
+    <div id="settingsPanel" class="fixed top-0 right-0 bottom-0 w-96 bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.2)] border-l transform translate-x-full transition-transform duration-300 z-[1000] flex flex-col">
+        <div class="p-4 border-b bg-gray-50 flex justify-between items-center shadow-sm z-10">
+            <h3 class="font-bold text-xl text-gray-800">⚙️ Settings</h3>
+            <button id="closeSettingsPanel" class="text-gray-400 hover:text-red-500 font-bold text-2xl">&times;</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-8 bg-gray-50/50">
+            
+            <div class="bg-white p-4 border rounded-xl shadow-sm">
+                <h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">📚 Manage Subjects</h4>
+                <div id="settingsSubjectList" class="flex flex-col gap-3 mb-4"></div>
+                <button id="settingsSaveSubjectsBtn" class="custom-action-btn w-full rounded font-bold shadow-sm">Save Subject Changes</button>
             </div>
 
+            <div class="bg-white p-4 border rounded-xl shadow-sm">
+                <h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">🎨 Theme & Colors</h4>
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Background Mode</label>
+                <select id="settingsBgMode" class="w-full p-2 border rounded mb-3 bg-gray-50">
+                    <option value="color">Solid Color</option>
+                    <option value="image">Custom Photo</option>
+                </select>
+                
+                <div id="settingsBgColorDiv">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Background Color</label>
+                    <input type="color" id="settingsBgColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                </div>
+                
+                <div id="settingsBgImageDiv" class="hidden">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Photo</label>
+                    <input type="file" accept="image/*" id="settingsBgImage" class="w-full p-2 border rounded text-xs mb-3 bg-gray-50">
+                </div>
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Tab Buttons Color</label>
+                <input type="color" id="settingsTabColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Unified Action Color</label>
+                <input type="color" id="settingsActionColor" class="w-full h-10 border rounded cursor-pointer mb-3">
+                
+                <label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Action Button Size</label>
+                <select id="settingsActionSize" class="w-full p-2 border rounded mb-3 bg-gray-50">
+                    <option value="sm">Small</option>
+                    <option value="md">Medium</option>
+                    <option value="lg">Large</option>
+                </select>
+            </div>
+
+            <div class="bg-white p-4 border rounded-xl shadow-sm">
+                <h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">⏱️ Pomodoro Settings</h4>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase">Study (Mins)</label>
+                        <input type="number" id="settingsPStudy" class="w-full p-2 border rounded text-center font-bold bg-gray-50">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase">Break (Mins)</label>
+                        <input type="number" id="settingsPBreak" class="w-full p-2 border rounded text-center font-bold bg-gray-50">
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[2000] flex items-center justify-center pointer-events-auto">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[450px]">
+            <h3 class="text-xl font-bold mb-4">Add Study Block</h3>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Subject</label>
+            <select id="newBlockSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select>
             <label class="block text-sm font-bold text-gray-700 mb-1">Specific Topic (Optional)</label>
             <input type="text" id="newBlockTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Chapter 4 Review">
             
@@ -186,7 +247,6 @@
                     <input type="time" id="newBlockStart" class="w-full p-2 border rounded font-bold text-gray-700">
                 </div>
             </div>
-
             <div class="flex gap-4 mb-6">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-gray-500 uppercase">End Date</label>
@@ -197,35 +257,20 @@
                     <input type="time" id="newBlockEnd" class="w-full p-2 border rounded font-bold text-gray-700">
                 </div>
             </div>
-            
             <div class="flex justify-end gap-2">
                 <button id="cancelAddBlock" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
-                <button id="saveNewBlock" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold shadow-md">Save Block</button>
+                <button id="saveNewBlock" class="custom-action-btn rounded font-bold shadow-md">Save Block</button>
             </div>
         </div>
     </div>
 
-    <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[1000] flex items-center justify-center pointer-events-auto">
+    <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[2000] flex items-center justify-center pointer-events-auto">
         <div class="bg-white p-6 rounded-xl shadow-2xl w-[400px]">
             <h3 class="text-xl font-bold mb-4 text-red-600">🚨 Add Exam Deadline</h3>
-            
             <label class="block text-sm font-bold text-gray-700 mb-1">Subject</label>
             <select id="newExamSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select>
-
-            <div id="newExamCustomSubjectDiv" class="hidden gap-4 mb-3 border p-3 rounded bg-gray-50">
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-gray-500 uppercase">New Subject Name</label>
-                    <input type="text" id="newExamCustomName" class="w-full p-2 border rounded font-bold text-gray-700" placeholder="e.g. Art">
-                </div>
-                <div class="w-20">
-                    <label class="block text-xs font-bold text-gray-500 uppercase">Color</label>
-                    <input type="color" id="newExamCustomColor" class="w-full h-10 border rounded cursor-pointer" value="#ff0000">
-                </div>
-            </div>
-
             <label class="block text-sm font-bold text-gray-700 mb-1">Specific Exam Title (Optional)</label>
             <input type="text" id="newExamTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Final Paper 1">
-            
             <div class="flex gap-4 mb-6">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-gray-500 uppercase">Date</label>
@@ -236,15 +281,12 @@
                     <input type="time" id="newExamTime" class="w-full p-2 border rounded font-bold text-gray-700" value="09:00">
                 </div>
             </div>
-            
             <div class="flex justify-end gap-2">
                 <button id="cancelAddExam" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button>
-                <button id="saveNewExam" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold shadow-md">Save Exam</button>
+                <button id="saveNewExam" class="custom-action-btn rounded font-bold shadow-md">Save Exam</button>
             </div>
         </div>
     </div>
-
-    <button id="openAddBlockModal" class="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold transition-transform hover:scale-110 z-[900]">+</button>
 
     <script type="module" src="js/App.js"></script>
 </body>
