@@ -150,8 +150,26 @@ class CanvasUI {
             const btn = e.target.closest('button');
             if (btn && btn.classList.contains('play-btn')) {
                 const id = parseInt(btn.dataset.id);
+                
+                // 1. Find the specific block we just clicked
+                const block = store.state.blocks.find(b => b.id === id);
+                const currentStudySecs = block.studySeconds || 0;
+                const currentBreakSecs = block.breakSeconds || 0;
+
+                // 2. Mark the block as active on the grid
                 store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualStart: this.getChinaTime().getTime(), status: 'active' } : b));
-                store.update('timer', t => ({ ...t, activeBlockId: id, isRunning: true }));
+                
+                // 3. Inject the block's exact saved time directly into the Timer!
+                store.update('timer', t => ({ 
+                    ...t, 
+                    activeBlockId: id, 
+                    isRunning: true,
+                    studySeconds: currentStudySecs,
+                    breakSeconds: currentBreakSecs,
+                    secondsElapsed: currentStudySecs // Keeps the engine synced
+                }));
+                
+                // 4. Switch to the Focus tab
                 document.querySelector('[data-tab="focus"]')?.click();
                 return;
             }
