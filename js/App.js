@@ -5,6 +5,7 @@ import { themeManager } from './ThemeManager.js';
 import { canvasUI } from './CanvasUI.js';
 import { blockManager } from './BlockManager.js'; 
 import { statsUI } from './StatsUI.js'; 
+import { examManager } from './ExamManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     uiManager.init();
@@ -13,4 +14,5 @@ document.addEventListener('DOMContentLoaded', () => {
     canvasUI.init();
     blockManager.init(); 
     statsUI.init(); 
+    examManager.init();
 });
