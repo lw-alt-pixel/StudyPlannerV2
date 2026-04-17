@@ -4,16 +4,34 @@ import { store } from './State.js';
 class BlockManager {
     init() {
         this.modal = document.getElementById('addBlockModal');
+        
         this.subjectInput = document.getElementById('newBlockSubject');
+        this.customSubjectDiv = document.getElementById('newBlockCustomSubjectDiv');
+        this.customNameInput = document.getElementById('newBlockCustomName');
+        this.customColorInput = document.getElementById('newBlockCustomColor');
         this.titleInput = document.getElementById('newBlockTitle');
-        this.colorInput = document.getElementById('newBlockColor');
         
         this.startDateInput = document.getElementById('newBlockStartDate');
         this.startInput = document.getElementById('newBlockStart');
         this.endDateInput = document.getElementById('newBlockEndDate');
         this.endInput = document.getElementById('newBlockEnd');
         
+        store.subscribe('subjects', () => this.populateSubjects());
+        this.populateSubjects();
         this.bindEvents();
+    }
+
+    populateSubjects() {
+        const subs = store.state.subjects;
+        this.subjectInput.innerHTML = '';
+        Object.keys(subs).forEach(sub => {
+            this.subjectInput.innerHTML += `<option value="${sub}">${sub}</option>`;
+        });
+        this.subjectInput.innerHTML += `<option value="Other">📌 Other (New Subject)</option>`;
+        
+        // Reset custom input state
+        this.customSubjectDiv.classList.add('hidden');
+        this.customSubjectDiv.classList.remove('flex');
     }
 
     getTodayStr() {
@@ -21,7 +39,6 @@ class BlockManager {
         return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
     }
 
-    // UPGRADED: Now accepts `durationMins` to dynamically calculate the End Time!
     openModalWithPreFill(dateStr, timeStr, durationMins = 60) {
         this.modal.classList.remove('hidden');
         this.titleInput.value = ''; 
@@ -29,20 +46,19 @@ class BlockManager {
         this.startDateInput.value = dateStr;
         this.startInput.value = timeStr;
         
-        // Calculate exact End Time based on the zoom duration
         let [h, m] = timeStr.split(':').map(Number);
         let endTotalMins = (h * 60) + m + durationMins;
         
-        let endDateObj = new Date(dateStr);
-        if (endTotalMins >= 1440) { // Rollover past midnight!
-            endTotalMins -= 1440;
-            endDateObj.setDate(endDateObj.getDate() + 1);
-        }
-        
-        this.endDateInput.value = endDateObj.toISOString().split('T')[0];
-        
         let endH = Math.floor(endTotalMins / 60);
         let endM = endTotalMins % 60;
+        
+        let targetEndDate = new Date(dateStr);
+        if (endH >= 24) {
+            endH = endH % 24;
+            targetEndDate.setDate(targetEndDate.getDate() + 1);
+        }
+        
+        this.endDateInput.value = targetEndDate.toISOString().split('T')[0];
         this.endInput.value = `${endH.toString().padStart(2,'0')}:${endM.toString().padStart(2,'0')}`;
         
         this.titleInput.focus();
@@ -57,21 +73,39 @@ class BlockManager {
             this.modal.classList.add('hidden');
         });
 
+        // Watch for "Other" selection
+        this.subjectInput.addEventListener('change', () => {
+            if (this.subjectInput.value === 'Other') {
+                this.customSubjectDiv.classList.remove('hidden');
+                this.customSubjectDiv.classList.add('flex');
+            } else {
+                this.customSubjectDiv.classList.add('hidden');
+                this.customSubjectDiv.classList.remove('flex');
+            }
+        });
+
         document.getElementById('saveNewBlock')?.addEventListener('click', () => {
             this.createBlock();
         });
     }
 
     createBlock() {
-        const subject = this.subjectInput.value;
+        let finalSubject = this.subjectInput.value;
+        
+        // If it's a brand new subject, save it permanently to the Brain!
+        if (finalSubject === 'Other') {
+            finalSubject = this.customNameInput.value.trim() || 'Custom Subject';
+            const newColor = this.customColorInput.value;
+            store.update('subjects', subs => ({...subs, [finalSubject]: newColor}));
+        }
+
         const topic = this.titleInput.value.trim();
-        const finalTitle = topic ? `${subject}: ${topic}` : subject;
+        const finalTitle = topic ? `${finalSubject}: ${topic}` : finalSubject;
 
         const newBlock = {
             id: Date.now(),
-            subject: subject, 
+            subject: finalSubject, 
             title: finalTitle,
-            color: this.colorInput.value,
             startDate: this.startDateInput.value,
             scheduledStart: this.startInput.value,
             endDate: this.endDateInput.value,
