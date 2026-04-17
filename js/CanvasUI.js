@@ -179,42 +179,48 @@ class CanvasUI {
             }
         });
 
-        window.addEventListener('pointerup', (e) => {
+       window.addEventListener('pointerup', (e) => {
             if (this.isPanning) {
                 this.isPanning = false;
                 this.container.classList.remove('cursor-grabbing');
                 
-                // CLICK-TO-ADD LOGIC! If they didn't drag the mouse, it was a click on the background.
+                // CLICK-TO-ADD LOGIC!
                 if (!this.hasDragged && !e.target.closest('.ypt-block')) {
                     const rect = this.container.getBoundingClientRect();
-                    // Reverse calculate the click coordinates back into grid coordinates
                     const clickX = e.clientX - rect.left - 64; 
                     const clickY = e.clientY - rect.top - 48;  
                     
                     const gridX = (clickX - this.panX) / this.zoom;
                     const gridY = (clickY - this.panY) / this.zoom;
 
-                    // Math: Find what day and time they clicked
                     const dayOffset = Math.floor((gridX - 100000) / this.dayWidth);
                     let clickedDate = new Date(this.baseDate);
                     clickedDate.setDate(this.baseDate.getDate() + dayOffset);
                     const dateStr = clickedDate.toISOString().split('T')[0];
 
-                    // Snap to nearest 15 minutes
+                    // --- SMART SNAPPING LOGIC ---
+                    let snapInterval = 60; // Default 1 hour
+                    if (this.zoom >= 2.0) snapInterval = 15; // Zoom Level 2: 15 mins
+                    else if (this.zoom >= 1.5) snapInterval = 30; // Zoom Level 1: 30 mins
+
                     let totalMins = Math.floor(gridY);
-                    totalMins = Math.round(totalMins / 15) * 15;
-                    if(totalMins < 0) totalMins = 0; if(totalMins >= 1440) totalMins = 1439;
+                    
+                    // We use Math.floor so clicking *inside* the 14:30 box snaps to 14:30, not 15:00
+                    totalMins = Math.floor(totalMins / snapInterval) * snapInterval;
+                    
+                    // Clamp to boundaries
+                    if(totalMins < 0) totalMins = 0; 
+                    if(totalMins > 1440 - snapInterval) totalMins = 1440 - snapInterval; 
 
                     const h = Math.floor(totalMins / 60).toString().padStart(2, '0');
                     const m = (totalMins % 60).toString().padStart(2, '0');
                     const timeStr = `${h}:${m}`;
 
-                    // Open the Modal pre-filled!
-                    blockManager.openModalWithPreFill(dateStr, timeStr);
+                    // Open the Modal pre-filled with the exact Start Time AND Duration!
+                    blockManager.openModalWithPreFill(dateStr, timeStr, snapInterval);
                 }
             }
         });
-
         // DAMPENED SCROLLING (Slower tracking)
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
