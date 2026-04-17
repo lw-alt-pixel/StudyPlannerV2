@@ -16,17 +16,26 @@ class UIManager {
     }
 
     renderTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => { el.classList.add('hidden'); el.classList.remove('block'); });
+        // Forcefully hide all tabs completely
+        document.querySelectorAll('.tab-content').forEach(el => { 
+            el.classList.add('hidden'); 
+            el.classList.remove('block', 'flex'); 
+        });
+        
+        // Forcefully render the active tab
         const activeContent = document.getElementById(tabId);
-        if (activeContent) { activeContent.classList.remove('hidden'); activeContent.classList.add('block'); }
+        if (activeContent) { 
+            activeContent.classList.remove('hidden'); 
+            // We use Flex Flex-Col so the internal charts and timers stretch correctly!
+            activeContent.classList.add('flex', 'flex-col'); 
+        }
 
-        // Remove active class from all tabs
+        // Update Button Colors
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active-tab', 'text-white', 'shadow');
             btn.classList.add('text-gray-500', 'hover:bg-gray-200');
         });
 
-        // Apply Theme engine active-tab CSS
         const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
         if (activeBtn) {
             activeBtn.classList.remove('text-gray-500', 'hover:bg-gray-200');
@@ -35,4 +44,3 @@ class UIManager {
     }
 }
 export const uiManager = new UIManager();
-
