@@ -39,7 +39,6 @@ class CanvasUI {
         this.bindEvents();
         this.enforceBoundsAndUpdate();
         
-        // Live auto-refresh of panel!
         const repaint = () => { 
             this.renderBlocks(); 
             this.renderMonthCalendar(); 
@@ -52,7 +51,12 @@ class CanvasUI {
         repaint();
     }
 
+    // NEW: Bulletproof local timezone date string
     getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
+    getTodayStr() {
+        const d = this.getChinaTime();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
 
     updateCurrentTimeLine() {
         const now = this.getChinaTime();
@@ -108,6 +112,8 @@ class CanvasUI {
             });
         }
 
+        const todayStr = this.getTodayStr(); // FIXED TIMEZONE BUG!
+
         this.daysLayer.innerHTML = '';
         for (let i = -30; i <= 60; i++) {
             let targetDate = new Date(this.baseDate); targetDate.setDate(this.baseDate.getDate() + i);
@@ -127,7 +133,7 @@ class CanvasUI {
                 html = `<span class="text-white font-black text-sm mb-1">${displayStr}</span>`;
                 dayExams.forEach(ex => { html += `<div class="text-[9px] bg-red-800 text-white rounded px-1 font-bold w-11/12 mx-auto truncate" title="${ex.title}">🚨 ${ex.time} - ${ex.title}</div>`; });
             } else {
-                html = i === 0 ? `<span class="text-blue-600 font-black">⭐ Today</span> <br/> <span class="text-[10px] text-gray-500">${displayStr}</span>` : `<span class="text-gray-700 font-bold">${displayStr}</span>`;
+                html = (exactDateStr === todayStr) ? `<span class="text-blue-600 font-black">⭐ Today</span> <br/> <span class="text-[10px] text-gray-500">${displayStr}</span>` : `<span class="text-gray-700 font-bold">${displayStr}</span>`;
             }
             dayEl.innerHTML = html;
             this.daysLayer.appendChild(dayEl);
@@ -158,7 +164,6 @@ class CanvasUI {
         this.root.style.setProperty('--zoom', this.zoom);
     }
 
-    // NEW: Central Anchor Zoom function for Buttons
     applyZoomWithCenterAnchor(newZoom) {
         const viewHeight = this.container.clientHeight - 48;
         const centerY = viewHeight / 2;
@@ -183,7 +188,6 @@ class CanvasUI {
             document.getElementById('daySlidePanel').classList.add('translate-x-full');
         });
 
-        // LIVE SIDE-PANEL EDITOR CLICKS!
         document.getElementById('slidePanelBlocks')?.addEventListener('click', (e) => {
             const blockEl = e.target.closest('.agenda-block-interactive');
             if (blockEl && blockEl.dataset.id) {
@@ -201,7 +205,6 @@ class CanvasUI {
             this.panX = 10; this.updateCurrentTimeLine(); this.panY = -(parseFloat(this.currentTimeLine.style.top) || 480) + 200; this.enforceBoundsAndUpdate(); 
         });
 
-        // 🎯 NEW: SNAP ZOOM BUTTON LOGIC
         const zoomLevels = [0.75, 1, 1.5, 2, 4, 10, 20];
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => {
             let nextZoom = zoomLevels.find(z => z > this.zoom) || 20;
@@ -216,12 +219,14 @@ class CanvasUI {
         });
 
         this.container.addEventListener('pointerdown', (e) => {
+            // THE SHIELD: If you click ANY button (like zoom controls), ignore panning/dragging entirely!
+            if (e.target.closest('button')) return;
+
             this.hasDragged = false; 
             const blockEl = e.target.closest('.ypt-block');
             if (blockEl) {
                 const id = parseInt(blockEl.dataset.id);
                 const block = store.state.blocks.find(b => b.id === id);
-                if (e.target.closest('button')) return; 
 
                 if (block && block.status === 'pending') {
                     this.isDraggingBlock = true; this.draggedBlockEl = blockEl; this.draggedBlockId = id;
@@ -306,7 +311,9 @@ class CanvasUI {
 
             if (this.isPanning) {
                 this.isPanning = false; this.container.classList.remove('cursor-grabbing');
-                if (!this.hasDragged && !e.target.closest('.ypt-block')) {
+                
+                // SHIELD: Ignore adding a block if mouse was lifted while over a button!
+                if (!this.hasDragged && !e.target.closest('.ypt-block') && !e.target.closest('button')) {
                     const rect = this.container.getBoundingClientRect();
                     const clickX = e.clientX - rect.left - 64; const clickY = e.clientY - rect.top - 48;  
                     const gridX = (clickX - this.panX); const gridY = (clickY - this.panY) / this.zoom;
@@ -328,7 +335,6 @@ class CanvasUI {
             }
         });
 
-        // 🎯 NEW: CURSOR-ANCHORED ZOOM PHYSICS!
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
@@ -336,10 +342,8 @@ class CanvasUI {
                 const cursorY = e.clientY - rect.top - 48; 
                 const timeUnderCursor = (cursorY - this.panY) / this.zoom;
 
-                const delta = e.deltaY > 0 ? -0.05 : 0.05; // Lower sensitivity for smooth zoom!
+                const delta = e.deltaY > 0 ? -0.05 : 0.05; 
                 this.zoom = Math.min(Math.max(0.7, this.zoom + delta), 20);
-
-                // Re-anchor panY so time under cursor stays frozen in place
                 this.panY = cursorY - (timeUnderCursor * this.zoom);
             } else {
                 this.panX -= (e.deltaX * 0.5); this.panY -= (e.deltaY * 0.5); 
@@ -403,7 +407,6 @@ class CanvasUI {
                 const statusHtml = b.status === 'completed' ? `<span class="text-green-600 text-[10px] font-black uppercase">✅ Done</span>` : `<span class="text-blue-500 text-[10px] font-black uppercase">▶ Active</span>`;
                 const subColor = store.state.subjects[b.subject] || '#3b82f6';
                 
-                // 🎯 NEW: SHAKING INTERACTIVE AGENDA BLOCKS
                 blocksContainer.innerHTML += `
                     <div class="agenda-block-interactive bg-white border p-3 rounded-lg shadow-sm flex flex-col gap-1 cursor-pointer" style="border-left: 4px solid ${subColor}" data-id="${b.id}">
                         <div class="flex justify-between items-start"><div class="font-bold text-gray-800 text-sm">${b.title}</div>${statusHtml}</div>
@@ -424,7 +427,7 @@ class CanvasUI {
         const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
 
         for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 rounded-lg opacity-50"></div>`;
-        const todayStr = this.getChinaTime().toISOString().split('T')[0];
+        const todayStr = this.getTodayStr(); // FIXED TIMEZONE BUG!
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
