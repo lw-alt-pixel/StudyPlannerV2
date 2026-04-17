@@ -124,8 +124,7 @@ class CanvasUI {
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
         this.root.style.setProperty('--zoom', this.zoom);
     }
-
-    bindEvents() {
+bindEvents() {
         // --- HEADER BUTTON NAVIGATION ---
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.enforceBoundsAndUpdate(); });
@@ -148,8 +147,7 @@ class CanvasUI {
                 return;
             }
 
-            // 1. PLAY BUTTON
-            // We use 'clickedBtn' here to guarantee it doesn't conflict with anything else!
+            // 2. PLAY BUTTON
             const clickedBtn = e.target.closest('button');
             
             if (clickedBtn && clickedBtn.classList.contains('play-btn')) {
@@ -176,7 +174,7 @@ class CanvasUI {
                 return;
             }
 
-            // 2. FINISH BUTTON
+            // 3. FINISH BUTTON
             if (clickedBtn && clickedBtn.classList.contains('finish-btn')) {
                 const id = parseInt(clickedBtn.dataset.id);
                 
@@ -187,6 +185,7 @@ class CanvasUI {
                 timerEngine.stop(); // <-- Turn off the engine!
                 return;
             }
+        }); // <--- THIS WAS THE MISSING CLOSING BRACKET!
 
         window.addEventListener('pointermove', (e) => {
             if (this.isPanning) {
@@ -239,6 +238,7 @@ class CanvasUI {
                 }
             }
         });
+
         // DAMPENED SCROLLING (Slower tracking)
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
