@@ -21,24 +21,7 @@ class CanvasUI {
         
         if (!this.container) return;
 
-        // Upgrade the background grid to show 1-hour and 15-min intervals
-        init() {
-        this.container = document.getElementById('canvas-container');
-        this.blocksLayer = document.getElementById('blocks-layer');
-        this.daysLayer = document.getElementById('canvas-days');
-        this.timesLayer = document.getElementById('canvas-times');
-        
-        if (!this.container) return;
-
         // ALL CSS STYLING WAS REMOVED FROM HERE! It now lives purely in styles.css.
-
-        this.drawGridLabels();
-        this.bindEvents();
-        this.updateTransform();
-        
-        store.subscribe('blocks', (blocks) => this.renderBlocks(blocks));
-        this.renderBlocks(store.state.blocks);
-    }
 
         this.drawGridLabels();
         this.bindEvents();
