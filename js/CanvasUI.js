@@ -1,6 +1,7 @@
 // js/CanvasUI.js
 import { store } from './State.js';
 import { blockManager } from './BlockManager.js';
+import { timerEngine } from './TimerEngine.js';
 
 class CanvasUI {
     constructor() {
@@ -148,35 +149,39 @@ class CanvasUI {
             }
 
             const btn = e.target.closest('button');
+           // 1. PLAY BUTTON
+            const btn = e.target.closest('button');
             if (btn && btn.classList.contains('play-btn')) {
                 const id = parseInt(btn.dataset.id);
-                
-                // 1. Find the specific block we just clicked
                 const block = store.state.blocks.find(b => b.id === id);
-                const currentStudySecs = block.studySeconds || 0;
-                const currentBreakSecs = block.breakSeconds || 0;
-
-                // 2. Mark the block as active on the grid
-                store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualStart: this.getChinaTime().getTime(), status: 'active' } : b));
                 
-                // 3. Inject the block's exact saved time directly into the Timer!
+                // Keep existing start time if resuming, otherwise stamp new China Time
+                const startTime = block.actualStart || this.getChinaTime().getTime();
+                
+                store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualStart: startTime, status: 'active' } : b));
+                
                 store.update('timer', t => ({ 
                     ...t, 
                     activeBlockId: id, 
                     isRunning: true,
-                    studySeconds: currentStudySecs,
-                    breakSeconds: currentBreakSecs,
-                    secondsElapsed: currentStudySecs // Keeps the engine synced
+                    studySeconds: block.studySeconds || 0,
+                    breakSeconds: block.breakSeconds || 0,
+                    secondsElapsed: block.studySeconds || 0
                 }));
+
+                timerEngine.start(); // <-- CRITICAL: Actually turn on the engine!
                 
-                // 4. Switch to the Focus tab
                 document.querySelector('[data-tab="focus"]')?.click();
                 return;
             }
             if (btn && btn.classList.contains('finish-btn')) {
                 const id = parseInt(btn.dataset.id);
+                
                 store.update('blocks', blocks => blocks.map(b => b.id === id ? { ...b, actualEnd: this.getChinaTime().getTime(), status: 'completed' } : b));
+                
                 store.update('timer', t => ({ ...t, isRunning: false, activeBlockId: null }));
+                
+                timerEngine.stop(); // <-- CRITICAL: Turn off the engine!
                 return;
             }
 
