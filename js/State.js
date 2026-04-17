@@ -4,13 +4,8 @@ const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
 
 const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
-    'Mathematics': '#3b82f6',
-    'Physics': '#ef4444',
-    'Chemistry': '#10b981',
-    'Biology': '#f59e0b',
-    'English': '#8b5cf6',
-    'History': '#ec4899',
-    'Computer Science': '#14b8a6'
+    'Mathematics': '#3b82f6', 'Physics': '#ef4444', 'Chemistry': '#10b981',
+    'Biology': '#f59e0b', 'English': '#8b5cf6', 'History': '#ec4899', 'Computer Science': '#14b8a6'
 };
 
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
@@ -20,6 +15,9 @@ const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
     bannerBgColor: '#dc2626', bannerTextColor: '#ffffff'
 };
 
+// NEW: Local Storage for Diaries
+const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
+
 export const defaultState = {
     activeTab: 'schedule', 
     blocks: savedBlocks, 
@@ -27,6 +25,7 @@ export const defaultState = {
     subjects: savedSubjects, 
     theme: savedTheme,
     settings: savedSettings,
+    diaries: savedDiaries, // Wired up!
     timer: { 
         activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false,
         studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 
@@ -53,6 +52,7 @@ class Store {
         if (key === 'subjects') localStorage.setItem('studySubjects', JSON.stringify(newValue));
         if (key === 'theme') localStorage.setItem('studyTheme', JSON.stringify(newValue));
         if (key === 'settings') localStorage.setItem('studySettings', JSON.stringify(newValue));
+        if (key === 'diaries') localStorage.setItem('studyDiaries', JSON.stringify(newValue)); // Saves Diary
 
         if (this.listeners[key]) {
             this.listeners[key].forEach(listener => listener(newValue));
