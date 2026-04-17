@@ -15,42 +15,41 @@ class SettingsManager {
 
     bindEvents() {
         document.getElementById('closeSettingsPanel')?.addEventListener('click', () => {
-            this.panel.classList.add('translate-x-full');
+            this.panel?.classList.add('translate-x-full');
         });
 
-        this.bgMode.addEventListener('change', (e) => {
+        this.bgMode?.addEventListener('change', (e) => {
             if (e.target.value === 'color') {
-                this.bgColorDiv.classList.remove('hidden');
-                this.bgImageDiv.classList.add('hidden');
+                this.bgColorDiv?.classList.remove('hidden');
+                this.bgImageDiv?.classList.add('hidden');
             } else {
-                this.bgColorDiv.classList.add('hidden');
-                this.bgImageDiv.classList.remove('hidden');
+                this.bgColorDiv?.classList.add('hidden');
+                this.bgImageDiv?.classList.remove('hidden');
             }
             store.update('theme', t => ({ ...t, bgType: e.target.value }));
         });
 
-        document.getElementById('settingsBgColor').addEventListener('input', (e) => {
+        document.getElementById('settingsBgColor')?.addEventListener('input', (e) => {
             store.update('theme', t => ({ ...t, bgColor: e.target.value }));
         });
-        document.getElementById('settingsTabColor').addEventListener('input', (e) => {
+        document.getElementById('settingsTabColor')?.addEventListener('input', (e) => {
             store.update('theme', t => ({ ...t, tabColor: e.target.value }));
         });
-        document.getElementById('settingsActionColor').addEventListener('input', (e) => {
+        document.getElementById('settingsActionColor')?.addEventListener('input', (e) => {
             store.update('theme', t => ({ ...t, actionColor: e.target.value }));
         });
-        document.getElementById('settingsActionSize').addEventListener('change', (e) => {
+        document.getElementById('settingsActionSize')?.addEventListener('change', (e) => {
             store.update('theme', t => ({ ...t, actionSize: e.target.value }));
         });
 
-        // NEW: Banner Colors
-        document.getElementById('settingsBannerBgColor').addEventListener('input', (e) => {
+        document.getElementById('settingsBannerBgColor')?.addEventListener('input', (e) => {
             store.update('theme', t => ({ ...t, bannerBgColor: e.target.value }));
         });
-        document.getElementById('settingsBannerTextColor').addEventListener('input', (e) => {
+        document.getElementById('settingsBannerTextColor')?.addEventListener('input', (e) => {
             store.update('theme', t => ({ ...t, bannerTextColor: e.target.value }));
         });
 
-        document.getElementById('settingsBgImage').addEventListener('change', (e) => {
+        document.getElementById('settingsBgImage')?.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -72,14 +71,14 @@ class SettingsManager {
             reader.readAsDataURL(file);
         });
 
-        document.getElementById('settingsPStudy').addEventListener('change', (e) => {
+        document.getElementById('settingsPStudy')?.addEventListener('change', (e) => {
             store.update('settings', s => ({ ...s, pStudy: parseInt(e.target.value) || 25 }));
         });
-        document.getElementById('settingsPBreak').addEventListener('change', (e) => {
+        document.getElementById('settingsPBreak')?.addEventListener('change', (e) => {
             store.update('settings', s => ({ ...s, pBreak: parseInt(e.target.value) || 5 }));
         });
 
-        document.getElementById('settingsSaveSubjectsBtn').addEventListener('click', () => {
+        document.getElementById('settingsSaveSubjectsBtn')?.addEventListener('click', () => {
             this.saveSubjects();
             alert("Subject changes saved globally!");
         });
@@ -89,29 +88,29 @@ class SettingsManager {
         const theme = store.state.theme;
         const setts = store.state.settings;
 
-        this.bgMode.value = theme.bgType;
+        if (this.bgMode) this.bgMode.value = theme.bgType;
         if (theme.bgType === 'color') {
-            this.bgColorDiv.classList.remove('hidden'); this.bgImageDiv.classList.add('hidden');
+            this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden');
         } else {
-            this.bgColorDiv.classList.add('hidden'); this.bgImageDiv.classList.remove('hidden');
+            this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden');
         }
 
-        document.getElementById('settingsBgColor').value = theme.bgColor || '#f3f4f6';
-        document.getElementById('settingsTabColor').value = theme.tabColor || '#3b82f6';
-        document.getElementById('settingsActionColor').value = theme.actionColor || '#2563eb';
-        document.getElementById('settingsActionSize').value = theme.actionSize || 'md';
-        
-        // NEW: Load Banner Colors
-        document.getElementById('settingsBannerBgColor').value = theme.bannerBgColor || '#dc2626';
-        document.getElementById('settingsBannerTextColor').value = theme.bannerTextColor || '#ffffff';
-        
-        document.getElementById('settingsPStudy').value = setts.pStudy;
-        document.getElementById('settingsPBreak').value = setts.pBreak;
+        const safelySetValue = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+
+        safelySetValue('settingsBgColor', theme.bgColor || '#f3f4f6');
+        safelySetValue('settingsTabColor', theme.tabColor || '#3b82f6');
+        safelySetValue('settingsActionColor', theme.actionColor || '#2563eb');
+        safelySetValue('settingsActionSize', theme.actionSize || 'md');
+        safelySetValue('settingsBannerBgColor', theme.bannerBgColor || '#dc2626');
+        safelySetValue('settingsBannerTextColor', theme.bannerTextColor || '#ffffff');
+        safelySetValue('settingsPStudy', setts.pStudy);
+        safelySetValue('settingsPBreak', setts.pBreak);
 
         this.renderSubjectsList();
     }
 
     renderSubjectsList() {
+        if (!this.subjectList) return;
         this.subjectList.innerHTML = '';
         const subs = store.state.subjects;
         Object.keys(subs).forEach(subName => {
@@ -153,4 +152,3 @@ class SettingsManager {
     }
 }
 export const settingsManager = new SettingsManager();
-
