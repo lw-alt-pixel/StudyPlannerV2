@@ -69,24 +69,39 @@ class TimerUI {
     startTimer() {
         this.updateUI();
         
-        // Run this math exactly once every 1000 milliseconds (1 second)
+        // The Master Clock Interval
         this.interval = setInterval(() => {
-            const { phase, mode, studySeconds } = store.state.timer;
+            const { phase, mode, activeBlockId } = store.state.timer;
             
-            // Auto-stop Pomodoro when it hits 25 minutes
-            if (mode === 'pomodoro' && phase === 'study' && studySeconds >= this.pomodoroDuration) {
-                this.stopTimer();
-                store.update('timer', t => ({ ...t, isRunning: false }));
-                alert("🎯 Pomodoro complete! Great focus. Time for a break.");
-                return;
-            }
+            // If we don't have an active block selected, do nothing.
+            if (!activeBlockId) return;
 
-            // Tell the Brain to add 1 second to whichever phase we are in
-            store.update('timer', t => ({
-                ...t,
-                studySeconds: phase === 'study' ? t.studySeconds + 1 : t.studySeconds,
-                breakSeconds: phase === 'break' ? t.breakSeconds + 1 : t.breakSeconds
-            }));
+            // Find the specific block in our blocks array
+            store.update('blocks', oldBlocks => {
+                return oldBlocks.map(b => {
+                    if (b.id === activeBlockId) {
+                        // Ensure it has tracking variables
+                        let studySecs = b.studySeconds || 0;
+                        let breakSecs = b.breakSeconds || 0;
+
+                        // Auto-stop Pomodoro when it hits 25 minutes (1500 seconds)
+                        if (mode === 'pomodoro' && phase === 'study' && studySecs >= this.pomodoroDuration) {
+                            this.stopTimer();
+                            store.update('timer', t => ({ ...t, isRunning: false }));
+                            alert("🎯 Pomodoro complete! Great focus. Time for a break.");
+                            return b;
+                        }
+
+                        // INJECT the time directly into the block's data!
+                        if (phase === 'study') {
+                            return { ...b, studySeconds: studySecs + 1 };
+                        } else {
+                            return { ...b, breakSeconds: breakSecs + 1 };
+                        }
+                    }
+                    return b;
+                });
+            });
             
             this.updateUI();
         }, 1000);
@@ -136,22 +151,33 @@ class TimerUI {
             : 'bg-green-500 hover:bg-green-600 text-white w-32 py-3 rounded-lg font-bold shadow-md transition-all';
 
         // THE MAGIC: Calculate what numbers to actually show on the screen
+        // THE MAGIC: Calculate what numbers to actually show on the screen
         let displaySeconds = 0;
-        if (phase === 'break') {
-            // Breaks ALWAYS count up, no matter the mode
-            displaySeconds = breakSeconds;
-        } else {
-            // Study Phase
-            if (mode === 'stopwatch') {
-                displaySeconds = studySeconds; // Count up
+        
+        // Find our active block to get its specific time data
+        const activeBlock = store.state.blocks.find(b => b.id === store.state.timer.activeBlockId);
+        
+        if (activeBlock) {
+            const currentStudySecs = activeBlock.studySeconds || 0;
+            const currentBreakSecs = activeBlock.breakSeconds || 0;
+
+            if (phase === 'break') {
+                displaySeconds = currentBreakSecs; // Break always counts up
             } else {
-                displaySeconds = Math.max(0, this.pomodoroDuration - studySeconds); // Count down from 25:00
+                if (mode === 'stopwatch') {
+                    displaySeconds = currentStudySecs; // Count up
+                } else {
+                    displaySeconds = Math.max(0, this.pomodoroDuration - currentStudySecs); // Count down
+                }
             }
+            
+            // Update the title on the Focus screen so we know what we are studying!
+            const titleEl = document.querySelector('#focus h2');
+            if (titleEl) titleEl.innerHTML = `🎯 Focus Mode: <span class="text-blue-600">${activeBlock.title}</span>`;
         }
 
         // Send the final numbers to the screen
         this.display.textContent = this.formatTime(displaySeconds);
     }
-}
 
 export const timerUI = new TimerUI();
