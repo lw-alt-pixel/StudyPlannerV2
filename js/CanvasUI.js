@@ -51,7 +51,6 @@ class CanvasUI {
         repaint();
     }
 
-    // NEW: Bulletproof local timezone date string
     getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
     getTodayStr() {
         const d = this.getChinaTime();
@@ -112,7 +111,7 @@ class CanvasUI {
             });
         }
 
-        const todayStr = this.getTodayStr(); // FIXED TIMEZONE BUG!
+        const todayStr = this.getTodayStr(); 
 
         this.daysLayer.innerHTML = '';
         for (let i = -30; i <= 60; i++) {
@@ -142,8 +141,6 @@ class CanvasUI {
 
     enforceBoundsAndUpdate() {
         this.root.style.setProperty('--grid-30', 'transparent'); this.root.style.setProperty('--grid-15', 'transparent'); this.root.style.setProperty('--grid-5', 'transparent');
-        this.container.className = 'relative w-full h-[700px] overflow-hidden bg-slate-50/90 cursor-grab touch-none block';
-
         if (this.zoom >= 4) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.04)'); this.root.style.setProperty('--grid-5', 'rgba(0,0,0,0.02)');
             this.container.classList.add('show-15-mins', 'show-30-mins', 'show-5-mins');
@@ -184,9 +181,14 @@ class CanvasUI {
             const dayCard = e.target.closest('[data-date]');
             if (dayCard) this.openSlidePanel(dayCard.dataset.date);
         });
-        document.getElementById('closeSlidePanel')?.addEventListener('click', () => {
+
+        // 🎯 NEW: CLICK OUTSIDE DIARY TO CLOSE IT
+        const closeDiary = () => {
             document.getElementById('daySlidePanel').classList.add('translate-x-full');
-        });
+            document.getElementById('diaryOverlay')?.classList.add('hidden');
+        };
+        document.getElementById('closeSlidePanel')?.addEventListener('click', closeDiary);
+        document.getElementById('diaryOverlay')?.addEventListener('click', closeDiary);
 
         document.getElementById('slidePanelBlocks')?.addEventListener('click', (e) => {
             const blockEl = e.target.closest('.agenda-block-interactive');
@@ -219,7 +221,6 @@ class CanvasUI {
         });
 
         this.container.addEventListener('pointerdown', (e) => {
-            // THE SHIELD: If you click ANY button (like zoom controls), ignore panning/dragging entirely!
             if (e.target.closest('button')) return;
 
             this.hasDragged = false; 
@@ -312,7 +313,6 @@ class CanvasUI {
             if (this.isPanning) {
                 this.isPanning = false; this.container.classList.remove('cursor-grabbing');
                 
-                // SHIELD: Ignore adding a block if mouse was lifted while over a button!
                 if (!this.hasDragged && !e.target.closest('.ypt-block') && !e.target.closest('button')) {
                     const rect = this.container.getBoundingClientRect();
                     const clickX = e.clientX - rect.left - 64; const clickY = e.clientY - rect.top - 48;  
@@ -378,6 +378,8 @@ class CanvasUI {
         this.currentSlideDate = dateStr;
         const panel = document.getElementById('daySlidePanel');
         panel.classList.remove('translate-x-full'); 
+        document.getElementById('diaryOverlay')?.classList.remove('hidden'); // SHOW OVERLAY
+
         const dObj = new Date(dateStr);
         document.getElementById('slidePanelDate').innerText = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -427,7 +429,7 @@ class CanvasUI {
         const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
 
         for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="bg-gray-100 rounded-lg opacity-50"></div>`;
-        const todayStr = this.getTodayStr(); // FIXED TIMEZONE BUG!
+        const todayStr = this.getTodayStr(); 
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
