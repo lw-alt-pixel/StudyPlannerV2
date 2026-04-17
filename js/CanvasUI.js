@@ -46,9 +46,16 @@ class CanvasUI {
             }
 
             // 2. Check if we clicked the Play button
+            // 2. Check if we clicked the Play button
             const playBtn = e.target.closest('.play-btn');
             if (playBtn) {
-                // Click the Focus tab button to switch tabs automatically
+                // NEW: Get the ID of the block we just clicked
+                const blockId = parseInt(playBtn.dataset.id);
+                
+                // NEW: Tell the Timer to lock onto this block
+                store.update('timer', t => ({ ...t, activeBlockId: blockId }));
+
+                // Switch tabs to the Focus tab automatically
                 const focusTabBtn = document.querySelector('[data-tab="focus"]');
                 if (focusTabBtn) focusTabBtn.click();
                 return; 
