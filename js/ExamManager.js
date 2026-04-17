@@ -18,8 +18,64 @@ class ExamManager {
         
         this.bindEvents();
         
+        // Listen for Theme Updates to change banner color!
+        store.subscribe('theme', () => this.updateBannerStyle());
+        this.updateBannerStyle();
+
         store.subscribe('exams', () => this.render());
         this.render();
+
+        // 1-Second Ticking Clock Engine
+        setInterval(() => this.updateLiveCountdown(), 1000);
+    }
+
+    updateBannerStyle() {
+        const theme = store.state.theme;
+        this.bannerEl.style.backgroundColor = theme.bannerBgColor || '#dc2626';
+        this.bannerEl.style.color = theme.bannerTextColor || '#ffffff';
+    }
+
+    getChinaTime() {
+        return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
+    }
+
+    updateLiveCountdown() {
+        const exams = store.state.exams;
+        if (!exams || exams.length === 0) {
+            this.bannerEl.classList.add('hidden');
+            return;
+        }
+
+        const now = this.getChinaTime();
+        let closestFutureExam = null;
+        let minDiff = Infinity;
+
+        exams.forEach(ex => {
+            const examDate = new Date(`${ex.date}T${ex.time}:00`);
+            const msLeft = examDate - now;
+            
+            if (msLeft > -86400000 && msLeft < minDiff) { 
+                minDiff = msLeft;
+                closestFutureExam = { ...ex, msLeft };
+            }
+        });
+
+        if (closestFutureExam) {
+            this.bannerEl.classList.remove('hidden');
+            if (closestFutureExam.msLeft < 0) {
+                this.bannerText.innerText = `🚨 EXAM IN PROGRESS: ${closestFutureExam.title} 🚨`;
+            } else {
+                // Calculate precise live time!
+                const d = Math.floor(closestFutureExam.msLeft / (1000 * 60 * 60 * 24));
+                const h = Math.floor((closestFutureExam.msLeft / (1000 * 60 * 60)) % 24);
+                const m = Math.floor((closestFutureExam.msLeft / 1000 / 60) % 60);
+                const s = Math.floor((closestFutureExam.msLeft / 1000) % 60);
+                
+                this.bannerText.innerText = `Next Exam: ${closestFutureExam.title} in ${d} Days : ${h} Hours : ${m} Mins : ${s} Secs`;
+            }
+        } else {
+            this.bannerEl.classList.add('hidden');
+        }
     }
 
     populateSubjects() {
@@ -45,7 +101,6 @@ class ExamManager {
             this.modal.classList.remove('flex');
         });
 
-        // Watch for "Other" selection
         this.subjectInput.addEventListener('change', () => {
             if (this.subjectInput.value === 'Other') {
                 this.customSubjectDiv.classList.remove('hidden');
@@ -94,29 +149,16 @@ class ExamManager {
         });
     }
 
-    getChinaTime() {
-        return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-    }
-
     render() {
         const exams = store.state.exams;
         this.listEl.innerHTML = '';
         const today = this.getChinaTime();
         today.setHours(0,0,0,0);
 
-        let closestFutureExam = null;
-        let minDiff = Infinity;
-
         exams.forEach(ex => {
             const examDate = new Date(`${ex.date}T${ex.time}:00`);
             const daysLeft = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
             
-            if (daysLeft >= 0 && daysLeft < minDiff) {
-                minDiff = daysLeft;
-                closestFutureExam = { ...ex, daysLeft };
-            }
-
-            // Dynamically grab the Subject's assigned color!
             const subColor = store.state.subjects[ex.subject] || '#dc2626';
 
             let opacityClass = daysLeft < 0 ? 'opacity-50 grayscale' : '';
@@ -131,19 +173,6 @@ class ExamManager {
                 </div>
             `;
         });
-
-        // The Global Banner now matches the Exam's Subject color!
-        if (closestFutureExam) {
-            this.bannerEl.classList.remove('hidden');
-            const subColor = store.state.subjects[closestFutureExam.subject] || '#dc2626';
-            this.bannerEl.style.backgroundColor = subColor;
-            
-            this.bannerText.innerText = closestFutureExam.daysLeft === 0 
-                ? `🚨 EXAM TODAY: ${closestFutureExam.title} 🚨` 
-                : `Next Exam: ${closestFutureExam.title} in ${closestFutureExam.daysLeft} Days`;
-        } else {
-            this.bannerEl.classList.add('hidden');
-        }
     }
 }
 export const examManager = new ExamManager();
