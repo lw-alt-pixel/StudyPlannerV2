@@ -29,7 +29,6 @@ class BlockManager {
         });
         this.subjectInput.innerHTML += `<option value="Other">📌 Other (New Subject)</option>`;
         
-        // Reset custom input state
         this.customSubjectDiv.classList.add('hidden');
         this.customSubjectDiv.classList.remove('flex');
     }
@@ -73,7 +72,6 @@ class BlockManager {
             this.modal.classList.add('hidden');
         });
 
-        // Watch for "Other" selection
         this.subjectInput.addEventListener('change', () => {
             if (this.subjectInput.value === 'Other') {
                 this.customSubjectDiv.classList.remove('hidden');
@@ -92,7 +90,6 @@ class BlockManager {
     createBlock() {
         let finalSubject = this.subjectInput.value;
         
-        // If it's a brand new subject, save it permanently to the Brain!
         if (finalSubject === 'Other') {
             finalSubject = this.customNameInput.value.trim() || 'Custom Subject';
             const newColor = this.customColorInput.value;
@@ -121,5 +118,4 @@ class BlockManager {
         this.modal.classList.add('hidden');
     }
 }
-
 export const blockManager = new BlockManager();
