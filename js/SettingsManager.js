@@ -22,7 +22,6 @@ class SettingsManager {
         document.getElementById('closeSettingsPanel')?.addEventListener('click', closeSettings);
         this.overlay?.addEventListener('click', closeSettings);
 
-        // 🚨 FIX: THIS BINDS THE BUTTON ON THE ANALYTICS TAB!
         document.getElementById('fallbackSettingsBtn')?.addEventListener('click', () => {
             this.panel?.classList.remove('translate-x-full');
             this.overlay?.classList.remove('hidden');
@@ -31,85 +30,51 @@ class SettingsManager {
         this.bgMode?.addEventListener('change', (e) => {
             if (e.target.value === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
             else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
-            store.update('theme', t => ({ ...t, bgType: e.target.value }));
         });
 
-        document.getElementById('settingsBgColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bgColor: e.target.value })));
-        document.getElementById('settingsBgImage')?.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => store.update('theme', t => ({ ...t, bgImage: event.target.result }));
-                reader.readAsDataURL(file);
-            }
+        document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
+            this.saveSubjects();
+            this.saveSettings();
+            closeSettings();
         });
 
-        document.getElementById('settingsTabColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, tabColor: e.target.value })));
-        document.getElementById('settingsActionColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, actionColor: e.target.value })));
-        document.getElementById('settingsBannerBgColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bannerBgColor: e.target.value })));
-        document.getElementById('settingsBannerTextColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bannerTextColor: e.target.value })));
-        document.getElementById('settingsActionSize')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, actionSize: e.target.value })));
-        document.getElementById('settingsFloatingBtn')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, floatingBtn: e.target.value })));
-
-        document.getElementById('settingsPStudy')?.addEventListener('input', (e) => store.update('settings', s => ({ ...s, pStudy: parseInt(e.target.value) || 25 })));
-        document.getElementById('settingsPBreak')?.addEventListener('input', (e) => store.update('settings', s => ({ ...s, pBreak: parseInt(e.target.value) || 5 })));
-
-        document.getElementById('settingsSaveSubjectsBtn')?.addEventListener('click', () => this.saveSubjects());
-
-        document.getElementById('settingsExportBtn')?.addEventListener('click', () => {
-            const data = JSON.stringify(store.state, null, 2);
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'study_planner_backup.json';
-            a.click(); URL.revokeObjectURL(url);
-        });
-
-        document.getElementById('settingsImportProxyBtn')?.addEventListener('click', () => document.getElementById('settingsImportFile').click());
-        document.getElementById('settingsImportFile')?.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const imported = JSON.parse(event.target.result);
-                    if (imported.blocks) store.update('blocks', () => imported.blocks);
-                    if (imported.exams) store.update('exams', () => imported.exams);
-                    if (imported.subjects) store.update('subjects', () => imported.subjects);
-                    if (imported.theme) store.update('theme', () => imported.theme);
-                    if (imported.settings) store.update('settings', () => imported.settings);
-                    if (imported.diaries) store.update('diaries', () => imported.diaries);
-                    alert("Backup restored successfully!");
-                    location.reload();
-                } catch (err) { alert("Invalid backup file."); }
-            };
-            reader.readAsText(file);
-        });
+        // 🚨 NEW AUDIO BINDINGS
+        document.getElementById('settingsAudioEnabled')?.addEventListener('change', (e) => store.update('audio', a => ({...a, enabled: e.target.checked})));
+        document.getElementById('settingsAudioSource')?.addEventListener('change', (e) => store.update('audio', a => ({...a, source: e.target.value})));
+        document.getElementById('settingsAudioVolume')?.addEventListener('input', (e) => store.update('audio', a => ({...a, volume: parseInt(e.target.value)})));
     }
 
     populateForms() {
-        const theme = store.state.theme; const settings = store.state.settings;
-        if (this.bgMode) this.bgMode.value = theme.bgType || 'color';
+        const theme = store.state.theme;
+        const s = store.state.settings;
+        const audio = store.state.audio;
+
+        this.bgMode.value = theme.bgType || 'color';
+        document.getElementById('settingsBgColor').value = theme.bgColor || '#f3f4f6';
+        document.getElementById('settingsBgImage').value = theme.bgImage || '';
+        document.getElementById('settingsActionColor').value = theme.actionColor || '#2563eb';
         
-        const colorDiv = document.getElementById('settingsBgColor'); if(colorDiv) colorDiv.value = theme.bgColor || '#f3f4f6';
-        const tabCol = document.getElementById('settingsTabColor'); if(tabCol) tabCol.value = theme.tabColor || '#3b82f6';
-        const actCol = document.getElementById('settingsActionColor'); if(actCol) actCol.value = theme.actionColor || '#2563eb';
-        const banBg = document.getElementById('settingsBannerBgColor'); if(banBg) banBg.value = theme.bannerBgColor || '#dc2626';
-        const banTxt = document.getElementById('settingsBannerTextColor'); if(banTxt) banTxt.value = theme.bannerTextColor || '#ffffff';
-        const actSz = document.getElementById('settingsActionSize'); if(actSz) actSz.value = theme.actionSize || 'md';
-        const floatSz = document.getElementById('settingsFloatingBtn'); if(floatSz) floatSz.value = theme.floatingBtn || 'md';
+        document.getElementById('settingsPStudy').value = s.pStudy || 25;
+        document.getElementById('settingsPBreak').value = s.pBreak || 5;
 
-        const pStudy = document.getElementById('settingsPStudy'); if(pStudy) pStudy.value = settings.pStudy || 25;
-        const pBreak = document.getElementById('settingsPBreak'); if(pBreak) pBreak.value = settings.pBreak || 5;
+        // Populate new audio form
+        const aEnabled = document.getElementById('settingsAudioEnabled');
+        if(aEnabled) aEnabled.checked = audio.enabled !== false;
+        
+        const aVolume = document.getElementById('settingsAudioVolume');
+        if(aVolume) aVolume.value = audio.volume || 50;
 
-        if (theme.bgType === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
+        const aSource = document.getElementById('settingsAudioSource');
+        if(aSource) aSource.value = audio.source || 'zen';
+
+        if (this.bgMode.value === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
         else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
 
-        store.subscribe('subjects', () => this.renderSubjectList());
         this.renderSubjectList();
     }
 
     renderSubjectList() {
-        if (!this.subjectList) return;
+        if(!this.subjectList) return;
         this.subjectList.innerHTML = '';
         Object.keys(store.state.subjects).forEach(subName => {
             this.subjectList.innerHTML += `
@@ -135,7 +100,24 @@ class SettingsManager {
             store.update('blocks', blocks => blocks.map(b => { const match = renames.find(r => r.old === b.subject); return match ? { ...b, subject: match.new } : b; }));
             store.update('exams', exams => exams.map(e => { const match = renames.find(r => r.old === e.subject); return match ? { ...e, subject: match.new } : e; }));
         }
-        alert("Subjects saved successfully!");
+    }
+
+    saveSettings() {
+        const newTheme = {
+            ...store.state.theme,
+            bgType: this.bgMode.value,
+            bgColor: document.getElementById('settingsBgColor').value,
+            bgImage: document.getElementById('settingsBgImage').value,
+            actionColor: document.getElementById('settingsActionColor').value
+        };
+        store.update('theme', () => newTheme);
+
+        const newSettings = {
+            ...store.state.settings,
+            pStudy: parseInt(document.getElementById('settingsPStudy').value) || 25,
+            pBreak: parseInt(document.getElementById('settingsPBreak').value) || 5
+        };
+        store.update('settings', () => newSettings);
     }
 }
 export const settingsManager = new SettingsManager();
