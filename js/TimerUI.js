@@ -1,7 +1,7 @@
 // js/TimerUI.js
 import { store } from './State.js';
 import { timerEngine } from './TimerEngine.js';
-import { blockManager } from './BlockManager.js';
+import { blockManager } from './BlockManager.js'; 
 
 class TimerUI {
     init() {
@@ -31,89 +31,118 @@ class TimerUI {
 
     populateSubjects() {
         if (!this.spontaneousSubjectSelect) return;
-        this.spontaneousSubjectSelect.innerHTML = '';
-        Object.keys(store.state.subjects).forEach(s => {
-            this.spontaneousSubjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
+        this.spontaneousSubjectSelect.innerHTML = '<option value="">No Subject (General)</option>';
+        Object.keys(store.state.subjects).forEach(sub => {
+            this.spontaneousSubjectSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
         });
     }
 
     bindEvents() {
-        this.toggleBtn.addEventListener('click', () => {
-            const isRunning = store.state.timer.isRunning;
-            store.update('timer', t => ({ ...t, isRunning: !isRunning }));
-            if (!isRunning) timerEngine.start();
-            else timerEngine.stop();
+        this.toggleBtn?.addEventListener('click', () => {
+            const isRunning = !store.state.timer.isRunning;
+            store.update('timer', t => ({ ...t, isRunning }));
+            if (isRunning) timerEngine.start(); else timerEngine.stop();
         });
 
-        // 🚨 Manual override simply flips the phase without breaking the loop!
-        this.switchPhaseBtn.addEventListener('click', () => {
-            const t = store.state.timer;
-            const newPhase = t.phase === 'study' ? 'break' : 'study';
-            store.update('timer', state => ({ ...state, phase: newPhase }));
+        this.switchPhaseBtn?.addEventListener('click', () => {
+            store.update('timer', t => ({ ...t, phase: t.phase === 'study' ? 'break' : 'study' }));
         });
 
-        this.modeStopwatchBtn.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'stopwatch' })));
-        this.modePomodoroBtn.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'pomodoro' })));
-
-        this.finishTimerBtn.addEventListener('click', () => {
-            timerEngine.stop();
-            const t = store.state.timer;
-            if (t.activeBlockId) {
-                store.update('blocks', blocks => blocks.map(b => b.id === t.activeBlockId ? { ...b, status: 'completed', actualEnd: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) } : b));
-            }
-            store.update('timer', () => ({ ...store.state.timer, isRunning: false, activeBlockId: null, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, phase: 'study' }));
-        });
-
-        this.pushBackBtn?.addEventListener('click', () => {
-            const t = store.state.timer;
-            if(!t.activeBlockId) return alert("You must be running a scheduled block to use Push Back.");
-            blockManager.openPushBackModal(t.activeBlockId);
-        });
+        this.modeStopwatchBtn?.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'stopwatch' })));
+        this.modePomodoroBtn?.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'pomodoro' })));
 
         this.spontaneousSubjectSelect?.addEventListener('change', (e) => {
-            const t = store.state.timer;
-            if (!t.activeBlockId) {
-                store.update('timer', state => ({ ...state, spontaneousSubject: e.target.value }));
+            if (!store.state.timer.activeBlockId) {
+                store.update('timer', t => ({ ...t, spontaneousSubject: e.target.value }));
             }
         });
+
+        this.finishTimerBtn?.addEventListener('click', () => this.finishSession());
+        
+        this.pushBackBtn?.addEventListener('click', () => {
+            const t = store.state.timer;
+            if (!t.activeBlockId) return alert("You are in a spontaneous session. There is no scheduled block to push back!");
+            
+            store.update('timer', t => ({ ...t, isRunning: false }));
+            timerEngine.stop();
+            
+            blockManager.activePushBackId = t.activeBlockId;
+            blockManager.pushBackModal.classList.remove('hidden');
+        });
+    }
+
+    finishSession() {
+        store.update('timer', t => ({ ...t, isRunning: false }));
+        timerEngine.stop();
+        
+        const t = store.state.timer;
+        if (t.activeBlockId) {
+            store.update('blocks', blocks => blocks.map(b => {
+                if (b.id === t.activeBlockId) {
+                    return { ...b, status: 'completed', actualEnd: new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'}) };
+                }
+                return b;
+            }));
+        } else if (t.studySeconds > 60) {
+            const newBlock = {
+                id: Date.now().toString(),
+                title: 'Spontaneous Focus',
+                subject: t.spontaneousSubject || 'General',
+                date: new Date().toISOString().split('T')[0],
+                actualStart: new Date(Date.now() - (t.secondsElapsed * 1000)).toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'}),
+                actualEnd: new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'}),
+                status: 'completed',
+                studySeconds: t.studySeconds,
+                breakSeconds: t.breakSeconds,
+                remarks: 'Unscheduled session'
+            };
+            store.update('blocks', b => [...b, newBlock]);
+        }
+
+        store.update('timer', () => ({ activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, spontaneousSubject: null }));
+        alert("Session saved successfully!");
     }
 
     updateUI() {
         const t = store.state.timer;
-        const theme = store.state.theme;
+        const sSettings = store.state.settings;
 
-        this.toggleBtn.innerHTML = t.isRunning ? '<i class="fas fa-pause"></i> Pause' : '<i class="fas fa-play"></i> Start';
-        this.toggleBtn.style.backgroundColor = theme.actionColor || '#2563eb';
+        this.toggleBtn.innerHTML = t.isRunning ? '⏸️ Pause' : '▶️ Start';
+        this.toggleBtn.className = t.isRunning 
+            ? "flex-1 md:flex-none px-6 py-3 bg-red-100 text-red-700 rounded-xl font-bold hover:bg-red-200 transition-colors"
+            : "flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/30";
 
-        this.switchPhaseBtn.innerHTML = t.phase === 'study' ? '<i class="fas fa-coffee"></i> Take Break' : '<i class="fas fa-book"></i> Resume Study';
-        this.switchPhaseBtn.className = t.phase === 'study' 
-            ? "flex-1 px-4 py-3 rounded-xl font-black text-sm text-amber-700 bg-amber-100 hover:bg-amber-200 shadow-sm transition-all"
-            : "flex-1 px-4 py-3 rounded-xl font-black text-sm text-blue-700 bg-blue-100 hover:bg-blue-200 shadow-sm transition-all";
-
-        this.phaseIndicator.innerText = t.phase === 'study' ? '🧠 Focus Phase' : '☕ Break Phase';
-        this.phaseIndicator.className = t.phase === 'study' ? "text-xs font-black uppercase tracking-widest text-blue-600 mb-2" : "text-xs font-black uppercase tracking-widest text-amber-600 mb-2";
-
-        let displaySeconds = 0;
-
-        // 🚨 NEW: Modulo (%) Math for infinite visual looping!
-        if (t.mode === 'pomodoro') {
-            if (t.phase === 'study') {
-                // E.g. 25 mins - (TotalTime % 25 mins)
-                displaySeconds = this.pStudy - (t.studySeconds % this.pStudy);
-                if (displaySeconds === this.pStudy && t.studySeconds > 0) displaySeconds = 0;
+        // 🚨 DYNAMIC UI BADGES FOR STOPWATCH VS POMODORO
+        if (t.phase === 'study') {
+            this.switchPhaseBtn.innerHTML = '☕ Take Break';
+            this.switchPhaseBtn.className = "flex-1 md:flex-none px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors";
+            
+            if (t.mode === 'stopwatch') {
+                this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2 animate-pulse"></span>⏱️ STOPWATCH: FOCUS';
+                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
             } else {
-                displaySeconds = this.pBreak - (t.breakSeconds % this.pBreak);
-                if (displaySeconds === this.pBreak && t.breakSeconds > 0) displaySeconds = 0;
+                this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>🎯 POMODORO: STUDY';
+                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-blue-100 text-blue-800";
             }
         } else {
-            displaySeconds = t.secondsElapsed;
+            this.switchPhaseBtn.innerHTML = '🎯 Resume Focus';
+            this.switchPhaseBtn.className = "flex-1 md:flex-none px-6 py-3 bg-white border border-gray-200 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-colors";
+            
+            if (t.mode === 'stopwatch') {
+                this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2 animate-pulse"></span>⏱️ STOPWATCH: BREAK';
+                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
+            } else {
+                this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-orange-500 mr-2 animate-pulse"></span>☕ POMODORO: BREAK';
+                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-orange-100 text-orange-800";
+            }
         }
 
-        const titleEl = document.getElementById('focusBlockTitle');
+        const titleEl = document.getElementById('focusSessionTitle');
         if (titleEl) {
             if (t.activeBlockId) {
                 const activeBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
-                titleEl.innerHTML = `🎯 Focus Mode: <span class="text-blue-600">${activeBlock ? activeBlock.title : 'Active Block'}</span>`;
+                const subColor = activeBlock ? store.state.subjects[activeBlock.subject] || '#3b82f6' : '#3b82f6';
+                titleEl.innerHTML = `<span style="color: ${subColor}">●</span> 🎯 Scheduled Block: <span class="text-gray-400">${activeBlock ? activeBlock.title : 'Active Block'}</span>`;
                 if (this.spontaneousSubjectSelect && activeBlock) {
                     this.spontaneousSubjectSelect.value = activeBlock.subject;
                     this.spontaneousSubjectSelect.disabled = true;
@@ -124,17 +153,42 @@ class TimerUI {
             }
         }
 
-        if (isNaN(displaySeconds) || displaySeconds < 0) displaySeconds = 0;
-        const min = Math.floor(displaySeconds / 60).toString().padStart(2, '0');
-        const sec = (displaySeconds % 60).toString().padStart(2, '0');
-        this.display.innerText = `${min}:${sec}`;
+        // 🚨 DYNAMIC TIME FORMATTING (HH:MM:SS for Stopwatch, MM:SS for Pomodoro)
+        let displaySeconds = 0;
+        
+        if (t.mode === 'pomodoro') {
+            const pStudySecs = (sSettings.pStudy || 25) * 60;
+            const pBreakSecs = (sSettings.pBreak || 5) * 60;
+            displaySeconds = t.phase === 'study' ? pStudySecs - (t.studySeconds % pStudySecs) : pBreakSecs - (t.breakSeconds % pBreakSecs);
+            if (isNaN(displaySeconds) || displaySeconds < 0) displaySeconds = 0;
+            
+            const min = Math.floor(displaySeconds / 60).toString().padStart(2, '0');
+            const sec = (displaySeconds % 60).toString().padStart(2, '0');
+            this.display.innerText = `${min}:${sec}`;
+            
+        } else {
+            // Stopwatch Mode - Continually count up the current phase
+            displaySeconds = t.phase === 'study' ? t.studySeconds : t.breakSeconds;
+            if (isNaN(displaySeconds) || displaySeconds < 0) displaySeconds = 0;
+            
+            const hrs = Math.floor(displaySeconds / 3600);
+            const min = Math.floor((displaySeconds % 3600) / 60).toString().padStart(2, '0');
+            const sec = (displaySeconds % 60).toString().padStart(2, '0');
+            
+            // Only show hours if we actually hit an hour, keeping UI clean
+            if (hrs > 0) {
+                this.display.innerText = `${hrs}:${min}:${sec}`;
+            } else {
+                this.display.innerText = `${min}:${sec}`;
+            }
+        }
 
         if (t.mode === 'stopwatch') {
-            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all";
-            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-gray-900";
+            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
         } else {
-            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all";
-            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
+            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
         }
     }
 }
