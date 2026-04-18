@@ -4,36 +4,48 @@ import { store } from './State.js';
 class CanvasUI {
     constructor() {
         this.panX = 0; this.panY = -480; this.zoom = 1;
-        this.pxPerHour = 60; this.dayWidth = 200; // Adjusted for clearer view
+        this.pxPerHour = 60; this.dayWidth = 200; 
         this.isPanning = false; this.startX = 0; this.startY = 0; 
         
-        // 🚨 DRAG-TO-SELECT VARIABLES
+        // DRAG-TO-SELECT VARIABLES
         this.isSelecting = false;
         this.selectStartY = 0; this.selectStartX = 0;
         this.selectStartMin = 0; this.selectEndMin = 0;
         this.selectColIndex = 0;
+
+        // CALENDAR VARIABLES
+        this.currentMonthDate = new Date();
+        this.currentMonthDate.setDate(1);
     }
 
     init() {
+        // Timeline Elements
         this.container = document.getElementById('canvas-container');
         this.wrapper = document.getElementById('canvas-wrapper');
         this.gridBg = document.getElementById('canvas-grid-bg');
         this.blocksLayer = document.getElementById('canvas-blocks');
         this.timeLabels = document.getElementById('time-labels');
         this.dateDisplay = document.getElementById('canvasDateDisplay');
-        
         this.selectionBox = document.getElementById('drag-selection-box');
         this.selectionLabel = document.getElementById('drag-selection-label');
+
+        // Calendar Elements
+        this.calGrid = document.getElementById('calendarGrid');
+        this.calDisplay = document.getElementById('calendarWeekDisplay');
 
         this.baseDate = new Date();
         this.baseDate.setHours(0,0,0,0);
         
         this.bindEvents();
-        this.renderGridCSS();
+        if(this.container) this.renderGridCSS();
         
-        store.subscribe('blocks', () => this.renderBlocks());
-        this.renderBlocks();
-        this.updateTransform();
+        store.subscribe('blocks', () => {
+            if(this.container) this.renderBlocks();
+            if(this.calGrid) this.renderCalendar();
+        });
+        
+        if(this.container) { this.renderBlocks(); this.updateTransform(); }
+        if(this.calGrid) this.renderCalendar();
     }
 
     bindEvents() {
@@ -44,32 +56,41 @@ class CanvasUI {
             this.panX = 0; this.panY = -480; this.zoom = 1; this.updateTransform();
         });
 
-        // 🚨 UNIFIED DRAG CONTROLLER (Panning vs Scheduling)
+        // Calendar Controls
+        document.getElementById('prevWeekBtn')?.addEventListener('click', () => {
+            this.currentMonthDate.setMonth(this.currentMonthDate.getMonth() - 1);
+            this.renderCalendar();
+        });
+        document.getElementById('nextWeekBtn')?.addEventListener('click', () => {
+            this.currentMonthDate.setMonth(this.currentMonthDate.getMonth() + 1);
+            this.renderCalendar();
+        });
+
+        if (!this.container) return;
+
+        // UNIFIED DRAG CONTROLLER (Panning vs Scheduling)
         this.container.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('.scheduled-block')) return; // Ignore if clicking a block
+            if (e.target.closest('.scheduled-block')) return; 
             
             const rect = this.container.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            if (e.shiftKey || e.ctrlKey || e.metaKey || this.isLongPress(e)) {
-                // Initiating Drag-to-Select
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
                 this.isSelecting = true;
                 this.selectionBox.classList.remove('hidden');
                 
                 const canvasX = (mouseX - this.panX) / this.zoom;
                 const canvasY = (mouseY - this.panY) / this.zoom;
                 
-                this.selectColIndex = Math.floor((canvasX - 48) / this.dayWidth); // 48 is time label width
+                this.selectColIndex = Math.floor((canvasX - 48) / this.dayWidth); 
                 this.selectStartX = (this.selectColIndex * this.dayWidth) + 48;
                 
-                // Snap to nearest 5 mins
                 const rawMin = (canvasY / this.pxPerHour) * 60;
                 this.selectStartMin = Math.round(rawMin / 5) * 5;
                 
-                this.updateSelectionBox(this.selectStartMin, this.selectStartMin + 15); // Default 15m box
+                this.updateSelectionBox(this.selectStartMin, this.selectStartMin + 15);
             } else {
-                // Initiating Panning
                 this.isPanning = true;
                 this.startX = e.clientX - this.panX;
                 this.startY = e.clientY - this.panY;
@@ -90,13 +111,13 @@ class CanvasUI {
                 const rawMin = (canvasY / this.pxPerHour) * 60;
                 let currentMin = Math.round(rawMin / 5) * 5;
                 
-                if (currentMin <= this.selectStartMin) currentMin = this.selectStartMin + 5; // Minimum 5 mins
+                if (currentMin <= this.selectStartMin) currentMin = this.selectStartMin + 5;
                 this.selectEndMin = currentMin;
                 this.updateSelectionBox(this.selectStartMin, this.selectEndMin);
             }
         });
 
-        window.addEventListener('pointerup', (e) => {
+        window.addEventListener('pointerup', () => {
             if (this.isPanning) {
                 this.isPanning = false;
                 this.container.style.cursor = 'grab';
@@ -107,7 +128,6 @@ class CanvasUI {
             }
         });
 
-        // Wheel Zooming/Panning
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (e.ctrlKey) {
@@ -120,22 +140,11 @@ class CanvasUI {
         }, { passive: false });
     }
 
-    isLongPress(e) {
-        // Simplified check: we use Shift key as primary trigger for Desktop, 
-        // For mobile, you would typically use a timer here.
-        return false;
-    }
-
-    // 🚨 CSS GPU ACCELERATED GRID
+    // --- TIMELINE LOGIC ---
     renderGridCSS() {
         const theme = store.state.theme;
         const color = theme.bgColor === '#1f2937' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-        
-        // Pure CSS gradient grid based on zoom. No DOM nodes needed!
-        this.gridBg.style.backgroundImage = `
-            linear-gradient(to right, ${color} 1px, transparent 1px),
-            linear-gradient(to bottom, ${color} 1px, transparent 1px)
-        `;
+        this.gridBg.style.backgroundImage = `linear-gradient(to right, ${color} 1px, transparent 1px), linear-gradient(to bottom, ${color} 1px, transparent 1px)`;
         
         let html = '';
         for (let i = 0; i < 24; i++) {
@@ -147,24 +156,20 @@ class CanvasUI {
     }
 
     updateTransform() {
-        // Apply transformations
         this.gridBg.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
         this.gridBg.style.backgroundSize = `${this.dayWidth}px ${this.pxPerHour}px`;
-        
         this.blocksLayer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
         this.timeLabels.style.transform = `translateY(${this.panY}px) scaleY(${this.zoom})`;
 
-        // Calculate visible date
         const centerCol = Math.floor((-this.panX + (this.container.clientWidth / 2)) / (this.dayWidth * this.zoom));
         const viewingDate = new Date(this.baseDate.getTime() + (centerCol * 86400000));
-        this.dateDisplay.innerText = viewingDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        if(this.dateDisplay) this.dateDisplay.innerText = viewingDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     }
 
     setZoom(newZoom, mouseX, mouseY) {
         if (newZoom < 0.2) newZoom = 0.2;
-        if (newZoom > 4) newZoom = 4; // Max zoom allows easy 5-min block viewing
+        if (newZoom > 4) newZoom = 4; 
         
-        // Zoom toward center if no mouse coords
         if (!mouseX) mouseX = this.container.clientWidth / 2;
         if (!mouseY) mouseY = this.container.clientHeight / 2;
         
@@ -175,11 +180,9 @@ class CanvasUI {
         this.panX = x - ((x - this.panX) * (newZoom / this.zoom));
         this.panY = y - ((y - this.panY) * (newZoom / this.zoom));
         this.zoom = newZoom;
-        
         this.updateTransform();
     }
 
-    // 🚨 DRAG TO SELECT LOGIC
     updateSelectionBox(startMin, endMin) {
         const topPx = (startMin / 60) * this.pxPerHour;
         const heightPx = ((endMin - startMin) / 60) * this.pxPerHour;
@@ -205,7 +208,6 @@ class CanvasUI {
         const eH = Math.floor(this.selectEndMin / 60).toString().padStart(2, '0');
         const eM = (this.selectEndMin % 60).toString().padStart(2, '0');
 
-        // Pre-fill standard modal fields automatically!
         document.getElementById('newBlockStartDate').value = dateStr;
         document.getElementById('newBlockEndDate').value = dateStr;
         document.getElementById('newBlockStart').value = `${sH}:${sM}`;
@@ -226,7 +228,7 @@ class CanvasUI {
             
             const diffDays = Math.round((new Date(b.startDate).setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
             
-            const leftPx = (diffDays * this.dayWidth) + 48; // 48 is label offset
+            const leftPx = (diffDays * this.dayWidth) + 48; 
             const startMin = (bStart.getHours() * 60) + bStart.getMinutes();
             const topPx = (startMin / 60) * this.pxPerHour;
             
@@ -238,7 +240,7 @@ class CanvasUI {
 
             const el = document.createElement('div');
             el.className = `scheduled-block absolute rounded-md p-1.5 shadow-sm text-white overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${opacity}`;
-            el.style.left = `${leftPx + 4}px`; // +4px for gap
+            el.style.left = `${leftPx + 4}px`;
             el.style.top = `${topPx}px`;
             el.style.width = `${this.dayWidth - 8}px`;
             el.style.height = `${heightPx}px`;
@@ -249,7 +251,6 @@ class CanvasUI {
                 <div class="text-[11px] font-bold drop-shadow-md truncate">${b.title}</div>
             `;
             
-            // Edit modal listener
             el.addEventListener('click', () => {
                 document.getElementById('editBlockSubject').value = b.subject;
                 document.getElementById('editBlockTitle').value = b.title;
@@ -259,16 +260,68 @@ class CanvasUI {
                 document.getElementById('editBlockSchedEnd').value = b.scheduledEnd;
                 document.getElementById('editBlockRemarks').value = b.remarks || '';
                 
-                // Add the hidden ID to save button dataset for reference
                 const saveBtn = document.getElementById('saveEditBlock');
                 saveBtn.dataset.id = b.id;
-                
                 document.getElementById('editBlockModal').classList.remove('hidden');
             });
 
             this.blocksLayer.appendChild(el);
         });
     }
-}
 
+    // --- CALENDAR LOGIC RESTORED ---
+    renderCalendar() {
+        if (!this.calGrid) return;
+        
+        const year = this.currentMonthDate.getFullYear();
+        const month = this.currentMonthDate.getMonth();
+        
+        if (this.calDisplay) {
+            this.calDisplay.innerText = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+
+        this.calGrid.innerHTML = '';
+        
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        days.forEach(d => {
+            this.calGrid.innerHTML += `<div class="text-center font-bold text-gray-400 text-xs py-2">${d}</div>`;
+        });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            this.calGrid.innerHTML += `<div class="p-2 border border-transparent"></div>`;
+        }
+
+        const blocks = store.state.blocks || [];
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayBlocks = blocks.filter(b => b.startDate === dateStr || b.date === dateStr);
+            
+            let blocksHtml = '';
+            dayBlocks.slice(0, 3).forEach(b => {
+                const subColor = store.state.subjects[b.subject] || '#3b82f6';
+                const isCompleted = b.status === 'completed' ? 'opacity-50 line-through' : '';
+                blocksHtml += `<div class="text-[9px] font-bold text-white px-1.5 py-0.5 rounded mb-1 truncate shadow-sm ${isCompleted}" style="background-color: ${subColor}">${b.title || b.subject}</div>`;
+            });
+            
+            if (dayBlocks.length > 3) {
+                blocksHtml += `<div class="text-[9px] text-gray-400 font-bold text-center">+${dayBlocks.length - 3} more</div>`;
+            }
+
+            const isToday = new Date().toISOString().split('T')[0] === dateStr;
+            const bgClass = isToday ? 'bg-blue-50 border-blue-200 shadow-inner' : 'bg-white border-gray-100 hover:border-blue-200';
+            const textClass = isToday ? 'text-blue-600' : 'text-gray-600';
+
+            this.calGrid.innerHTML += `
+                <div class="min-h-[90px] p-2 border rounded-xl ${bgClass} flex flex-col cursor-pointer transition-colors">
+                    <div class="text-xs font-black ${textClass} mb-2">${day}</div>
+                    <div class="flex-1 flex flex-col gap-0.5">${blocksHtml}</div>
+                </div>
+            `;
+        }
+    }
+}
 export const canvasUI = new CanvasUI();
