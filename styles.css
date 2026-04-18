@@ -1,3 +1,4 @@
+/* styles.css */
 :root {
     --pan-x: 10px; 
     --pan-y: -480px; 
@@ -5,9 +6,14 @@
     --px-per-hour: 60px; 
     --day-width: 180px;
     
-    --grid-60: rgba(0,0,0,0.1); --grid-30: transparent; --grid-15: transparent; --grid-5: transparent; 
-    --action-color: #3b82f6; --tab-color: #3b82f6;
-    --action-padding: 0.5rem 1rem; --action-font-size: 0.875rem;
+    --grid-60: rgba(0,0,0,0.1); 
+    --grid-30: transparent; 
+    --grid-15: transparent; 
+    
+    --action-color: #3b82f6; 
+    --tab-color: #3b82f6;
+    --action-padding: 0.5rem 1rem; 
+    --action-font-size: 0.875rem;
 }
 
 /* Mobile Scrollbar Hider */
@@ -19,27 +25,24 @@
         linear-gradient(to bottom, var(--grid-60) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-30) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-15) 1px, transparent 1px),
-        linear-gradient(to bottom, var(--grid-5) 1px, transparent 1px),
         linear-gradient(to right, var(--grid-60) 1px, transparent 1px);
+    
+    /* 🚨 This perfectly scales the background image grid height based on zoom! */
     background-size: 
-        var(--day-width) calc(60px * var(--zoom)), var(--day-width) calc(30px * var(--zoom)), 
-        var(--day-width) calc(15px * var(--zoom)), var(--day-width) calc(5px * var(--zoom)), var(--day-width) calc(60px * var(--zoom));
-    position: absolute; top: 0; left: -100800px; width: 201600px; height: calc(24 * 60px * var(--zoom)); pointer-events: none;
+        var(--day-width) calc(60px * var(--zoom)),
+        var(--day-width) calc(30px * var(--zoom)),
+        var(--day-width) calc(15px * var(--zoom)),
+        var(--day-width) 100%;
 }
-
-.time-label-fraction { transition: opacity 0.2s; }
-.show-30-mins .time-label-30 { opacity: 1 !important; }
-.show-15-mins .time-label-15 { opacity: 1 !important; }
-.show-5-mins .time-label-5 { opacity: 1 !important; }
-.time-label-30, .time-label-15, .time-label-5 { opacity: 0; }
 
 .custom-action-btn {
-    background-color: var(--action-color) !important; color: white !important;
-    padding: var(--action-padding) !important; font-size: var(--action-font-size) !important;
-    transition: filter 0.2s, transform 0.2s, background-color 0.5s;
-    border: none; cursor: pointer;
+    background-color: var(--action-color) !important;
+    color: white !important;
+    padding: var(--action-padding) !important;
+    font-size: var(--action-font-size) !important;
+    transition: filter 0.2s, transform 0.1s;
 }
-.custom-action-btn:hover { filter: brightness(1.15); transform: scale(1.02); }
+.custom-action-btn:hover { filter: brightness(1.1); }
 .custom-action-btn:active { transform: scale(0.95); }
 
 .floating-widget {
@@ -62,11 +65,10 @@
 .ypt-block.dragging-block { cursor: grabbing !important; z-index: 100 !important; opacity: 0.8; transition: none !important; }
 
 @keyframes slight-shake {
-    0%, 100% { transform: translateX(0) scale(1.02); }
-    25% { transform: translateX(-2px) rotate(-1deg) scale(1.02); }
-    75% { transform: translateX(2px) rotate(1deg) scale(1.02); }
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-2px) rotate(-1deg); }
+    50% { transform: translateX(2px) rotate(1deg); }
+    75% { transform: translateX(-2px) rotate(-1deg); }
+    100% { transform: translateX(0); }
 }
-.agenda-block-interactive { transition: all 0.2s ease-in-out; cursor: pointer; }
-.agenda-block-interactive:hover {
-    animation: slight-shake 0.4s ease-in-out infinite; filter: brightness(1.08); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15); z-index: 10;
-}
+.animate-shake { animation: slight-shake 0.3s ease-in-out; }
