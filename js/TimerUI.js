@@ -84,17 +84,28 @@ class TimerUI {
                 return b;
             }));
         } else if (t.studySeconds > 60) {
+            // 🚨 FIX: SPONTANEOUS SESSION DATA KEYS
+            const now = new Date();
+            const actualStartObj = new Date(now.getTime() - (t.secondsElapsed * 1000));
+            
+            const dateStr = now.toISOString().split('T')[0];
+            const startTimeStr = actualStartObj.toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'});
+            const endTimeStr = now.toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'});
+
             const newBlock = {
                 id: Date.now().toString(),
                 title: 'Spontaneous Focus',
                 subject: t.spontaneousSubject || 'General',
-                date: new Date().toISOString().split('T')[0],
-                actualStart: new Date(Date.now() - (t.secondsElapsed * 1000)).toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'}),
-                actualEnd: new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'}),
+                startDate: dateStr,            // 🚨 Added
+                endDate: dateStr,              // 🚨 Added
+                scheduledStart: startTimeStr,  // 🚨 Added
+                scheduledEnd: endTimeStr,      // 🚨 Added
+                actualStart: startTimeStr,
+                actualEnd: endTimeStr,
                 status: 'completed',
                 studySeconds: t.studySeconds,
                 breakSeconds: t.breakSeconds,
-                remarks: 'Unscheduled session'
+                remarks: 'Unscheduled manual session'
             };
             store.update('blocks', b => [...b, newBlock]);
         }
@@ -112,17 +123,16 @@ class TimerUI {
             ? "flex-1 md:flex-none px-6 py-3 bg-red-100 text-red-700 rounded-xl font-bold hover:bg-red-200 transition-colors"
             : "flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/30 w-32";
 
-        // 🚨 DYNAMIC UI BADGES FOR STOPWATCH VS POMODORO
         if (t.phase === 'study') {
             this.switchPhaseBtn.innerHTML = '☕ Take Break';
             this.switchPhaseBtn.className = "flex-1 md:flex-none px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors";
             
             if (t.mode === 'stopwatch') {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2 animate-pulse"></span>⏱️ STOPWATCH: FOCUS';
-                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
+                this.phaseIndicator.className = "px-6 py-1.5 rounded-full bg-gray-100 text-gray-600 font-black text-sm uppercase tracking-widest mb-6 shadow-sm border border-gray-200";
             } else {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>🎯 POMODORO: STUDY';
-                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-blue-100 text-blue-800";
+                this.phaseIndicator.className = "px-6 py-1.5 rounded-full bg-blue-100 text-blue-800 font-black text-sm uppercase tracking-widest mb-6 shadow-sm border border-blue-200";
             }
         } else {
             this.switchPhaseBtn.innerHTML = '🎯 Resume Focus';
@@ -130,30 +140,29 @@ class TimerUI {
             
             if (t.mode === 'stopwatch') {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2 animate-pulse"></span>⏱️ STOPWATCH: BREAK';
-                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
+                this.phaseIndicator.className = "px-6 py-1.5 rounded-full bg-gray-100 text-gray-600 font-black text-sm uppercase tracking-widest mb-6 shadow-sm border border-gray-200";
             } else {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-orange-500 mr-2 animate-pulse"></span>☕ POMODORO: BREAK';
-                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-orange-100 text-orange-800";
+                this.phaseIndicator.className = "px-6 py-1.5 rounded-full bg-orange-100 text-orange-800 font-black text-sm uppercase tracking-widest mb-6 shadow-sm border border-orange-200";
             }
         }
 
-        const titleEl = document.getElementById('focusSessionTitle');
+        const titleEl = document.getElementById('activeBlockTitle');
         if (titleEl) {
             if (t.activeBlockId) {
                 const activeBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
                 const subColor = activeBlock ? store.state.subjects[activeBlock.subject] || '#3b82f6' : '#3b82f6';
-                titleEl.innerHTML = `<span style="color: ${subColor}">●</span> 🎯 Scheduled Block: <span class="text-gray-400">${activeBlock ? activeBlock.title : 'Active Block'}</span>`;
-                if (this.spontaneousSubjectSelect && activeBlock) {
-                    this.spontaneousSubjectSelect.value = activeBlock.subject;
-                    this.spontaneousSubjectSelect.disabled = true;
-                }
+                titleEl.innerHTML = `<div class="text-sm font-bold text-gray-500 mb-2">🎯 Scheduled Block</div>
+                                     <div class="w-full p-3 bg-white border-2 rounded-xl font-bold text-gray-800 shadow-sm text-center truncate" style="border-color: ${subColor}">${activeBlock ? activeBlock.title : 'Active Block'}</div>`;
             } else {
-                titleEl.innerHTML = `🎯 Focus Mode: <span class="text-gray-400">Spontaneous Session</span>`;
-                if (this.spontaneousSubjectSelect) this.spontaneousSubjectSelect.disabled = false;
+                titleEl.innerHTML = `<div class="text-sm font-bold text-gray-500 mb-2">🎯 Focus Mode: <span class="text-gray-400">Spontaneous Session</span></div>
+                                     <select id="focusSpontaneousSubject" class="w-full p-3 bg-white border rounded-xl font-bold text-gray-700 shadow-sm appearance-none text-center"></select>`;
+                this.spontaneousSubjectSelect = document.getElementById('focusSpontaneousSubject');
+                this.populateSubjects();
+                this.bindEvents(); 
             }
         }
 
-        // 🚨 DYNAMIC TIME FORMATTING (HH:MM:SS for Stopwatch, MM:SS for Pomodoro)
         let displaySeconds = 0;
         
         if (t.mode === 'pomodoro') {
@@ -167,7 +176,6 @@ class TimerUI {
             this.display.innerText = `${min}:${sec}`;
             
         } else {
-            // Stopwatch Mode - Continually count up the current phase
             displaySeconds = t.phase === 'study' ? t.studySeconds : t.breakSeconds;
             if (isNaN(displaySeconds) || displaySeconds < 0) displaySeconds = 0;
             
@@ -183,11 +191,19 @@ class TimerUI {
         }
 
         if (t.mode === 'stopwatch') {
-            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-gray-900";
-            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
+            this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-sm transition-all shadow-sm";
+            this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded-xl text-gray-500 font-bold text-sm transition-all hover:bg-gray-50";
         } else {
-            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
-            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
+            this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-sm transition-all shadow-sm";
+            this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded-xl text-gray-500 font-bold text-sm transition-all hover:bg-gray-50";
+        }
+
+        if (t.isRunning || t.studySeconds > 0 || t.breakSeconds > 0) {
+            this.finishTimerBtn.classList.remove('hidden');
+            if (t.activeBlockId) this.pushBackBtn.classList.remove('hidden');
+        } else {
+            this.finishTimerBtn.classList.add('hidden');
+            this.pushBackBtn.classList.add('hidden');
         }
     }
 }
