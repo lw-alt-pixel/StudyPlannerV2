@@ -3,10 +3,11 @@ import { store } from './State.js';
 import { timerEngine } from './TimerEngine.js';
 
 class CanvasUI {
-    constructor() {
-        this.panX = 64; this.panY = -480; this.zoom = 1;
-        this.pxPerHour = 60; this.dayWidth = 200; 
-        this.isPanning = false; this.startX = 0; this.startY = 0; 
+   // ADD THESE FOR MULTI-SELECT
+        this.isSelecting = false;
+        this.selectStartX = 0;
+        this.selectStartMin = 0;
+        this.selectColIndex = 0;
         
         // Interaction states
         this.hasDragged = false;
@@ -116,6 +117,36 @@ class CanvasUI {
         this.container.addEventListener('pointerdown', (e) => {
             if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return; 
             
+            // 🚨 NEW: Hold Shift to Select!
+            if (e.shiftKey) {
+                this.isSelecting = true;
+                
+                const rect = this.container.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const canvasX = (mouseX - this.panX) / this.zoom;
+                const canvasY = (mouseY - this.panY) / this.zoom;
+                
+                this.selectColIndex = Math.floor((canvasX - 64) / this.dayWidth); 
+                
+                // Snap to nearest 15 mins (or whatever your grid interval is)
+                const rawMin = (canvasY / this.pxPerHour) * 60;
+                this.selectStartMin = Math.round(rawMin / 15) * 15;
+                
+                // Show a visual selection box (make sure this div exists in index.html)
+                const box = document.getElementById('drag-selection-box');
+                if(box) {
+                    box.classList.remove('hidden');
+                    box.style.left = `${(this.selectColIndex * this.dayWidth) + 64}px`;
+                    box.style.top = `${(this.selectStartMin / 60) * this.pxPerHour}px`;
+                    box.style.width = `${this.dayWidth - 4}px`;
+                    box.style.height = `15px`; // Initial tiny height
+                }
+                return;
+            }
+
+            // ... Your original Panning logic stays exactly the same here
             this.pointerDownTime = Date.now();
             this.hasDragged = false;
             this.startX = e.clientX - this.panX;
@@ -123,31 +154,61 @@ class CanvasUI {
             this.isPanning = true;
             this.container.style.cursor = 'grabbing';
         });
-
         window.addEventListener('pointermove', (e) => {
-            if (this.isPanning) {
-                const dx = e.clientX - this.startX - this.panX;
-                const dy = e.clientY - this.startY - this.panY;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) this.hasDragged = true;
-
-                this.panX = e.clientX - this.startX;
-                this.panY = e.clientY - this.startY;
-                this.updateTransform();
+            // 🚨 NEW: Dragging the selection box
+            if (this.isSelecting) {
+                const rect = this.container.getBoundingClientRect();
+                const mouseY = e.clientY - rect.top;
+                const canvasY = (mouseY - this.panY) / this.zoom;
+                
+                const rawMin = (canvasY / this.pxPerHour) * 60;
+                let currentMin = Math.round(rawMin / 15) * 15;
+                
+                if (currentMin <= this.selectStartMin) currentMin = this.selectStartMin + 15;
+                
+                const box = document.getElementById('drag-selection-box');
+                if (box) {
+                    const durationMins = currentMin - this.selectStartMin;
+                    box.style.height = `${(durationMins / 60) * this.pxPerHour}px`;
+                }
+                return;
             }
+
+            // ... Your original Panning logic stays exactly the same here
         });
 
-        window.addEventListener('pointerup', (e) => {
-            if (this.isPanning) {
-                this.isPanning = false;
-                this.container.style.cursor = 'grab';
-
-                const duration = Date.now() - this.pointerDownTime;
+       window.addEventListener('pointerup', (e) => {
+            // 🚨 NEW: Finish Selection and Open Modal
+            if (this.isSelecting) {
+                this.isSelecting = false;
+                const box = document.getElementById('drag-selection-box');
+                if (box) box.classList.add('hidden');
                 
-                // 🚨 CLICK-TO-SCHEDULE LOGIC RESTORED
-                if (!this.hasDragged && duration < 500) {
-                    this.handleGridClick(e);
-                }
+                // Calculate final time based on box height
+                const durationMins = (parseFloat(box.style.height) / this.pxPerHour) * 60;
+                const endMin = this.selectStartMin + Math.round(durationMins);
+                
+                // Calculate Date
+                const targetDate = new Date(this.baseDate.getTime() + (this.selectColIndex * 86400000));
+                const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
+
+                // Format Times
+                const sH = Math.floor(this.selectStartMin / 60).toString().padStart(2, '0');
+                const sM = (this.selectStartMin % 60).toString().padStart(2, '0');
+                const eH = Math.floor(endMin / 60).toString().padStart(2, '0');
+                const eM = (endMin % 60).toString().padStart(2, '0');
+
+                // Pre-fill Modal
+                document.getElementById('newBlockStartDate').value = dateStr;
+                document.getElementById('newBlockEndDate').value = dateStr;
+                document.getElementById('newBlockStart').value = `${sH}:${sM}`;
+                document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
+
+                document.getElementById('addBlockModal')?.classList.remove('hidden');
+                return;
             }
+
+            // ... Your original Pointer Up / Click-to-schedule logic stays here
         });
 
         this.container.addEventListener('wheel', (e) => {
