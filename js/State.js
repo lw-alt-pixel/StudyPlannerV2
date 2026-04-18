@@ -30,7 +30,7 @@ const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
 };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
 
-// 🚨 UPDATED: Added breakSource default
+// 🚨 Default Audio Includes the Break Source
 const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'zen', breakSource: 'upbeat', volume: 50 };
 
 export const defaultState = {
