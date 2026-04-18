@@ -64,7 +64,7 @@ class TimerEngine {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator(); 
         const gain = audioCtx.createGain();
-        osc.type = 'bell'; // Soft chime
+        osc.type = 'bell';
         osc.frequency.setValueAtTime(600, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
