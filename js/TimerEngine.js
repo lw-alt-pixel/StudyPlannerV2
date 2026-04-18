@@ -22,12 +22,11 @@ class TimerEngine {
             let newS = t.phase === 'study' ? s + 1 : s;
             let newB = t.phase === 'break' ? b + 1 : b;
 
-            // 🚨 NEW: SEAMLESS POMODORO LOOP ENGINE
+            // 🚨 POMODORO AUTO-SWITCH ENGINE (IGNORED IN STOPWATCH MODE)
             if (t.mode === 'pomodoro') {
                 const pStudySecs = (sSettings.pStudy || 25) * 60;
                 const pBreakSecs = (sSettings.pBreak || 5) * 60;
 
-                // Use Modulo (%) to detect exact cycle boundaries
                 if (t.phase === 'study' && newS > 0 && newS % pStudySecs === 0) {
                     newPhase = 'break';
                     this.playTransitionChime();
