@@ -36,124 +36,112 @@ class TimerUI {
     }
 
     bindEvents() {
-        // Toggle Timer (Supports Spontaneous Sessions now!)
         this.toggleBtn.addEventListener('click', () => {
-            const { isRunning } = store.state.timer;
-            if (!isRunning) {
-                store.update('timer', t => ({ ...t, isRunning: true }));
-                timerEngine.start();
-            } else {
-                store.update('timer', t => ({ ...t, isRunning: false }));
-                timerEngine.stop();
-            }
+            if (store.state.timer.isRunning) timerEngine.stop();
+            else timerEngine.start();
+            store.update('timer', t => ({ ...t, isRunning: !t.isRunning }));
         });
 
         this.switchPhaseBtn.addEventListener('click', () => {
-            const { phase } = store.state.timer;
-            store.update('timer', t => ({ ...t, phase: phase === 'study' ? 'break' : 'study' }));
+            store.update('timer', t => ({ ...t, phase: t.phase === 'study' ? 'break' : 'study' }));
         });
 
         this.modeStopwatchBtn.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'stopwatch' })));
         this.modePomodoroBtn.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'pomodoro' })));
 
-        // NEW: The Global "Finish & Save" button!
-        this.finishTimerBtn?.addEventListener('click', () => {
+        this.finishTimerBtn.addEventListener('click', () => {
             const t = store.state.timer;
-            if (t.isRunning) timerEngine.stop();
-            
-            const totalSecs = t.studySeconds + t.breakSeconds;
-            if (totalSecs > 0) {
-                const actualEnd = Date.now();
-                const actualStart = actualEnd - (totalSecs * 1000);
-                
-                if (t.activeBlockId) {
-                    // Update existing block
-                    store.update('blocks', blocks => blocks.map(b => 
-                        b.id === t.activeBlockId ? { ...b, actualEnd: actualEnd, status: 'completed' } : b
-                    ));
-                } else {
-                    // Inject Spontaneous Block onto Calendar!
-                    const sub = this.spontaneousSubjectSelect.value || 'Other';
-                    const dStart = new Date(actualStart);
-                    const startDateStr = `${dStart.getFullYear()}-${String(dStart.getMonth()+1).padStart(2,'0')}-${String(dStart.getDate()).padStart(2,'0')}`;
-                    const startMins = dStart.getHours() * 60 + dStart.getMinutes();
-                    
-                    const dEnd = new Date(actualEnd);
-                    const endDateStr = `${dEnd.getFullYear()}-${String(dEnd.getMonth()+1).padStart(2,'0')}-${String(dEnd.getDate()).padStart(2,'0')}`;
-                    const endMins = dEnd.getHours() * 60 + dEnd.getMinutes();
-                    const formatTime = (mins) => `${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`;
-
-                    const newBlock = {
-                        id: Date.now(), subject: sub, title: `Unscheduled Session`,
-                        startDate: startDateStr, scheduledStart: formatTime(startMins), 
-                        endDate: endDateStr, scheduledEnd: formatTime(endMins),
-                        actualStart: actualStart, actualEnd: actualEnd,
-                        status: 'completed', studySeconds: t.studySeconds, breakSeconds: t.breakSeconds
-                    };
-                    store.update('blocks', old => [...old, newBlock]);
-                }
+            if (t.activeBlockId) {
+                store.update('blocks', blocks => blocks.map(b => b.id === t.activeBlockId ? { ...b, actualEnd: new Date().getTime(), status: 'completed' } : b));
+            } else if (t.studySeconds > 0) {
+                // Spontaneous Session Save
+                const d = new Date();
+                const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                const newBlock = {
+                    id: Date.now(), subject: this.spontaneousSubjectSelect.value, title: "Spontaneous Session",
+                    startDate: dStr, scheduledStart: "00:00", endDate: dStr, scheduledEnd: "00:00",
+                    actualStart: new Date(d.getTime() - (t.secondsElapsed*1000)).getTime(), actualEnd: d.getTime(),
+                    status: 'completed', studySeconds: t.studySeconds, breakSeconds: t.breakSeconds, remarks: ''
+                };
+                store.update('blocks', old => [...old, newBlock]);
             }
-            
-            // Reset the brain
-            store.update('timer', () => ({
-                activeBlockId: null, mode: store.state.timer.mode, phase: 'study', isRunning: false,
-                studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 
-            }));
+            timerEngine.stop();
+            store.update('timer', t => ({ ...t, isRunning: false, activeBlockId: null, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, phase: 'study' }));
+            alert("Session Finished and Saved!");
+        });
+
+        // 🚨 NEW: MARATHON MODAL
+        document.getElementById('openMarathonModalBtn')?.addEventListener('click', () => {
+            document.getElementById('marathonSetupModal').classList.remove('hidden');
+        });
+        document.getElementById('closeMarathonModalBtn')?.addEventListener('click', () => {
+            document.getElementById('marathonSetupModal').classList.add('hidden');
         });
     }
 
     updateUI() {
         const t = store.state.timer;
+        const m = store.state.marathon;
 
-        this.phaseIndicator.innerText = t.phase === 'study' ? 'STUDY PHASE' : 'BREAK PHASE';
+        // Skip updating standard timer if marathon is active
+        if (m && m.active) return;
+
+        this.toggleBtn.innerText = t.isRunning ? 'PAUSE' : 'START';
+        this.toggleBtn.classList.toggle('bg-red-500', t.isRunning);
+        this.toggleBtn.classList.toggle('hover:bg-red-600', t.isRunning);
+
+        this.phaseIndicator.innerText = t.phase === 'study' ? 'Study Phase' : 'Break Phase';
         this.phaseIndicator.className = t.phase === 'study' 
             ? 'absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider'
             : 'absolute top-4 bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider';
 
-        this.toggleBtn.innerText = t.isRunning ? 'PAUSE' : 'START';
         this.switchPhaseBtn.innerText = t.phase === 'study' ? 'TAKE BREAK' : 'RESUME STUDY';
 
         let displaySeconds = 0;
+        const titleEl = document.querySelector('#focus h2');
+
         if (t.mode === 'stopwatch') {
-            displaySeconds = t.phase === 'study' ? t.studySeconds : t.breakSeconds; 
+            displaySeconds = t.phase === 'study' ? t.studySeconds : t.breakSeconds;
         } else {
-            if (t.phase === 'study') {
-                displaySeconds = this.pStudy - (t.studySeconds % this.pStudy);
-                if (displaySeconds === this.pStudy && t.studySeconds > 0) displaySeconds = 0;
-            } else {
-                displaySeconds = this.pBreak - (t.breakSeconds % this.pBreak);
-                if (displaySeconds === this.pBreak && t.breakSeconds > 0) displaySeconds = 0;
+            const limit = t.phase === 'study' ? this.pStudy : this.pBreak;
+            const elapsedInPhase = t.phase === 'study' ? t.studySeconds : t.breakSeconds;
+            displaySeconds = limit - elapsedInPhase;
+            if (displaySeconds <= 0 && t.isRunning) {
+                // POMODORO AUTO-SWITCH
+                timerEngine.stop();
+                store.update('timer', state => ({ ...state, isRunning: false, phase: state.phase === 'study' ? 'break' : 'study' }));
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator(); osc.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5); // Simple Beep
+                alert(t.phase === 'study' ? "Study session complete! Time for a break." : "Break over! Back to work.");
             }
         }
 
-        const titleEl = document.querySelector('#focus h2');
         if (titleEl) {
             if (t.activeBlockId) {
                 const activeBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
                 titleEl.innerHTML = `🎯 Focus Mode: <span class="text-blue-600">${activeBlock ? activeBlock.title : 'Active Block'}</span>`;
-                // Lock spontaneous dropdown to active block subject
                 if (this.spontaneousSubjectSelect && activeBlock) {
                     this.spontaneousSubjectSelect.value = activeBlock.subject;
                     this.spontaneousSubjectSelect.disabled = true;
                 }
             } else {
                 titleEl.innerHTML = `🎯 Focus Mode: <span class="text-gray-400">Spontaneous Session</span>`;
-                // Unlock spontaneous dropdown
                 if (this.spontaneousSubjectSelect) this.spontaneousSubjectSelect.disabled = false;
             }
         }
 
         if (isNaN(displaySeconds) || displaySeconds < 0) displaySeconds = 0;
-        const m = Math.floor(displaySeconds / 60).toString().padStart(2, '0');
-        const s = (displaySeconds % 60).toString().padStart(2, '0');
-        this.display.innerText = `${m}:${s}`;
+        const min = Math.floor(displaySeconds / 60).toString().padStart(2, '0');
+        const sec = (displaySeconds % 60).toString().padStart(2, '0');
+        this.display.innerText = `${min}:${sec}`;
 
         if (t.mode === 'stopwatch') {
-            this.modeStopwatchBtn.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all";
-            this.modePomodoroBtn.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all";
+            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         } else {
-            this.modePomodoroBtn.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all";
-            this.modeStopwatchBtn.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            this.modePomodoroBtn.className = "flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all";
+            this.modeStopwatchBtn.className = "flex-1 md:flex-none px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         }
     }
 }
