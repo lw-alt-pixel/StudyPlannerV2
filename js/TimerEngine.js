@@ -11,28 +11,46 @@ class TimerEngine {
         
         this.interval = setInterval(() => {
             const t = store.state.timer;
-            if (!t.isRunning) return; // Safety check
+            const sSettings = store.state.settings;
+            if (!t.isRunning) return; 
             
-            // 1. Calculate new time safely (fallback to 0 so we never get NaN)
             const s = t.studySeconds || 0;
             const b = t.breakSeconds || 0;
             const e = t.secondsElapsed || 0;
             
+            let newPhase = t.phase;
+            let newS = t.phase === 'study' ? s + 1 : s;
+            let newB = t.phase === 'break' ? b + 1 : b;
+
+            // 🚨 NEW: SEAMLESS POMODORO LOOP ENGINE
+            if (t.mode === 'pomodoro') {
+                const pStudySecs = (sSettings.pStudy || 25) * 60;
+                const pBreakSecs = (sSettings.pBreak || 5) * 60;
+
+                // Use Modulo (%) to detect exact cycle boundaries
+                if (t.phase === 'study' && newS > 0 && newS % pStudySecs === 0) {
+                    newPhase = 'break';
+                    this.playTransitionChime();
+                } else if (t.phase === 'break' && newB > 0 && newB % pBreakSecs === 0) {
+                    newPhase = 'study';
+                    this.playTransitionChime();
+                }
+            }
+            
             const newTimerState = {
                 ...t,
-                studySeconds: t.phase === 'study' ? s + 1 : s,
-                breakSeconds: t.phase === 'break' ? b + 1 : b,
+                phase: newPhase,
+                studySeconds: newS,
+                breakSeconds: newB,
                 secondsElapsed: e + 1
             };
             
-            // 2. Update the Timer
             store.update('timer', () => newTimerState);
 
-            // 3. LIVE SYNC: Automatically save this time to the active block so the canvas updates!
             if (t.activeBlockId) {
                 store.update('blocks', blocks => blocks.map(block => 
                     block.id === t.activeBlockId 
-                        ? { ...block, studySeconds: newTimerState.studySeconds, breakSeconds: newTimerState.breakSeconds }
+                        ? { ...block, studySeconds: newS, breakSeconds: newB }
                         : block
                 ));
             }
@@ -41,6 +59,18 @@ class TimerEngine {
 
     stop() {
         if (this.interval) clearInterval(this.interval);
+    }
+
+    playTransitionChime() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator(); 
+        const gain = audioCtx.createGain();
+        osc.type = 'bell'; // Soft chime
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 1);
     }
 }
 
