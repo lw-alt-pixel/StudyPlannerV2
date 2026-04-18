@@ -6,9 +6,9 @@ class AudioEngine {
         this.ytPlayer = null;
         this.localAudio = new Audio();
         this.localAudio.loop = true;
+        this.currentTrackId = null;
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Inject YouTube API
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         const firstScriptTag = document.getElementsByTagName('script')[0];
@@ -16,34 +16,63 @@ class AudioEngine {
 
         window.onYouTubeIframeAPIReady = () => {
             this.ytPlayer = new YT.Player('yt-player-container', {
-                height: '0', width: '0', videoId: store.state.audio.ytId || 'jfKfPfyJRdk', // Default Lofi Girl
+                height: '0', width: '0', videoId: 'jfKfPfyJRdk', 
                 playerVars: { 'autoplay': 0, 'controls': 0, 'showinfo': 0, 'rel': 0, 'loop': 1 },
                 events: { 'onReady': () => this.setVolume(store.state.audio.volume) }
             });
         };
 
         store.subscribe('timer', (t) => this.handleTimerState(t));
-        store.subscribe('audio', (a) => this.setVolume(a.volume));
+        store.subscribe('audio', (a) => this.handleTimerState(store.state.timer)); 
     }
 
+    // 🚨 NEW: Phase-Aware Audio Switching!
     handleTimerState(timerState) {
-        const audioState = store.state.audio;
-        if (!audioState.enabled) return this.pauseMusic();
+        const a = store.state.audio;
+        
+        // If timer is paused or audio is disabled, stop the music.
+        if (!a.enabled || !timerState.isRunning) {
+            return this.pauseMusic();
+        }
 
-        if (timerState.isRunning && timerState.mode === 'pomodoro' && timerState.phase === 'study') {
-            this.playMusic(audioState);
+        // If Timer is running, pick the track based on the PHASE!
+        if (timerState.phase === 'break') {
+            // Upbeat Break Track
+            this.playTrack({ type: 'youtube', id: '4xDzrUhVKVA' }); // Upbeat NCS Stream
         } else {
-            this.pauseMusic();
+            // Curated Study Tracks
+            const sources = {
+                zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3' },
+                lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
+                nature: { type: 'youtube', id: 'mc0HInBqXOU' },
+                altpop: { type: 'youtube', id: 'lTRiuFIWV54' },
+                energetic: { type: 'youtube', id: '5qap5aO4i9A' }
+            };
+            this.playTrack(sources[a.source] || sources.zen);
         }
     }
 
-    playMusic(audioState) {
-        if (audioState.source === 'youtube' && this.ytPlayer && this.ytPlayer.playVideo) {
+    playTrack(track) {
+        if (this.currentTrackId === (track.id || track.url)) {
+            // Track is already loaded, just make sure it's playing
+            if (track.type === 'local') this.localAudio.play().catch(e => console.log(e));
+            else if (this.ytPlayer && this.ytPlayer.getPlayerState && this.ytPlayer.getPlayerState() !== 1) this.ytPlayer.playVideo();
+            return;
+        }
+
+        this.currentTrackId = track.id || track.url;
+        this.setVolume(store.state.audio.volume);
+
+        if (track.type === 'youtube') {
             this.localAudio.pause();
-            this.ytPlayer.playVideo();
-        } else if (audioState.source === 'local' && this.localAudio.src) {
+            if (this.ytPlayer && this.ytPlayer.loadVideoById) {
+                this.ytPlayer.loadVideoById(track.id);
+                this.ytPlayer.playVideo();
+            }
+        } else if (track.type === 'local') {
             if (this.ytPlayer && this.ytPlayer.pauseVideo) this.ytPlayer.pauseVideo();
-            this.localAudio.play().catch(e => console.log("Local audio play blocked by browser."));
+            this.localAudio.src = track.url;
+            this.localAudio.play().catch(e => console.log("Browser blocked local auto-play"));
         }
     }
 
@@ -57,19 +86,8 @@ class AudioEngine {
         this.localAudio.volume = vol / 100;
     }
 
-    setLocalAudio(file) {
-        const url = URL.createObjectURL(file);
-        this.localAudio.src = url;
-        store.update('audio', a => ({ ...a, source: 'local' }));
-    }
-
-    setYoutube(id) {
-        store.update('audio', a => ({ ...a, source: 'youtube', ytId: id }));
-        if (this.ytPlayer && this.ytPlayer.loadVideoById) this.ytPlayer.loadVideoById(id);
-    }
-
     // ==========================================
-    // 🚨 EXAM SOUND EFFECTS SYNTHESIZER
+    // EXAM SOUND EFFECTS SYNTHESIZER
     // ==========================================
     playSpeech(text) {
         const utterance = new SpeechSynthesisUtterance(text);
