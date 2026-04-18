@@ -7,17 +7,24 @@ class MarathonEngine {
         this.checkInterval = null;
         this.phaseCountInput = document.getElementById('marathonPhaseCount');
         this.phaseListContainer = document.getElementById('marathonPhaseList');
+        this.modal = document.getElementById('marathonSetupModal'); // Save reference globally
         
         this.bindEvents();
         
-        // Generate the initial UI rows based on the default value
         if (this.phaseCountInput && this.phaseListContainer) {
             this.renderPhaseInputs();
         }
     }
 
     bindEvents() {
-        // 🎯 NEW: Dynamic input generator
+        // 🚨 FIX: Directly bound the toggle buttons inside the native engine to prevent listener conflicts!
+        document.getElementById('openMarathonModalBtn')?.addEventListener('click', () => {
+            this.modal?.classList.remove('hidden');
+        });
+        document.getElementById('closeMarathonModalBtn')?.addEventListener('click', () => {
+            this.modal?.classList.add('hidden');
+        });
+
         this.phaseCountInput?.addEventListener('input', () => this.renderPhaseInputs());
 
         document.addEventListener("visibilitychange", () => {
@@ -37,10 +44,9 @@ class MarathonEngine {
         });
     }
 
-    // 🎯 NEW FUNCTION: Builds custom duration rows based on phase count
     renderPhaseInputs() {
         let count = parseInt(this.phaseCountInput.value) || 1;
-        if (count > 10) { count = 10; this.phaseCountInput.value = 10; } // Max 10 phases
+        if (count > 10) { count = 10; this.phaseCountInput.value = 10; } 
         if (count < 1) { count = 1; this.phaseCountInput.value = 1; }
 
         let html = '';
@@ -71,7 +77,6 @@ class MarathonEngine {
         
         if (!startTimeStr) return alert("Please select a start time.");
 
-        // Grab all dynamically generated inputs
         const examInputs = document.querySelectorAll('.marathon-exam-input');
         const breakInputs = document.querySelectorAll('.marathon-break-input');
 
@@ -84,7 +89,6 @@ class MarathonEngine {
         const phases = [];
         let currentMarker = new Date(scheduleStart);
 
-        // 🎯 NEW: Iterate and apply specific durations for each phase
         for (let i = 0; i < count; i++) {
             const examMins = Math.max(1, parseInt(examInputs[i]?.value) || 120);
             phases.push({ type: 'exam', start: new Date(currentMarker), end: new Date(currentMarker.getTime() + examMins * 60000) });
@@ -101,7 +105,7 @@ class MarathonEngine {
             ...m, active: true, isWaitingForCheckIn: true, strikes: 0, phases: phases, currentPhaseIdx: -1, checkInTime: new Date(scheduleStart.getTime() - 2 * 60000)
         }));
 
-        document.getElementById('marathonSetupModal').classList.add('hidden');
+        this.modal?.classList.add('hidden');
         this.triggerTunnelVision(true);
         this.startEngine();
     }
