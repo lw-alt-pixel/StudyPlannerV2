@@ -72,7 +72,7 @@ class SettingsManager {
             this.subjectList.innerHTML += `
                 <div class="flex gap-2 items-center subject-row" data-oldname="${subName}">
                     <input type="text" class="subject-name-input flex-1 p-2 border rounded font-bold text-gray-700 text-sm" value="${subName}">
-                    <input type="color" class="subject-color-input w-10 h-10 border rounded cursor-pointer" value="${store.state.subjects[subName]}">
+                    <input type="color" class="subject-color-input w-10 h-10 border rounded cursor-pointer" value="${subColor}">
                 </div>
             `;
         });
