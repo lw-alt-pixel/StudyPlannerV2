@@ -1,7 +1,7 @@
 // js/TimerUI.js
 import { store } from './State.js';
 import { timerEngine } from './TimerEngine.js';
-import { blockManager } from './BlockManager.js'; // Need this for the Push Back modal
+import { blockManager } from './BlockManager.js';
 
 class TimerUI {
     init() {
@@ -39,105 +39,77 @@ class TimerUI {
 
     bindEvents() {
         this.toggleBtn.addEventListener('click', () => {
-            if (store.state.timer.isRunning) timerEngine.stop();
-            else timerEngine.start();
-            store.update('timer', t => ({ ...t, isRunning: !t.isRunning }));
+            const isRunning = store.state.timer.isRunning;
+            store.update('timer', t => ({ ...t, isRunning: !isRunning }));
+            if (!isRunning) timerEngine.start();
+            else timerEngine.stop();
         });
 
+        // 🚨 Manual override simply flips the phase without breaking the loop!
         this.switchPhaseBtn.addEventListener('click', () => {
-            store.update('timer', t => ({ ...t, phase: t.phase === 'study' ? 'break' : 'study' }));
+            const t = store.state.timer;
+            const newPhase = t.phase === 'study' ? 'break' : 'study';
+            store.update('timer', state => ({ ...state, phase: newPhase }));
         });
 
         this.modeStopwatchBtn.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'stopwatch' })));
         this.modePomodoroBtn.addEventListener('click', () => store.update('timer', t => ({ ...t, mode: 'pomodoro' })));
 
-        // 🚨 PUSH BACK MANUAL TRIGGER
-        this.pushBackBtn?.addEventListener('click', () => {
+        this.finishTimerBtn.addEventListener('click', () => {
+            timerEngine.stop();
             const t = store.state.timer;
             if (t.activeBlockId) {
-                blockManager.openPushBackModal(t.activeBlockId); // Trigger the split engine
-            } else {
-                alert("You can only push back scheduled blocks. Spontaneous sessions cannot be split.");
+                store.update('blocks', blocks => blocks.map(b => b.id === t.activeBlockId ? { ...b, status: 'completed', actualEnd: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) } : b));
             }
+            store.update('timer', () => ({ ...store.state.timer, isRunning: false, activeBlockId: null, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, phase: 'study' }));
         });
 
-        // 🚨 SMART FINISH BUTTON (Checks for early finish)
-        this.finishTimerBtn.addEventListener('click', () => {
+        this.pushBackBtn?.addEventListener('click', () => {
             const t = store.state.timer;
+            if(!t.activeBlockId) return alert("You must be running a scheduled block to use Push Back.");
+            blockManager.openPushBackModal(t.activeBlockId);
+        });
 
-            if (t.activeBlockId) {
-                const b = store.state.blocks.find(x => x.id === t.activeBlockId);
-                if (b) {
-                    const sObj = new Date(`${b.startDate}T${b.scheduledStart}:00`);
-                    const eObj = new Date(`${b.endDate}T${b.scheduledEnd}:00`);
-                    const expectedMins = Math.round((eObj - sObj) / 60000);
-                    const studiedMins = Math.floor(t.studySeconds / 60);
-                    
-                    // Intercept early finish!
-                    if (expectedMins - studiedMins > 5) {
-                        if (confirm(`You scheduled ${expectedMins} mins, but only studied ${studiedMins} mins. Do you want to PUSH BACK the remaining time to another day? \n\n(Click OK to split & push back. Click Cancel to mark the whole block fully complete anyway).`)) {
-                            blockManager.openPushBackModal(t.activeBlockId, expectedMins - studiedMins);
-                            return; 
-                        }
-                    }
-                }
-                
-                // Normal Finish
-                store.update('blocks', blocks => blocks.map(x => x.id === t.activeBlockId ? { ...x, actualEnd: new Date().getTime(), status: 'completed' } : x));
-            } else if (t.studySeconds > 0) {
-                const d = new Date();
-                const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                const newBlock = {
-                    id: Date.now(), subject: this.spontaneousSubjectSelect.value, title: "Spontaneous Session",
-                    startDate: dStr, scheduledStart: "00:00", endDate: dStr, scheduledEnd: "00:00",
-                    actualStart: new Date(d.getTime() - (t.secondsElapsed*1000)).getTime(), actualEnd: d.getTime(),
-                    status: 'completed', studySeconds: t.studySeconds, breakSeconds: t.breakSeconds, remarks: ''
-                };
-                store.update('blocks', old => [...old, newBlock]);
+        this.spontaneousSubjectSelect?.addEventListener('change', (e) => {
+            const t = store.state.timer;
+            if (!t.activeBlockId) {
+                store.update('timer', state => ({ ...state, spontaneousSubject: e.target.value }));
             }
-            timerEngine.stop();
-            store.update('timer', state => ({ ...state, isRunning: false, activeBlockId: null, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, phase: 'study' }));
-            alert("Session Finished and Saved!");
         });
     }
 
     updateUI() {
         const t = store.state.timer;
-        const m = store.state.marathon;
-        if (m && m.active) return;
+        const theme = store.state.theme;
 
-        this.toggleBtn.innerText = t.isRunning ? 'PAUSE' : 'START';
-        this.toggleBtn.classList.toggle('bg-red-500', t.isRunning);
-        this.toggleBtn.classList.toggle('hover:bg-red-600', t.isRunning);
+        this.toggleBtn.innerHTML = t.isRunning ? '<i class="fas fa-pause"></i> Pause' : '<i class="fas fa-play"></i> Start';
+        this.toggleBtn.style.backgroundColor = theme.actionColor || '#2563eb';
 
-        this.phaseIndicator.innerText = t.phase === 'study' ? 'Study Phase' : 'Break Phase';
-        this.phaseIndicator.className = t.phase === 'study' ? 'absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider' : 'absolute top-4 bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider';
-        this.switchPhaseBtn.innerText = t.phase === 'study' ? 'TAKE BREAK' : 'RESUME STUDY';
+        this.switchPhaseBtn.innerHTML = t.phase === 'study' ? '<i class="fas fa-coffee"></i> Take Break' : '<i class="fas fa-book"></i> Resume Study';
+        this.switchPhaseBtn.className = t.phase === 'study' 
+            ? "flex-1 px-4 py-3 rounded-xl font-black text-sm text-amber-700 bg-amber-100 hover:bg-amber-200 shadow-sm transition-all"
+            : "flex-1 px-4 py-3 rounded-xl font-black text-sm text-blue-700 bg-blue-100 hover:bg-blue-200 shadow-sm transition-all";
 
-        if (this.pushBackBtn) {
-            if (t.activeBlockId) this.pushBackBtn.classList.remove('hidden');
-            else this.pushBackBtn.classList.add('hidden');
-        }
+        this.phaseIndicator.innerText = t.phase === 'study' ? '🧠 Focus Phase' : '☕ Break Phase';
+        this.phaseIndicator.className = t.phase === 'study' ? "text-xs font-black uppercase tracking-widest text-blue-600 mb-2" : "text-xs font-black uppercase tracking-widest text-amber-600 mb-2";
 
         let displaySeconds = 0;
-        const titleEl = document.querySelector('#focus h2');
 
-        if (t.mode === 'stopwatch') {
-            displaySeconds = t.phase === 'study' ? t.studySeconds : t.breakSeconds;
-        } else {
-            const limit = t.phase === 'study' ? this.pStudy : this.pBreak;
-            const elapsedInPhase = t.phase === 'study' ? t.studySeconds : t.breakSeconds;
-            displaySeconds = limit - elapsedInPhase;
-            if (displaySeconds <= 0 && t.isRunning) {
-                timerEngine.stop();
-                store.update('timer', state => ({ ...state, isRunning: false, phase: state.phase === 'study' ? 'break' : 'study' }));
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = audioCtx.createOscillator(); osc.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.5); 
-                alert(t.phase === 'study' ? "Study session complete! Time for a break." : "Break over! Back to work.");
+        // 🚨 NEW: Modulo (%) Math for infinite visual looping!
+        if (t.mode === 'pomodoro') {
+            if (t.phase === 'study') {
+                // E.g. 25 mins - (TotalTime % 25 mins)
+                displaySeconds = this.pStudy - (t.studySeconds % this.pStudy);
+                if (displaySeconds === this.pStudy && t.studySeconds > 0) displaySeconds = 0;
+            } else {
+                displaySeconds = this.pBreak - (t.breakSeconds % this.pBreak);
+                if (displaySeconds === this.pBreak && t.breakSeconds > 0) displaySeconds = 0;
             }
+        } else {
+            displaySeconds = t.secondsElapsed;
         }
 
+        const titleEl = document.getElementById('focusBlockTitle');
         if (titleEl) {
             if (t.activeBlockId) {
                 const activeBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
