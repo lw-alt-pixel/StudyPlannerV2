@@ -15,13 +15,18 @@ class SettingsManager {
     }
 
     bindEvents() {
-        // 🎯 NEW: CLICK OUTSIDE (OR "X") TO CLOSE PANEL OVERLAYS
         const closeSettings = () => {
             this.panel?.classList.add('translate-x-full');
             this.overlay?.classList.add('hidden');
         };
         document.getElementById('closeSettingsPanel')?.addEventListener('click', closeSettings);
         this.overlay?.addEventListener('click', closeSettings);
+
+        // 🚨 FIX: THIS BINDS THE BUTTON ON THE ANALYTICS TAB!
+        document.getElementById('fallbackSettingsBtn')?.addEventListener('click', () => {
+            this.panel?.classList.remove('translate-x-full');
+            this.overlay?.classList.remove('hidden');
+        });
 
         this.bgMode?.addEventListener('change', (e) => {
             if (e.target.value === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
@@ -30,81 +35,80 @@ class SettingsManager {
         });
 
         document.getElementById('settingsBgColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bgColor: e.target.value })));
+        document.getElementById('settingsBgImage')?.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => store.update('theme', t => ({ ...t, bgImage: event.target.result }));
+                reader.readAsDataURL(file);
+            }
+        });
+
         document.getElementById('settingsTabColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, tabColor: e.target.value })));
         document.getElementById('settingsActionColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, actionColor: e.target.value })));
-        document.getElementById('settingsActionSize')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, actionSize: e.target.value })));
-        
-        // 🎯 NEW: FLOATING BUTTON SETTING
-        document.getElementById('settingsFloatingBtn')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, floatingBtn: e.target.value })));
-        
         document.getElementById('settingsBannerBgColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bannerBgColor: e.target.value })));
         document.getElementById('settingsBannerTextColor')?.addEventListener('input', (e) => store.update('theme', t => ({ ...t, bannerTextColor: e.target.value })));
+        document.getElementById('settingsActionSize')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, actionSize: e.target.value })));
+        document.getElementById('settingsFloatingBtn')?.addEventListener('change', (e) => store.update('theme', t => ({ ...t, floatingBtn: e.target.value })));
 
-        document.getElementById('settingsBgImage')?.addEventListener('change', (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                    const maxW = 1920; let width = img.width; let height = img.height;
-                    if (width > maxW) { height = (maxW / width) * height; width = maxW; }
-                    canvas.width = width; canvas.height = height; ctx.drawImage(img, 0, 0, width, height);
-                    store.update('theme', t => ({ ...t, bgImage: canvas.toDataURL('image/jpeg', 0.6) }));
-                };
-                img.src = ev.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+        document.getElementById('settingsPStudy')?.addEventListener('input', (e) => store.update('settings', s => ({ ...s, pStudy: parseInt(e.target.value) || 25 })));
+        document.getElementById('settingsPBreak')?.addEventListener('input', (e) => store.update('settings', s => ({ ...s, pBreak: parseInt(e.target.value) || 5 })));
 
-        document.getElementById('settingsPStudy')?.addEventListener('change', (e) => store.update('settings', s => ({ ...s, pStudy: parseInt(e.target.value) || 25 })));
-        document.getElementById('settingsPBreak')?.addEventListener('change', (e) => store.update('settings', s => ({ ...s, pBreak: parseInt(e.target.value) || 5 })));
-        document.getElementById('settingsSaveSubjectsBtn')?.addEventListener('click', () => { this.saveSubjects(); alert("Subject changes saved globally!"); });
+        document.getElementById('settingsSaveSubjectsBtn')?.addEventListener('click', () => this.saveSubjects());
 
-        // Cloud Exports
         document.getElementById('settingsExportBtn')?.addEventListener('click', () => {
-            const data = { blocks: store.state.blocks, exams: store.state.exams, subjects: store.state.subjects, theme: store.state.theme, settings: store.state.settings, diaries: store.state.diaries };
-            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `StudyPlanner_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url);
+            const data = JSON.stringify(store.state, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'study_planner_backup.json';
+            a.click(); URL.revokeObjectURL(url);
         });
 
-        document.getElementById('settingsImportProxyBtn')?.addEventListener('click', () => document.getElementById('settingsImportFile')?.click());
+        document.getElementById('settingsImportProxyBtn')?.addEventListener('click', () => document.getElementById('settingsImportFile').click());
         document.getElementById('settingsImportFile')?.addEventListener('change', (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            if (!confirm("⚠️ WARNING: Importing will completely overwrite your current planner data. Are you sure you want to continue?")) return;
+            const file = e.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
-            reader.onload = (ev) => {
+            reader.onload = (event) => {
                 try {
-                    const data = JSON.parse(ev.target.result);
-                    if (data.blocks) store.update('blocks', () => data.blocks);
-                    if (data.exams) store.update('exams', () => data.exams);
-                    if (data.subjects) store.update('subjects', () => data.subjects);
-                    if (data.theme) store.update('theme', () => data.theme);
-                    if (data.settings) store.update('settings', () => data.settings);
-                    if (data.diaries) store.update('diaries', () => data.diaries);
-                    alert("✅ Import successful! Reloading your planner..."); location.reload();
-                } catch(err) { alert("❌ Error: Invalid backup file format."); }
+                    const imported = JSON.parse(event.target.result);
+                    if (imported.blocks) store.update('blocks', () => imported.blocks);
+                    if (imported.exams) store.update('exams', () => imported.exams);
+                    if (imported.subjects) store.update('subjects', () => imported.subjects);
+                    if (imported.theme) store.update('theme', () => imported.theme);
+                    if (imported.settings) store.update('settings', () => imported.settings);
+                    if (imported.diaries) store.update('diaries', () => imported.diaries);
+                    alert("Backup restored successfully!");
+                    location.reload();
+                } catch (err) { alert("Invalid backup file."); }
             };
             reader.readAsText(file);
         });
     }
 
     populateForms() {
-        const theme = store.state.theme; const setts = store.state.settings;
-        if (this.bgMode) this.bgMode.value = theme.bgType;
+        const theme = store.state.theme; const settings = store.state.settings;
+        if (this.bgMode) this.bgMode.value = theme.bgType || 'color';
+        
+        const colorDiv = document.getElementById('settingsBgColor'); if(colorDiv) colorDiv.value = theme.bgColor || '#f3f4f6';
+        const tabCol = document.getElementById('settingsTabColor'); if(tabCol) tabCol.value = theme.tabColor || '#3b82f6';
+        const actCol = document.getElementById('settingsActionColor'); if(actCol) actCol.value = theme.actionColor || '#2563eb';
+        const banBg = document.getElementById('settingsBannerBgColor'); if(banBg) banBg.value = theme.bannerBgColor || '#dc2626';
+        const banTxt = document.getElementById('settingsBannerTextColor'); if(banTxt) banTxt.value = theme.bannerTextColor || '#ffffff';
+        const actSz = document.getElementById('settingsActionSize'); if(actSz) actSz.value = theme.actionSize || 'md';
+        const floatSz = document.getElementById('settingsFloatingBtn'); if(floatSz) floatSz.value = theme.floatingBtn || 'md';
+
+        const pStudy = document.getElementById('settingsPStudy'); if(pStudy) pStudy.value = settings.pStudy || 25;
+        const pBreak = document.getElementById('settingsPBreak'); if(pBreak) pBreak.value = settings.pBreak || 5;
+
         if (theme.bgType === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
         else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
 
-        const safelySetValue = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        safelySetValue('settingsBgColor', theme.bgColor || '#f3f4f6'); safelySetValue('settingsTabColor', theme.tabColor || '#3b82f6');
-        safelySetValue('settingsActionColor', theme.actionColor || '#2563eb'); safelySetValue('settingsActionSize', theme.actionSize || 'md');
-        safelySetValue('settingsFloatingBtn', theme.floatingBtn || 'md'); // NEW FLOATING SIZES
-        safelySetValue('settingsBannerBgColor', theme.bannerBgColor || '#dc2626'); safelySetValue('settingsBannerTextColor', theme.bannerTextColor || '#ffffff');
-        safelySetValue('settingsPStudy', setts.pStudy); safelySetValue('settingsPBreak', setts.pBreak);
-        this.renderSubjectsList();
+        store.subscribe('subjects', () => this.renderSubjectList());
+        this.renderSubjectList();
     }
 
-    renderSubjectsList() {
+    renderSubjectList() {
         if (!this.subjectList) return;
         this.subjectList.innerHTML = '';
         Object.keys(store.state.subjects).forEach(subName => {
@@ -131,7 +135,7 @@ class SettingsManager {
             store.update('blocks', blocks => blocks.map(b => { const match = renames.find(r => r.old === b.subject); return match ? { ...b, subject: match.new } : b; }));
             store.update('exams', exams => exams.map(e => { const match = renames.find(r => r.old === e.subject); return match ? { ...e, subject: match.new } : e; }));
         }
+        alert("Subjects saved successfully!");
     }
 }
 export const settingsManager = new SettingsManager();
-
