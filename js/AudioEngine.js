@@ -43,7 +43,7 @@ class AudioEngine {
             if (a.breakSource === 'silent') return this.pauseMusic();
             
             const breakSources = {
-                upbeat: { type: 'youtube', id: '7tNtU5XFwrU' }, // Reliable NCS 24/7 stream
+                upbeat: { type: 'youtube', id: '7tNtU5XFwrU' }, 
                 nature: { type: 'youtube', id: 'mc0HInBqXOU' },
                 lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
                 zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3' }
@@ -64,7 +64,6 @@ class AudioEngine {
 
     playTrack(track) {
         if (this.currentTrackId === (track.id || track.url)) {
-            // Track is already loaded, just make sure it's playing
             if (track.type === 'local') this.localAudio.play().catch(e => console.log(e));
             else if (this.ytPlayer && this.ytPlayer.getPlayerState && this.ytPlayer.getPlayerState() !== 1) this.ytPlayer.playVideo();
             return;
