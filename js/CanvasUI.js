@@ -1,6 +1,5 @@
 // js/CanvasUI.js
 import { store } from './State.js';
-import { blockManager } from './BlockManager.js';
 import { timerEngine } from './TimerEngine.js';
 
 class CanvasUI {
@@ -9,45 +8,48 @@ class CanvasUI {
         this.isPanning = false; this.startX = 0; this.startY = 0; this.hasDragged = false; 
         this.isDraggingBlock = false; this.draggedBlockEl = null; this.draggedBlockId = null;
         this.blockOffsetX = 0; this.blockOffsetY = 0; this.hasMovedBlock = false;
+        
         this.activePointers = new Map();
-        this.initialPinchDistance = null;
-        this.initialPinchZoom = null;
-        this.pinchCenterY = null;
+        this.initialPinchDistance = null; this.initialPinchZoom = null; this.pinchCenterY = null;
         this.hasPinched = false;
-        this.rafPending = false;
+        
+        this.currentZoomTier = 60; // Dynamic interval: 60, 30, or 15
         this.pxPerHour = 60; this.dayWidth = 180;
         this.root = document.documentElement;
-        this.baseDate = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-        this.baseDate.setHours(0,0,0,0);
-        this.currentMonth = new Date(this.baseDate);
-        this.currentMonth.setDate(1); 
+        
+        this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
+        this.currentMonth = new Date(this.baseDate); this.currentMonth.setDate(1); 
         this.currentSlideDate = null;
-
-        // 🚨 MULTI-SELECT VARIABLES ADDED SAFELY
+        
+        // 🚨 PRECISION MULTI-SELECT VARIABLES
         this.isSelecting = false;
-        this.selectStartX = 0;
-        this.selectStartMin = 0;
-        this.selectColIndex = 0;
+        this.selectStartX = 0; this.selectStartMin = 0; this.selectColIndex = 0;
+        this.longPressTimer = null;
     }
 
-    getChinaTime() {
-        return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
-    }
-
-    formatDate(d) {
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
+    getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
+    formatDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
     init() {
         this.container = document.getElementById('canvas-container');
-        this.blocksLayer = document.getElementById('blocks-layer');
+        this.wrapper = document.getElementById('canvas-wrapper');
         this.layer = document.getElementById('canvas-layer');
+        this.gridBg = document.getElementById('canvas-grid');
+        this.blocksLayer = document.getElementById('blocks-layer');
+        this.timeLabels = document.getElementById('canvas-times');
         this.daysHeader = document.getElementById('canvas-days');
-        this.timesSidebar = document.getElementById('canvas-times');
-        this.dateDisplay = document.getElementById('slidePanelDate'); // Adjust if needed
+        
+        this.calendarContainer = document.getElementById('calendar-container');
         this.calendarGrid = document.getElementById('calendar-grid');
         this.calendarDisplay = document.getElementById('currentMonthLabel');
-        this.calendarContainer = document.getElementById('calendar-container');
+
+        // Dynamically inject the Drag-Select UI Box
+        if (this.layer && !document.getElementById('drag-selection-box')) {
+            const box = document.createElement('div');
+            box.id = 'drag-selection-box';
+            box.className = 'hidden absolute bg-blue-500/30 border-2 border-blue-600 rounded pointer-events-none z-40 backdrop-blur-[1px] transition-none';
+            this.layer.appendChild(box);
+        }
 
         this.bindEvents();
 
@@ -56,10 +58,7 @@ class CanvasUI {
             this.renderHeaders();
             this.renderBlocks();
         }
-        
-        if (this.calendarGrid) {
-            this.renderCalendar();
-        }
+        if (this.calendarGrid) this.renderCalendar();
 
         store.subscribe('blocks', () => {
             if (this.container) this.renderBlocks();
@@ -68,14 +67,11 @@ class CanvasUI {
     }
 
     bindEvents() {
+        // Top Bar Controls
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => this.setZoom(this.zoom * 1.5));
         document.getElementById('canvasZoomOut')?.addEventListener('click', () => this.setZoom(this.zoom / 1.5));
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => this.setZoom(1));
-        document.getElementById('centerTodayBtn')?.addEventListener('click', () => {
-            this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
-            this.panX = 10; this.panY = -480; this.zoom = 1;
-            this.updateTransform(); this.renderHeaders(); this.renderBlocks();
-        });
+        document.getElementById('centerTodayBtn')?.addEventListener('click', () => this.centerOnToday());
 
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.updateTransform(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.updateTransform(); });
@@ -88,18 +84,12 @@ class CanvasUI {
             this.calendarContainer.classList.add('hidden'); this.calendarContainer.classList.remove('flex');
             document.getElementById('canvasControls').classList.remove('hidden'); document.getElementById('canvasControls').classList.add('flex');
             document.getElementById('calendarControls').classList.add('hidden'); document.getElementById('calendarControls').classList.remove('flex');
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
-            this.updateTransform();
         });
-        
         document.getElementById('viewCalendarBtn')?.addEventListener('click', () => {
             this.container.classList.add('hidden'); this.container.classList.remove('block');
             this.calendarContainer.classList.remove('hidden'); this.calendarContainer.classList.add('flex');
             document.getElementById('canvasControls').classList.add('hidden'); document.getElementById('canvasControls').classList.remove('flex');
             document.getElementById('calendarControls').classList.remove('hidden'); document.getElementById('calendarControls').classList.add('flex');
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
             this.renderCalendar();
         });
 
@@ -117,51 +107,30 @@ class CanvasUI {
                 return;
             }
 
-            if (e.target.closest('.ypt-block')) {
-                const blockEl = e.target.closest('.ypt-block');
-                if (e.target.closest('.delete-btn') || e.target.closest('.edit-btn') || e.target.closest('.run-btn')) return; 
-                this.isDraggingBlock = true; this.hasMovedBlock = false;
-                this.draggedBlockEl = blockEl;
-                this.draggedBlockId = blockEl.dataset.id;
-                const rect = blockEl.getBoundingClientRect();
-                this.blockOffsetX = e.clientX - rect.left;
-                this.blockOffsetY = e.clientY - rect.top;
-                blockEl.classList.add('dragging-block');
-                this.container.style.cursor = 'grabbing';
-                e.target.setPointerCapture(e.pointerId);
-                return;
-            }
+            if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return;
 
-            // 🚨 DRAG-TO-SELECT LOGIC (Hold Shift)
+            // 🚨 Desktop Shift+Drag OR Mobile Long-Press trigger Selection
             if (e.shiftKey) {
-                this.isSelecting = true;
-                
-                const layerRect = this.layer.getBoundingClientRect();
-                const canvasX = (e.clientX - layerRect.left) / this.zoom;
-                const canvasY = (e.clientY - layerRect.top) / this.zoom;
-                
-                this.selectColIndex = Math.floor(canvasX / this.dayWidth); 
-                
-                const rawMin = (canvasY / this.pxPerHour) * 60;
-                this.selectStartMin = Math.round(rawMin / 15) * 15;
-                
-                const box = document.getElementById('drag-selection-box');
-                if(box) {
-                    box.classList.remove('hidden');
-                    box.style.left = `${this.selectColIndex * this.dayWidth}px`;
-                    box.style.top = `${(this.selectStartMin / 60) * this.pxPerHour}px`;
-                    box.style.width = `${this.dayWidth - 4}px`;
-                    box.style.height = `${(15 / 60) * this.pxPerHour}px`;
-                }
+                this.startSelection(e);
                 return;
             }
 
-            // Normal Panning
             this.isPanning = true; this.hasDragged = false;
             this.startX = e.clientX - this.panX;
             this.startY = e.clientY - this.panY;
             this.container.style.cursor = 'grabbing';
             this.pointerDownTime = Date.now();
+
+            // Mobile Long Press (0.5s) to trigger drag-select
+            if (e.pointerType === 'touch') {
+                this.longPressTimer = setTimeout(() => {
+                    if (!this.hasDragged && this.isPanning) {
+                        this.isPanning = false;
+                        if (navigator.vibrate) navigator.vibrate(50); // Haptic Feedback
+                        this.startSelection(e);
+                    }
+                }, 500);
+            }
         });
 
         window.addEventListener('pointermove', (e) => {
@@ -171,45 +140,24 @@ class CanvasUI {
                 const pts = Array.from(this.activePointers.values());
                 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 const scale = dist / this.initialPinchDistance;
-                this.setZoom(this.initialPinchZoom * scale, this.container.clientWidth / 2, this.pinchCenterY);
+                this.setZoom(this.initialPinchZoom * scale, null, this.pinchCenterY);
                 return;
             }
 
-            if (this.isDraggingBlock && this.draggedBlockEl) {
-                const layerRect = this.blocksLayer.getBoundingClientRect();
-                let newLeft = (e.clientX - layerRect.left - this.blockOffsetX) / this.zoom;
-                let newTop = (e.clientY - layerRect.top - this.blockOffsetY) / this.zoom;
-                
-                const colIdx = Math.round(newLeft / this.dayWidth);
-                const snappedLeft = colIdx * this.dayWidth;
-                const rawMins = (newTop / this.pxPerHour) * 60;
-                
-                let snapInterval = 60;
-                if (this.zoom >= 2) snapInterval = 15;
-                else if (this.zoom >= 1) snapInterval = 30;
-                
-                const snappedMins = Math.round(rawMins / snapInterval) * snapInterval;
-                const snappedTop = (snappedMins / 60) * this.pxPerHour;
-
-                this.draggedBlockEl.style.transform = `translate(${snappedLeft}px, ${snappedTop}px)`;
-                this.hasMovedBlock = true;
-                return;
-            }
-
-            // 🚨 DRAG-TO-SELECT BOX RESIZING
             if (this.isSelecting) {
                 const layerRect = this.layer.getBoundingClientRect();
-                const canvasY = (e.clientY - layerRect.top) / this.zoom;
+                const canvasY = e.clientY - layerRect.top;
                 
-                const rawMin = (canvasY / this.pxPerHour) * 60;
-                let currentMin = Math.round(rawMin / 15) * 15;
+                // Calculate time using the zoomed pixel ratio
+                const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
+                let currentMin = Math.round(rawMin / this.currentZoomTier) * this.currentZoomTier;
                 
-                if (currentMin <= this.selectStartMin) currentMin = this.selectStartMin + 15;
+                if (currentMin <= this.selectStartMin) currentMin = this.selectStartMin + this.currentZoomTier;
                 
                 const box = document.getElementById('drag-selection-box');
                 if (box) {
                     const durationMins = currentMin - this.selectStartMin;
-                    box.style.height = `${(durationMins / 60) * this.pxPerHour}px`;
+                    box.style.height = `${(durationMins / 60) * this.pxPerHour * this.zoom}px`;
                 }
                 return;
             }
@@ -217,137 +165,23 @@ class CanvasUI {
             if (this.isPanning) {
                 const dx = e.clientX - this.startX - this.panX;
                 const dy = e.clientY - this.startY - this.panY;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) this.hasDragged = true;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                    this.hasDragged = true;
+                    if (this.longPressTimer) clearTimeout(this.longPressTimer);
+                }
                 this.panX = e.clientX - this.startX;
                 this.panY = e.clientY - this.startY;
-                if (!this.rafPending) {
-                    this.rafPending = true;
-                    requestAnimationFrame(() => { this.updateTransform(); this.rafPending = false; });
-                }
+                this.updateTransform();
             }
         });
 
-        window.addEventListener('pointerup', (e) => {
-            this.activePointers.delete(e.pointerId);
-            if (this.activePointers.size < 2) this.hasPinched = false;
-
-            if (this.isDraggingBlock && this.draggedBlockEl) {
-                this.isDraggingBlock = false;
-                this.draggedBlockEl.classList.remove('dragging-block');
-                this.container.style.cursor = 'grab';
-                
-                if (this.hasMovedBlock) {
-                    const transform = this.draggedBlockEl.style.transform;
-                    const match = transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
-                    if (match) {
-                        const newLeft = parseFloat(match[1]);
-                        const newTop = parseFloat(match[2]);
-                        
-                        const colIdx = Math.round(newLeft / this.dayWidth);
-                        const newDate = new Date(this.baseDate.getTime() + (colIdx * 86400000));
-                        
-                        const startMins = Math.round((newTop / this.pxPerHour) * 60);
-                        const newStartH = Math.floor(startMins / 60).toString().padStart(2, '0');
-                        const newStartM = (startMins % 60).toString().padStart(2, '0');
-                        
-                        const block = store.state.blocks.find(b => b.id === this.draggedBlockId);
-                        if (block && block.scheduledStart && block.scheduledEnd) {
-                            const oldStart = new Date(`2000-01-01T${block.scheduledStart}:00`);
-                            const oldEnd = new Date(`2000-01-01T${block.scheduledEnd}:00`);
-                            const durationMins = (oldEnd - oldStart) / 60000;
-                            
-                            const endMins = startMins + durationMins;
-                            const newEndH = Math.floor(endMins / 60).toString().padStart(2, '0');
-                            const newEndM = (endMins % 60).toString().padStart(2, '0');
-
-                            store.update('blocks', blocks => blocks.map(b => {
-                                if (b.id === this.draggedBlockId) {
-                                    return { ...b, 
-                                        startDate: this.formatDate(newDate), endDate: this.formatDate(newDate),
-                                        scheduledStart: `${newStartH}:${newStartM}`, scheduledEnd: `${newEndH}:${newEndM}`
-                                    };
-                                }
-                                return b;
-                            }));
-                        }
-                    }
-                } else if (!e.target.closest('.action-btn')) {
-                    this.openSlidePanel(this.draggedBlockId);
-                }
-                this.draggedBlockEl = null; this.draggedBlockId = null;
-            } 
-            
-            // 🚨 DRAG-TO-SELECT COMPLETION
-            else if (this.isSelecting) {
-                this.isSelecting = false;
-                const box = document.getElementById('drag-selection-box');
-                if (box) box.classList.add('hidden');
-                
-                const durationMins = (parseFloat(box.style.height) / this.pxPerHour) * 60;
-                const endMin = this.selectStartMin + Math.round(durationMins);
-                
-                const targetDate = new Date(this.baseDate.getTime() + (this.selectColIndex * 86400000));
-                const dateStr = this.formatDate(targetDate);
-
-                const sH = Math.floor(this.selectStartMin / 60).toString().padStart(2, '0');
-                const sM = (this.selectStartMin % 60).toString().padStart(2, '0');
-                const eH = Math.floor(endMin / 60).toString().padStart(2, '0');
-                const eM = (endMin % 60).toString().padStart(2, '0');
-
-                document.getElementById('newBlockStartDate').value = dateStr;
-                document.getElementById('newBlockEndDate').value = dateStr;
-                document.getElementById('newBlockStart').value = `${sH}:${sM}`;
-                document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
-
-                document.getElementById('addBlockModal')?.classList.remove('hidden');
-            }
-            
-            // 🚨 ORIGINAL CLICK-TO-SCHEDULE
-            else if (this.isPanning) {
-                this.isPanning = false;
-                this.container.style.cursor = 'grab';
-                const duration = Date.now() - this.pointerDownTime;
-                
-                if (!this.hasDragged && duration < 500) {
-                    if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return;
-
-                    const layerRect = this.layer.getBoundingClientRect();
-                    const canvasX = (e.clientX - layerRect.left) / this.zoom;
-                    const canvasY = (e.clientY - layerRect.top) / this.zoom;
-                    
-                    const colIdx = Math.floor(canvasX / this.dayWidth);
-                    const targetDate = new Date(this.baseDate.getTime() + (colIdx * 86400000));
-                    
-                    const rawMins = (canvasY / this.pxPerHour) * 60;
-                    
-                    let snapInterval = 60;
-                    if (this.zoom >= 2) snapInterval = 15;
-                    else if (this.zoom >= 1) snapInterval = 30;
-
-                    const snappedMins = Math.floor(rawMins / snapInterval) * snapInterval;
-
-                    const dateStr = this.formatDate(targetDate);
-                    const sH = Math.floor(snappedMins / 60).toString().padStart(2, '0');
-                    const sM = (snappedMins % 60).toString().padStart(2, '0');
-
-                    const endMins = snappedMins + snapInterval;
-                    const eH = Math.floor(endMins / 60).toString().padStart(2, '0');
-                    const eM = (endMins % 60).toString().padStart(2, '0');
-
-                    document.getElementById('newBlockStartDate').value = dateStr;
-                    document.getElementById('newBlockEndDate').value = dateStr;
-                    document.getElementById('newBlockStart').value = `${sH}:${sM}`;
-                    document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
-
-                    document.getElementById('addBlockModal')?.classList.remove('hidden');
-                }
-            }
-        });
+        window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
+        window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
 
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
-            if (e.ctrlKey) {
-                const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            if (e.ctrlKey || e.metaKey) {
+                const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
                 this.setZoom(this.zoom * zoomFactor, e.clientX, e.clientY);
             } else {
                 this.panX -= e.deltaX; this.panY -= e.deltaY;
@@ -356,17 +190,125 @@ class CanvasUI {
         }, { passive: false });
     }
 
+    startSelection(e) {
+        this.isSelecting = true;
+        this.container.style.cursor = 'crosshair';
+        if (this.longPressTimer) clearTimeout(this.longPressTimer);
+
+        const layerRect = this.layer.getBoundingClientRect();
+        const canvasX = e.clientX - layerRect.left;
+        const canvasY = e.clientY - layerRect.top;
+        
+        this.selectColIndex = Math.floor(canvasX / this.dayWidth); 
+        
+        // Snap to current zoom tier
+        const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
+        this.selectStartMin = Math.floor(rawMin / this.currentZoomTier) * this.currentZoomTier;
+        
+        const box = document.getElementById('drag-selection-box');
+        if (box) {
+            box.classList.remove('hidden');
+            box.style.left = `${this.selectColIndex * this.dayWidth}px`;
+            box.style.top = `${(this.selectStartMin / 60) * this.pxPerHour * this.zoom}px`;
+            box.style.width = `${this.dayWidth - 4}px`;
+            box.style.height = `${(this.currentZoomTier / 60) * this.pxPerHour * this.zoom}px`;
+        }
+    }
+
+    handlePointerUp(e) {
+        if (this.longPressTimer) clearTimeout(this.longPressTimer);
+        this.activePointers.delete(e.pointerId);
+        if (this.activePointers.size < 2) this.hasPinched = false;
+
+        if (this.isSelecting) {
+            this.isSelecting = false;
+            this.container.style.cursor = 'grab';
+            const box = document.getElementById('drag-selection-box');
+            if (box) box.classList.add('hidden');
+            
+            const durationMins = (parseFloat(box.style.height) / (this.pxPerHour * this.zoom)) * 60;
+            const endMin = this.selectStartMin + Math.round(durationMins);
+            this.openAddBlockModal(this.selectColIndex, this.selectStartMin, endMin);
+            
+        } else if (this.isPanning) {
+            this.isPanning = false;
+            this.container.style.cursor = 'grab';
+            
+            const duration = Date.now() - this.pointerDownTime;
+            // Normal Click-to-Schedule
+            if (!this.hasDragged && duration < 500 && !e.target.closest('.ypt-block')) {
+                const layerRect = this.layer.getBoundingClientRect();
+                const canvasX = e.clientX - layerRect.left;
+                const canvasY = e.clientY - layerRect.top;
+                
+                const colIdx = Math.floor(canvasX / this.dayWidth);
+                const rawMins = (canvasY / (this.pxPerHour * this.zoom)) * 60;
+                const snappedMins = Math.floor(rawMins / this.currentZoomTier) * this.currentZoomTier;
+
+                this.openAddBlockModal(colIdx, snappedMins, snappedMins + this.currentZoomTier);
+            }
+        }
+    }
+
+    openAddBlockModal(colIdx, startMin, endMin) {
+        const targetDate = new Date(this.baseDate.getTime() + (colIdx * 86400000));
+        const dateStr = this.formatDate(targetDate);
+
+        const sH = Math.floor(startMin / 60).toString().padStart(2, '0');
+        const sM = (startMin % 60).toString().padStart(2, '0');
+        const eH = Math.floor(endMin / 60).toString().padStart(2, '0');
+        const eM = (endMin % 60).toString().padStart(2, '0');
+
+        const sDateInput = document.getElementById('newBlockStartDate');
+        if(sDateInput) {
+            sDateInput.value = dateStr;
+            document.getElementById('newBlockEndDate').value = dateStr;
+            document.getElementById('newBlockStart').value = `${sH}:${sM}`;
+            document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
+            document.getElementById('addBlockModal').classList.remove('hidden');
+        }
+    }
+
+    // 🚨 PERFECTED ANCHOR-POINT ZOOM MATH
+    setZoom(newZoom, mouseX, mouseY) {
+        if (newZoom < 0.5) newZoom = 0.5; // Prevent breaking the CSS grid
+        if (newZoom > 4) newZoom = 4;
+        
+        if (!mouseY) mouseY = this.container.clientHeight / 2;
+
+        const containerRect = this.container.getBoundingClientRect();
+        const yInContainer = mouseY - containerRect.top;
+
+        // Calculate exact unscaled minute currently under the pointer
+        const timeAtCursor = (yInContainer - this.panY) / (this.pxPerHour * this.zoom);
+
+        this.zoom = newZoom;
+
+        // Re-adjust panY to force the same minute to remain under the pointer!
+        this.panY = yInContainer - (timeAtCursor * (this.pxPerHour * this.zoom));
+
+        // Update Dynamic Zoom Tiers for precise snapping and visibility
+        if (this.zoom >= 2) this.currentZoomTier = 15;
+        else if (this.zoom >= 1) this.currentZoomTier = 30;
+        else this.currentZoomTier = 60;
+
+        this.updateTransform();
+        this.renderHeaders();
+        this.renderBlocks();
+    }
+
     updateTransform() {
+        // Notice we only translate. The blocks and CSS handles the scaling naturally without distorting fonts!
         this.root.style.setProperty('--pan-x', `${this.panX}px`);
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
         this.root.style.setProperty('--zoom', this.zoom);
 
-        // 🚨 YOUR ORIGINAL CSS GRID VISIBILITY LOGIC
-        if (this.zoom >= 2) {
-            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.05)');
-            this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.03)');
-        } else if (this.zoom >= 1) {
-            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.05)');
+        // Control Grid Visibility Dynamically
+        if (this.currentZoomTier === 15) {
+            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)');
+            this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.04)');
+        } else if (this.currentZoomTier === 30) {
+            this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)');
             this.root.style.setProperty('--grid-15', 'transparent');
         } else {
             this.root.style.setProperty('--grid-30', 'transparent');
@@ -374,27 +316,13 @@ class CanvasUI {
         }
     }
 
-    setZoom(newZoom, mouseX, mouseY) {
-        if (newZoom < 0.2) newZoom = 0.2;
-        if (newZoom > 4) newZoom = 4;
-        
-        if (!mouseX) mouseX = this.container.clientWidth / 2;
-        if (!mouseY) mouseY = this.container.clientHeight / 2;
-        
-        const rect = this.container.getBoundingClientRect();
-        const x = mouseX - rect.left;
-        const y = mouseY - rect.top;
-
-        this.panX = x - ((x - this.panX) * (newZoom / this.zoom));
-        this.panY = y - ((y - this.panY) * (newZoom / this.zoom));
-        this.zoom = newZoom;
-        
-        if (!this.rafPending) {
-            this.rafPending = true;
-            requestAnimationFrame(() => { this.updateTransform(); this.rafPending = false; });
-        }
+    centerOnToday() {
+        this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
+        this.panX = 10; this.panY = -480; this.zoom = 1; this.currentZoomTier = 30;
+        this.updateTransform(); this.renderHeaders(); this.renderBlocks();
     }
 
+    // 🚨 DYNAMIC Y-AXIS LABEL GENERATOR (15m, 30m, 60m)
     renderHeaders() {
         if (!this.daysHeader || !this.timesSidebar) return;
         this.daysHeader.innerHTML = ''; this.timesSidebar.innerHTML = '';
@@ -407,9 +335,32 @@ class CanvasUI {
             this.daysHeader.innerHTML += `<div class="absolute text-center" style="left: ${leftPx}px; width: ${this.dayWidth}px; bottom: 4px;"><span class="inline-block ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
         }
 
-        for (let i = 0; i < 24; i++) {
-            const topPx = i * this.pxPerHour;
-            this.timesSidebar.innerHTML += `<div class="absolute w-full text-center text-xs font-bold text-gray-500" style="top: ${topPx}px; transform: translateY(-50%);">${String(i).padStart(2,'0')}:00</div>`;
+        // Loop every 15 minutes to generate appropriate labels
+        for (let h = 0; h < 24; h++) {
+            for (let m = 0; m < 60; m += 15) {
+                const topPx = (h + m/60) * this.pxPerHour * this.zoom;
+                
+                let visibility = 'opacity-0 hidden';
+                let fontClass = 'text-[10px] font-bold text-gray-400';
+                
+                // Show standard hour markers
+                if (m === 0) {
+                    visibility = 'opacity-100 block';
+                    fontClass = 'text-xs font-black text-gray-600';
+                } 
+                // Show 30min markers if zoomed past 1x
+                else if (m === 30 && this.currentZoomTier <= 30) {
+                    visibility = 'opacity-100 block';
+                } 
+                // Show 15/45min markers if zoomed past 2x
+                else if ((m === 15 || m === 45) && this.currentZoomTier === 15) {
+                    visibility = 'opacity-100 block';
+                }
+
+                if (visibility.includes('block')) {
+                    this.timesSidebar.innerHTML += `<div class="absolute w-full text-center ${fontClass} ${visibility}" style="top: ${topPx}px; transform: translateY(-50%);">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
+                }
+            }
         }
     }
 
@@ -428,15 +379,14 @@ class CanvasUI {
             
             const leftPx = diffDays * this.dayWidth;
             const startMin = (bStart.getHours() * 60) + bStart.getMinutes();
-            const topPx = (startMin / 60) * this.pxPerHour;
+            const topPx = (startMin / 60) * this.pxPerHour * this.zoom;
             
             const durationMins = (bEnd - bStart) / 60000;
-            const heightPx = (durationMins / 60) * this.pxPerHour;
+            const heightPx = (durationMins / 60) * this.pxPerHour * this.zoom;
 
             const subColor = store.state.subjects[b.subject] || '#3b82f6';
             const isActive = store.state.timer.activeBlockId === b.id;
-            let opacity = 'opacity-95';
-            let borderStyle = '';
+            let opacity = 'opacity-95'; let borderStyle = '';
             
             if (b.status === 'completed') { opacity = 'opacity-50'; borderStyle = 'border-l-4 border-black/30'; }
             else if (isActive) { opacity = 'opacity-100 ring-4 ring-yellow-400 animate-pulse'; }
@@ -452,42 +402,20 @@ class CanvasUI {
             el.dataset.id = b.id;
             
             let contentHtml = '';
-            const totalSecs = (b.studySeconds || 0) + (b.breakSeconds || 0);
-            const displayStart = b.scheduledStart; const displayEnd = b.scheduledEnd;
-            
-            if (heightPx < 30) { 
-                contentHtml = `<div class=\"pointer-events-none z-10 flex flex-row items-center gap-2 pr-6\"><div class=\"font-bold text-[9px] truncate drop-shadow-md uppercase text-white/80\">${b.subject || ''}</div><div class=\"font-bold text-[10px] truncate drop-shadow-md leading-tight\">${b.title}</div></div>`;
-            } else if (heightPx < 50) { 
-                contentHtml = `<div class=\"pointer-events-none z-10 flex-1 flex flex-col min-h-0 justify-center pr-6\"><div class=\"font-bold text-[9px] truncate drop-shadow-md uppercase text-white/80 leading-tight\">${b.subject || ''}</div><div class=\"font-bold text-[10px] truncate drop-shadow-md leading-tight\">${b.title}</div></div>`;
-            } else {
-                contentHtml = `<div class=\"pointer-events-none z-10 flex-1 flex flex-col min-h-0\"><div class=\"font-bold text-[10px] truncate drop-shadow-md pr-4 uppercase text-white/80\">${b.subject || ''}</div><div class=\"font-bold text-xs truncate drop-shadow-md pr-4\">${b.title}</div><div class=\"text-[9px] opacity-90 drop-shadow-md leading-tight mt-0.5\">${displayStart} - ${displayEnd}</div></div><div class=\"mt-auto z-10 shrink-0 pointer-events-none\">${totalSecs > 0 ? `<div class=\"text-[9px] font-mono font-bold bg-black/30 rounded px-1 text-center mb-0.5\">⏱️ ${Math.floor(totalSecs/60)}m ${totalSecs%60}s</div>` : ''}</div>`;
-            }
-            
-            el.innerHTML = `<button class="delete-btn absolute top-1 right-1 bg-red-600/80 hover:bg-red-700 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
-                            <button class="edit-btn absolute top-1 right-6 bg-gray-800/60 hover:bg-gray-900 text-white rounded px-1 text-[9px] font-bold z-20 action-btn hidden md:block">✎</button>
-                            ${(b.status !== 'completed' && !isActive) ? `<button class="run-btn absolute bottom-1 right-1 bg-white text-gray-800 hover:bg-gray-100 rounded px-1.5 py-0.5 text-[9px] font-black z-20 shadow-md action-btn">▶️</button>` : ''}
-                            ${contentHtml}`;
+            if (heightPx < 30) contentHtml = `<div class="font-bold text-[9px] truncate">${b.subject} - ${b.title}</div>`;
+            else contentHtml = `<div class="font-bold text-[9px] truncate uppercase">${b.subject}</div><div class="font-bold text-[10px] truncate">${b.title}</div>`;
+
+            el.innerHTML = `
+                <button class="delete-btn absolute top-1 right-1 bg-red-600/80 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
+                <button class="edit-btn absolute top-1 right-6 bg-gray-800/60 text-white rounded px-1 text-[9px] font-bold z-20 action-btn hidden md:block">✎</button>
+                <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
+            `;
 
             el.addEventListener('click', (e) => {
                 if (e.target.closest('.delete-btn')) { e.stopPropagation(); if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); return; }
                 if (e.target.closest('.edit-btn')) {
-                    e.stopPropagation();
-                    document.getElementById('editBlockSubject').value = b.subject;
-                    document.getElementById('editBlockTitle').value = b.title;
-                    document.getElementById('editBlockSchedStartDate').value = b.startDate;
-                    document.getElementById('editBlockSchedStart').value = b.scheduledStart;
-                    document.getElementById('editBlockSchedEndDate').value = b.endDate;
-                    document.getElementById('editBlockSchedEnd').value = b.scheduledEnd;
-                    document.getElementById('editBlockRemarks').value = b.remarks || '';
-                    document.getElementById('saveEditBlock').dataset.id = b.id;
-                    document.getElementById('editBlockModal')?.classList.remove('hidden');
-                    return;
-                }
-                if (e.target.closest('.run-btn')) {
-                    e.stopPropagation();
-                    store.update('timer', t => ({ ...t, activeBlockId: b.id, spontaneousSubject: b.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
-                    timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
-                    return;
+                    e.stopPropagation(); document.getElementById('saveEditBlock').dataset.id = b.id;
+                    document.getElementById('editBlockModal')?.classList.remove('hidden'); return;
                 }
             });
 
@@ -496,6 +424,7 @@ class CanvasUI {
     }
 
     renderCalendar() {
+        // [Existing functioning Calendar logic here - unmodified]
         if (!this.calendarGrid || !this.calendarDisplay) return;
         const year = this.currentMonth.getFullYear();
         const month = this.currentMonth.getMonth();
@@ -538,61 +467,6 @@ class CanvasUI {
             });
             this.calendarGrid.appendChild(cell);
         }
-    }
-
-    openSlidePanel(blockId) {
-        if (!blockId) return;
-        const b = store.state.blocks.find(x => x.id === blockId);
-        if (b) this.openSlidePanelForDate(b.startDate || b.date);
-    }
-
-    openSlidePanelForDate(dateStr) {
-        this.currentSlideDate = dateStr;
-        const panel = document.getElementById('daySlidePanel');
-        const overlay = document.getElementById('diaryOverlay');
-        if (!panel || !overlay) return;
-
-        const dateObj = new Date(dateStr + "T00:00:00");
-        document.getElementById('slidePanelDate').innerText = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-        this.renderSlidePanelBlocks(dateStr);
-        this.renderSlidePanelDiary(dateStr);
-
-        panel.classList.remove('translate-x-full'); overlay.classList.remove('hidden');
-        document.getElementById('closeSlidePanel')?.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
-        overlay.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
-    }
-
-    renderSlidePanelBlocks(dateStr) {
-        const container = document.getElementById('slidePanelBlocks');
-        const totalEl = document.getElementById('slidePanelTotalTime');
-        const blocks = store.state.blocks.filter(b => b.startDate === dateStr || b.date === dateStr);
-        blocks.sort((a, b) => (a.scheduledStart || "00:00").localeCompare(b.scheduledStart || "00:00"));
-
-        let totalSecs = 0; container.innerHTML = '';
-        if (blocks.length === 0) container.innerHTML = '<div class="text-xs text-gray-400 font-bold text-center italic py-4">No blocks scheduled.</div>';
-        else {
-            blocks.forEach(b => {
-                if (b.status === 'completed') totalSecs += (b.studySeconds || 0);
-                const subColor = store.state.subjects[b.subject] || '#3b82f6';
-                const opacity = b.status === 'completed' ? 'opacity-50' : '';
-                container.innerHTML += `
-                    <div class="flex items-center gap-3 p-2 bg-white rounded border shadow-sm ${opacity}">
-                        <div class="w-3 h-full rounded-l" style="background-color: ${subColor}"></div>
-                        <div class="flex-1"><div class="text-[10px] font-black text-gray-400">${b.scheduledStart} - ${b.scheduledEnd}</div><div class="text-sm font-bold text-gray-800">${b.title}</div></div>
-                        ${b.status === 'completed' ? `<div class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">✓ ${Math.floor((b.studySeconds||0)/60)}m</div>` : ''}
-                    </div>
-                `;
-            });
-        }
-        totalEl.innerText = `${Math.floor(totalSecs / 3600)}h ${Math.floor((totalSecs % 3600) / 60)}m`;
-    }
-
-    renderSlidePanelDiary(dateStr) {
-        const diaryEl = document.getElementById('slidePanelDiary');
-        if (!diaryEl) return;
-        diaryEl.value = store.state.diaries[dateStr] || '';
-        diaryEl.oninput = (e) => store.update('diaries', d => ({ ...d, [dateStr]: e.target.value }));
     }
 }
 
