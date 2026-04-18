@@ -37,46 +37,38 @@ class SettingsManager {
             this.saveSettings();
             closeSettings();
         });
-
-        // 🚨 NEW AUDIO BINDINGS
-        document.getElementById('settingsAudioEnabled')?.addEventListener('change', (e) => store.update('audio', a => ({...a, enabled: e.target.checked})));
-        document.getElementById('settingsAudioSource')?.addEventListener('change', (e) => store.update('audio', a => ({...a, source: e.target.value})));
-        document.getElementById('settingsAudioVolume')?.addEventListener('input', (e) => store.update('audio', a => ({...a, volume: parseInt(e.target.value)})));
     }
 
     populateForms() {
         const theme = store.state.theme;
-        const s = store.state.settings;
+        const settings = store.state.settings;
         const audio = store.state.audio;
 
-        this.bgMode.value = theme.bgType || 'color';
-        document.getElementById('settingsBgColor').value = theme.bgColor || '#f3f4f6';
-        document.getElementById('settingsBgImage').value = theme.bgImage || '';
-        document.getElementById('settingsActionColor').value = theme.actionColor || '#2563eb';
+        if(this.bgMode) this.bgMode.value = theme.bgType || 'color';
+        const bgColorEl = document.getElementById('settingsBgColor'); if(bgColorEl) bgColorEl.value = theme.bgColor || '#f3f4f6';
+        const bgImgEl = document.getElementById('settingsBgImage'); if(bgImgEl) bgImgEl.value = theme.bgImage || '';
+        const actionColEl = document.getElementById('settingsActionColor'); if(actionColEl) actionColEl.value = theme.actionColor || '#2563eb';
         
-        document.getElementById('settingsPStudy').value = s.pStudy || 25;
-        document.getElementById('settingsPBreak').value = s.pBreak || 5;
+        const pStudyEl = document.getElementById('settingsPStudy'); if(pStudyEl) pStudyEl.value = settings.pStudy || 25;
+        const pBreakEl = document.getElementById('settingsPBreak'); if(pBreakEl) pBreakEl.value = settings.pBreak || 5;
 
-        // Populate new audio form
-        const aEnabled = document.getElementById('settingsAudioEnabled');
-        if(aEnabled) aEnabled.checked = audio.enabled !== false;
+        const audioEnEl = document.getElementById('settingsAudioEnabled'); if(audioEnEl) audioEnEl.checked = audio.enabled;
+        const audioVolEl = document.getElementById('settingsAudioVolume'); if(audioVolEl) audioVolEl.value = audio.volume || 50;
+        const audioSrcEl = document.getElementById('settingsAudioSource'); if(audioSrcEl) audioSrcEl.value = audio.source || 'zen';
         
-        const aVolume = document.getElementById('settingsAudioVolume');
-        if(aVolume) aVolume.value = audio.volume || 50;
+        // 🚨 POPULATE NEW BREAK SOURCE
+        const audioBreakSrcEl = document.getElementById('settingsAudioBreakSource'); if(audioBreakSrcEl) audioBreakSrcEl.value = audio.breakSource || 'upbeat';
 
-        const aSource = document.getElementById('settingsAudioSource');
-        if(aSource) aSource.value = audio.source || 'zen';
-
-        if (this.bgMode.value === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
+        if (theme.bgType === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
         else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
 
         this.renderSubjectList();
     }
 
     renderSubjectList() {
-        if(!this.subjectList) return;
+        if (!this.subjectList) return;
         this.subjectList.innerHTML = '';
-        Object.keys(store.state.subjects).forEach(subName => {
+        Object.entries(store.state.subjects).forEach(([subName, subColor]) => {
             this.subjectList.innerHTML += `
                 <div class="flex gap-2 items-center subject-row" data-oldname="${subName}">
                     <input type="text" class="subject-name-input flex-1 p-2 border rounded font-bold text-gray-700 text-sm" value="${subName}">
@@ -118,6 +110,15 @@ class SettingsManager {
             pBreak: parseInt(document.getElementById('settingsPBreak').value) || 5
         };
         store.update('settings', () => newSettings);
+
+        const newAudio = {
+            enabled: document.getElementById('settingsAudioEnabled').checked,
+            volume: parseInt(document.getElementById('settingsAudioVolume').value) || 50,
+            source: document.getElementById('settingsAudioSource').value,
+            // 🚨 SAVE NEW BREAK SOURCE
+            breakSource: document.getElementById('settingsAudioBreakSource').value
+        };
+        store.update('audio', () => newAudio);
     }
 }
 export const settingsManager = new SettingsManager();
