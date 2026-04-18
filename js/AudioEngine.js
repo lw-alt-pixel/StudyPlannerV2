@@ -5,7 +5,11 @@ class AudioEngine {
     init() {
         this.ytPlayer = null;
         this.localAudio = new Audio();
+        
+        // 🚨 STRICT LOOP ENFORCEMENT FOR LOCAL FILES
         this.localAudio.loop = true;
+        this.localAudio.preload = 'auto';
+        
         this.currentTrackId = null;
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
@@ -26,21 +30,27 @@ class AudioEngine {
         store.subscribe('audio', (a) => this.handleTimerState(store.state.timer)); 
     }
 
-    // 🚨 NEW: Phase-Aware Audio Switching!
     handleTimerState(timerState) {
         const a = store.state.audio;
         
-        // If timer is paused or audio is disabled, stop the music.
-        if (!a.enabled || !timerState.isRunning) {
+        // 🚨 GATEKEEPER: Only play music if Pomodoro is active AND timer is running
+        if (!a.enabled || !timerState.isRunning || timerState.mode !== 'pomodoro') {
             return this.pauseMusic();
         }
 
-        // If Timer is running, pick the track based on the PHASE!
+        // 🚨 BREAK PHASE AUDIO LOGIC
         if (timerState.phase === 'break') {
-            // Upbeat Break Track
-            this.playTrack({ type: 'youtube', id: '4xDzrUhVKVA' }); // Upbeat NCS Stream
+            if (a.breakSource === 'silent') return this.pauseMusic();
+            
+            const breakSources = {
+                upbeat: { type: 'youtube', id: '7tNtU5XFwrU' }, // Reliable NCS 24/7 stream
+                nature: { type: 'youtube', id: 'mc0HInBqXOU' },
+                lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
+                zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3' }
+            };
+            this.playTrack(breakSources[a.breakSource] || breakSources.upbeat);
         } else {
-            // Curated Study Tracks
+            // 🚨 FOCUS PHASE AUDIO LOGIC
             const sources = {
                 zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3' },
                 lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
@@ -86,9 +96,7 @@ class AudioEngine {
         this.localAudio.volume = vol / 100;
     }
 
-    // ==========================================
     // EXAM SOUND EFFECTS SYNTHESIZER
-    // ==========================================
     playSpeech(text) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.9; utterance.pitch = 1;
