@@ -30,8 +30,8 @@ const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
 };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
 
-// 🎯 NEW: AUDIO & MARATHON STATES
-const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'youtube', ytId: 'jfKfPfyJRdk', volume: 50 };
+// 🚨 UPDATED: Default to the Zen Audio Track
+const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'zen', volume: 50 };
 
 export const defaultState = {
     activeTab: 'schedule', blocks: savedBlocks, exams: savedExams, subjects: savedSubjects, 
