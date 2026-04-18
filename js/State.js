@@ -29,9 +29,7 @@ const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
     bgType: 'color', bgColor: '#f3f4f6', bgImage: null, actionColor: '#2563eb', actionSize: 'md', floatingBtn: 'md', tabColor: '#2563eb', bannerBgColor: '#dc2626', bannerTextColor: '#ffffff'
 };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
-
-// 🚨 Default Audio Includes the Break Source
-const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'zen', breakSource: 'upbeat', volume: 50 };
+const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'lofi', breakSource: 'lofi', volume: 50 };
 
 export const defaultState = {
     activeTab: 'schedule', blocks: savedBlocks, exams: savedExams, subjects: savedSubjects, 
@@ -72,6 +70,52 @@ class Store {
 }
 export const store = new Store(defaultState);
 
+// 🚨 NEW: High-Capacity Local Audio Database (IndexedDB)
+export const audioDB = {
+    init() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open('PlannerAudioDB', 1);
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('tracks')) db.createObjectStore('tracks', { keyPath: 'id' });
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+    async getAll() {
+        const db = await this.init();
+        return new Promise(res => {
+            const req = db.transaction('tracks', 'readonly').objectStore('tracks').getAll();
+            req.onsuccess = () => res(req.result || []);
+        });
+    },
+    async get(id) {
+        const db = await this.init();
+        return new Promise(res => {
+            const req = db.transaction('tracks', 'readonly').objectStore('tracks').get(id);
+            req.onsuccess = () => res(req.result);
+        });
+    },
+    async save(track) {
+        const db = await this.init();
+        return new Promise(res => {
+            const tx = db.transaction('tracks', 'readwrite');
+            tx.objectStore('tracks').put(track);
+            tx.oncomplete = () => res();
+        });
+    },
+    async delete(id) {
+        const db = await this.init();
+        return new Promise(res => {
+            const tx = db.transaction('tracks', 'readwrite');
+            tx.objectStore('tracks').delete(id);
+            tx.oncomplete = () => res();
+        });
+    }
+};
+
+// Auth Listeners...
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     const statusText = document.getElementById('cloudStatusText'); const statusIcon = document.getElementById('cloudStatusIcon');
