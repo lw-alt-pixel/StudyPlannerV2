@@ -14,7 +14,6 @@ class CanvasUI {
         this.initialPinchZoom = null;
         this.pinchCenterY = null;
         this.hasPinched = false;
-        this.currentZoomTier = 30; // Starts at 30 min grid
         this.rafPending = false;
         this.pxPerHour = 60; this.dayWidth = 180;
         this.root = document.documentElement;
@@ -23,8 +22,8 @@ class CanvasUI {
         this.currentMonth = new Date(this.baseDate);
         this.currentMonth.setDate(1); 
         this.currentSlideDate = null;
-        
-        // 🚨 MULTI-SELECT VARIABLES
+
+        // 🚨 MULTI-SELECT VARIABLES ADDED SAFELY
         this.isSelecting = false;
         this.selectStartX = 0;
         this.selectStartMin = 0;
@@ -45,41 +44,38 @@ class CanvasUI {
         this.layer = document.getElementById('canvas-layer');
         this.daysHeader = document.getElementById('canvas-days');
         this.timesSidebar = document.getElementById('canvas-times');
-        this.dateDisplay = document.getElementById('canvasDateDisplay');
+        this.dateDisplay = document.getElementById('slidePanelDate'); // Adjust if needed
         this.calendarGrid = document.getElementById('calendar-grid');
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
-        // Dynamically create the Drag Selection Box if it's missing
-        if (this.layer && !document.getElementById('drag-selection-box')) {
-            const box = document.createElement('div');
-            box.id = 'drag-selection-box';
-            box.className = 'hidden absolute bg-blue-500/30 border-2 border-blue-600 rounded pointer-events-none z-40';
-            this.layer.appendChild(box);
-        }
-
         this.bindEvents();
 
-        if(this.container) {
+        if (this.container) {
             this.updateTransform();
-            this.updateGridVisibility();
             this.renderHeaders();
             this.renderBlocks();
         }
-        if(this.calendarGrid) this.renderCalendar();
+        
+        if (this.calendarGrid) {
+            this.renderCalendar();
+        }
 
         store.subscribe('blocks', () => {
-            if(this.container) this.renderBlocks();
-            if(this.calendarGrid) this.renderCalendar();
+            if (this.container) this.renderBlocks();
+            if (this.calendarGrid) this.renderCalendar();
         });
     }
 
     bindEvents() {
-        // Top Bar Controls
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => this.setZoom(this.zoom * 1.5));
         document.getElementById('canvasZoomOut')?.addEventListener('click', () => this.setZoom(this.zoom / 1.5));
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => this.setZoom(1));
-        document.getElementById('centerTodayBtn')?.addEventListener('click', () => this.centerOnToday());
+        document.getElementById('centerTodayBtn')?.addEventListener('click', () => {
+            this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
+            this.panX = 10; this.panY = -480; this.zoom = 1;
+            this.updateTransform(); this.renderHeaders(); this.renderBlocks();
+        });
 
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.updateTransform(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.updateTransform(); });
@@ -96,6 +92,7 @@ class CanvasUI {
             document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
             this.updateTransform();
         });
+        
         document.getElementById('viewCalendarBtn')?.addEventListener('click', () => {
             this.container.classList.add('hidden'); this.container.classList.remove('block');
             this.calendarContainer.classList.remove('hidden'); this.calendarContainer.classList.add('flex');
@@ -106,7 +103,7 @@ class CanvasUI {
             this.renderCalendar();
         });
 
-        if(!this.container) return;
+        if (!this.container) return;
 
         this.container.addEventListener('pointerdown', (e) => {
             this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -135,7 +132,7 @@ class CanvasUI {
                 return;
             }
 
-            // 🚨 NEW: Shift + Drag to Select Multi-Blocks!
+            // 🚨 DRAG-TO-SELECT LOGIC (Hold Shift)
             if (e.shiftKey) {
                 this.isSelecting = true;
                 
@@ -146,7 +143,7 @@ class CanvasUI {
                 this.selectColIndex = Math.floor(canvasX / this.dayWidth); 
                 
                 const rawMin = (canvasY / this.pxPerHour) * 60;
-                this.selectStartMin = Math.round(rawMin / 15) * 15; // Snaps to 15 min intervals
+                this.selectStartMin = Math.round(rawMin / 15) * 15;
                 
                 const box = document.getElementById('drag-selection-box');
                 if(box) {
@@ -159,6 +156,7 @@ class CanvasUI {
                 return;
             }
 
+            // Normal Panning
             this.isPanning = true; this.hasDragged = false;
             this.startX = e.clientX - this.panX;
             this.startY = e.clientY - this.panY;
@@ -185,7 +183,12 @@ class CanvasUI {
                 const colIdx = Math.round(newLeft / this.dayWidth);
                 const snappedLeft = colIdx * this.dayWidth;
                 const rawMins = (newTop / this.pxPerHour) * 60;
-                const snappedMins = Math.round(rawMins / this.currentZoomTier) * this.currentZoomTier;
+                
+                let snapInterval = 60;
+                if (this.zoom >= 2) snapInterval = 15;
+                else if (this.zoom >= 1) snapInterval = 30;
+                
+                const snappedMins = Math.round(rawMins / snapInterval) * snapInterval;
                 const snappedTop = (snappedMins / 60) * this.pxPerHour;
 
                 this.draggedBlockEl.style.transform = `translate(${snappedLeft}px, ${snappedTop}px)`;
@@ -193,7 +196,7 @@ class CanvasUI {
                 return;
             }
 
-            // 🚨 NEW: Dragging Selection Box logic
+            // 🚨 DRAG-TO-SELECT BOX RESIZING
             if (this.isSelecting) {
                 const layerRect = this.layer.getBoundingClientRect();
                 const canvasY = (e.clientY - layerRect.top) / this.zoom;
@@ -274,7 +277,7 @@ class CanvasUI {
                 this.draggedBlockEl = null; this.draggedBlockId = null;
             } 
             
-            // 🚨 NEW: Finish Drag-Selection and pop up Add Block Modal!
+            // 🚨 DRAG-TO-SELECT COMPLETION
             else if (this.isSelecting) {
                 this.isSelecting = false;
                 const box = document.getElementById('drag-selection-box');
@@ -291,20 +294,15 @@ class CanvasUI {
                 const eH = Math.floor(endMin / 60).toString().padStart(2, '0');
                 const eM = (endMin % 60).toString().padStart(2, '0');
 
-                const sDateInput = document.getElementById('newBlockStartDate');
-                const eDateInput = document.getElementById('newBlockEndDate');
-                const sTimeInput = document.getElementById('newBlockStart');
-                const eTimeInput = document.getElementById('newBlockEnd');
-
-                if(sDateInput) sDateInput.value = dateStr;
-                if(eDateInput) eDateInput.value = dateStr;
-                if(sTimeInput) sTimeInput.value = `${sH}:${sM}`;
-                if(eTimeInput) eTimeInput.value = `${eH}:${eM}`;
+                document.getElementById('newBlockStartDate').value = dateStr;
+                document.getElementById('newBlockEndDate').value = dateStr;
+                document.getElementById('newBlockStart').value = `${sH}:${sM}`;
+                document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
 
                 document.getElementById('addBlockModal')?.classList.remove('hidden');
-            } 
+            }
             
-            // 🚨 RESTORED: Click on empty grid to schedule a single block
+            // 🚨 ORIGINAL CLICK-TO-SCHEDULE
             else if (this.isPanning) {
                 this.isPanning = false;
                 this.container.style.cursor = 'grab';
@@ -321,25 +319,25 @@ class CanvasUI {
                     const targetDate = new Date(this.baseDate.getTime() + (colIdx * 86400000));
                     
                     const rawMins = (canvasY / this.pxPerHour) * 60;
-                    const snappedMins = Math.floor(rawMins / this.currentZoomTier) * this.currentZoomTier;
+                    
+                    let snapInterval = 60;
+                    if (this.zoom >= 2) snapInterval = 15;
+                    else if (this.zoom >= 1) snapInterval = 30;
+
+                    const snappedMins = Math.floor(rawMins / snapInterval) * snapInterval;
 
                     const dateStr = this.formatDate(targetDate);
                     const sH = Math.floor(snappedMins / 60).toString().padStart(2, '0');
                     const sM = (snappedMins % 60).toString().padStart(2, '0');
 
-                    const endMins = snappedMins + this.currentZoomTier;
+                    const endMins = snappedMins + snapInterval;
                     const eH = Math.floor(endMins / 60).toString().padStart(2, '0');
                     const eM = (endMins % 60).toString().padStart(2, '0');
 
-                    const sDateInput = document.getElementById('newBlockStartDate');
-                    const eDateInput = document.getElementById('newBlockEndDate');
-                    const sTimeInput = document.getElementById('newBlockStart');
-                    const eTimeInput = document.getElementById('newBlockEnd');
-
-                    if(sDateInput) sDateInput.value = dateStr;
-                    if(eDateInput) eDateInput.value = dateStr;
-                    if(sTimeInput) sTimeInput.value = `${sH}:${sM}`;
-                    if(eTimeInput) eTimeInput.value = `${eH}:${eM}`;
+                    document.getElementById('newBlockStartDate').value = dateStr;
+                    document.getElementById('newBlockEndDate').value = dateStr;
+                    document.getElementById('newBlockStart').value = `${sH}:${sM}`;
+                    document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
 
                     document.getElementById('addBlockModal')?.classList.remove('hidden');
                 }
@@ -358,28 +356,22 @@ class CanvasUI {
         }, { passive: false });
     }
 
-    // 🚨 RESTORED: Precise CSS Variable Grid Update
-    updateGridVisibility() {
-        if (this.currentZoomTier === 15) {
+    updateTransform() {
+        this.root.style.setProperty('--pan-x', `${this.panX}px`);
+        this.root.style.setProperty('--pan-y', `${this.panY}px`);
+        this.root.style.setProperty('--zoom', this.zoom);
+
+        // 🚨 YOUR ORIGINAL CSS GRID VISIBILITY LOGIC
+        if (this.zoom >= 2) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.05)');
             this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.03)');
-        } else if (this.currentZoomTier === 30) {
+        } else if (this.zoom >= 1) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.05)');
             this.root.style.setProperty('--grid-15', 'transparent');
         } else {
             this.root.style.setProperty('--grid-30', 'transparent');
             this.root.style.setProperty('--grid-15', 'transparent');
         }
-    }
-
-    updateTransform() {
-        this.root.style.setProperty('--pan-x', `${this.panX}px`);
-        this.root.style.setProperty('--pan-y', `${this.panY}px`);
-        this.root.style.setProperty('--zoom', this.zoom);
-
-        const centerCol = Math.floor((-this.panX + (this.container.clientWidth / 2)) / (this.dayWidth * this.zoom));
-        const viewingDate = new Date(this.baseDate.getTime() + (centerCol * 86400000));
-        if(this.dateDisplay) this.dateDisplay.innerText = viewingDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     }
 
     setZoom(newZoom, mouseX, mouseY) {
@@ -396,29 +388,11 @@ class CanvasUI {
         this.panX = x - ((x - this.panX) * (newZoom / this.zoom));
         this.panY = y - ((y - this.panY) * (newZoom / this.zoom));
         this.zoom = newZoom;
-
-        // 🚨 RESTORED: The exact zooming Math logic from your original file!
-        if (this.zoom >= 2) this.currentZoomTier = 15;
-        else if (this.zoom >= 1) this.currentZoomTier = 30;
-        else this.currentZoomTier = 60;
-
-        this.updateGridVisibility();
-
+        
         if (!this.rafPending) {
             this.rafPending = true;
             requestAnimationFrame(() => { this.updateTransform(); this.rafPending = false; });
         }
-    }
-
-    centerOnToday() {
-        this.baseDate = this.getChinaTime(); 
-        this.baseDate.setHours(0,0,0,0);
-        this.panX = 10; this.panY = -480; this.zoom = 1;
-        this.currentZoomTier = 30;
-        this.updateGridVisibility();
-        this.updateTransform();
-        this.renderHeaders();
-        this.renderBlocks();
     }
 
     renderHeaders() {
@@ -430,23 +404,17 @@ class CanvasUI {
             const isToday = i === 0;
             const leftPx = i * this.dayWidth;
             const bgClass = isToday ? 'bg-blue-100 text-blue-700 rounded shadow-sm px-2 py-1' : 'text-gray-600';
-            this.daysHeader.innerHTML += `
-                <div class="absolute text-center" style="left: ${leftPx}px; width: ${this.dayWidth}px; bottom: 4px;">
-                    <span class="inline-block ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span>
-                </div>
-            `;
+            this.daysHeader.innerHTML += `<div class="absolute text-center" style="left: ${leftPx}px; width: ${this.dayWidth}px; bottom: 4px;"><span class="inline-block ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
         }
 
         for (let i = 0; i < 24; i++) {
             const topPx = i * this.pxPerHour;
-            this.timesSidebar.innerHTML += `
-                <div class="absolute w-full text-center text-xs font-bold text-gray-500" style="top: ${topPx}px; transform: translateY(-50%);">${String(i).padStart(2,'0')}:00</div>
-            `;
+            this.timesSidebar.innerHTML += `<div class="absolute w-full text-center text-xs font-bold text-gray-500" style="top: ${topPx}px; transform: translateY(-50%);">${String(i).padStart(2,'0')}:00</div>`;
         }
     }
 
     renderBlocks() {
-        if(!this.blocksLayer) return;
+        if (!this.blocksLayer) return;
         this.blocksLayer.innerHTML = '';
         const blocks = store.state.blocks;
         const now = this.getChinaTime();
@@ -483,17 +451,22 @@ class CanvasUI {
             el.style.backgroundColor = subColor;
             el.dataset.id = b.id;
             
-            el.innerHTML = `
-                <button class="delete-btn absolute top-1 right-1 bg-red-600/80 hover:bg-red-700 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
-                <button class="edit-btn absolute top-1 right-6 bg-gray-800/60 hover:bg-gray-900 text-white rounded px-1 text-[9px] font-bold z-20 action-btn hidden md:block">✎</button>
-                ${(b.status !== 'completed' && !isActive) ? `<button class="run-btn absolute bottom-1 right-1 bg-white text-gray-800 hover:bg-gray-100 rounded px-1.5 py-0.5 text-[9px] font-black z-20 shadow-md action-btn">▶️ START</button>` : ''}
-                
-                <div class="pointer-events-none z-10 flex flex-col h-full">
-                    <div class="font-bold text-[10px] truncate drop-shadow-md uppercase text-white/90">${b.subject}</div>
-                    <div class="font-bold text-[11px] truncate drop-shadow-md leading-tight">${b.title}</div>
-                    <div class="text-[9px] opacity-90 drop-shadow-md mt-auto">${b.scheduledStart} - ${b.scheduledEnd}</div>
-                </div>
-            `;
+            let contentHtml = '';
+            const totalSecs = (b.studySeconds || 0) + (b.breakSeconds || 0);
+            const displayStart = b.scheduledStart; const displayEnd = b.scheduledEnd;
+            
+            if (heightPx < 30) { 
+                contentHtml = `<div class=\"pointer-events-none z-10 flex flex-row items-center gap-2 pr-6\"><div class=\"font-bold text-[9px] truncate drop-shadow-md uppercase text-white/80\">${b.subject || ''}</div><div class=\"font-bold text-[10px] truncate drop-shadow-md leading-tight\">${b.title}</div></div>`;
+            } else if (heightPx < 50) { 
+                contentHtml = `<div class=\"pointer-events-none z-10 flex-1 flex flex-col min-h-0 justify-center pr-6\"><div class=\"font-bold text-[9px] truncate drop-shadow-md uppercase text-white/80 leading-tight\">${b.subject || ''}</div><div class=\"font-bold text-[10px] truncate drop-shadow-md leading-tight\">${b.title}</div></div>`;
+            } else {
+                contentHtml = `<div class=\"pointer-events-none z-10 flex-1 flex flex-col min-h-0\"><div class=\"font-bold text-[10px] truncate drop-shadow-md pr-4 uppercase text-white/80\">${b.subject || ''}</div><div class=\"font-bold text-xs truncate drop-shadow-md pr-4\">${b.title}</div><div class=\"text-[9px] opacity-90 drop-shadow-md leading-tight mt-0.5\">${displayStart} - ${displayEnd}</div></div><div class=\"mt-auto z-10 shrink-0 pointer-events-none\">${totalSecs > 0 ? `<div class=\"text-[9px] font-mono font-bold bg-black/30 rounded px-1 text-center mb-0.5\">⏱️ ${Math.floor(totalSecs/60)}m ${totalSecs%60}s</div>` : ''}</div>`;
+            }
+            
+            el.innerHTML = `<button class="delete-btn absolute top-1 right-1 bg-red-600/80 hover:bg-red-700 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
+                            <button class="edit-btn absolute top-1 right-6 bg-gray-800/60 hover:bg-gray-900 text-white rounded px-1 text-[9px] font-bold z-20 action-btn hidden md:block">✎</button>
+                            ${(b.status !== 'completed' && !isActive) ? `<button class="run-btn absolute bottom-1 right-1 bg-white text-gray-800 hover:bg-gray-100 rounded px-1.5 py-0.5 text-[9px] font-black z-20 shadow-md action-btn">▶️</button>` : ''}
+                            ${contentHtml}`;
 
             el.addEventListener('click', (e) => {
                 if (e.target.closest('.delete-btn')) { e.stopPropagation(); if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); return; }
@@ -506,8 +479,7 @@ class CanvasUI {
                     document.getElementById('editBlockSchedEndDate').value = b.endDate;
                     document.getElementById('editBlockSchedEnd').value = b.scheduledEnd;
                     document.getElementById('editBlockRemarks').value = b.remarks || '';
-                    const saveBtn = document.getElementById('saveEditBlock');
-                    if (saveBtn) saveBtn.dataset.id = b.id;
+                    document.getElementById('saveEditBlock').dataset.id = b.id;
                     document.getElementById('editBlockModal')?.classList.remove('hidden');
                     return;
                 }
@@ -525,13 +497,10 @@ class CanvasUI {
 
     renderCalendar() {
         if (!this.calendarGrid || !this.calendarDisplay) return;
-        
         const year = this.currentMonth.getFullYear();
         const month = this.currentMonth.getMonth();
-        
         this.calendarDisplay.innerText = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         this.calendarGrid.innerHTML = '';
-        
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -564,7 +533,7 @@ class CanvasUI {
                 document.getElementById('viewCanvasBtn')?.click();
                 const targetDate = new Date(dateStr);
                 const diffDays = Math.round((targetDate.getTime() - this.baseDate.getTime()) / 86400000);
-                this.panX = -((diffDays * this.dayWidth) - (this.container.clientWidth / 2) + (this.dayWidth / 2));
+                this.panX = -(diffDays * this.dayWidth) + (this.container.clientWidth / 2) - (this.dayWidth / 2);
                 this.updateTransform();
             });
             this.calendarGrid.appendChild(cell);
@@ -589,9 +558,7 @@ class CanvasUI {
         this.renderSlidePanelBlocks(dateStr);
         this.renderSlidePanelDiary(dateStr);
 
-        panel.classList.remove('translate-x-full');
-        overlay.classList.remove('hidden');
-        
+        panel.classList.remove('translate-x-full'); overlay.classList.remove('hidden');
         document.getElementById('closeSlidePanel')?.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
         overlay.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
     }
@@ -603,7 +570,7 @@ class CanvasUI {
         blocks.sort((a, b) => (a.scheduledStart || "00:00").localeCompare(b.scheduledStart || "00:00"));
 
         let totalSecs = 0; container.innerHTML = '';
-        if (blocks.length === 0) container.innerHTML = '<div class="text-xs text-gray-400 font-bold text-center italic py-4">No blocks scheduled for this day.</div>';
+        if (blocks.length === 0) container.innerHTML = '<div class="text-xs text-gray-400 font-bold text-center italic py-4">No blocks scheduled.</div>';
         else {
             blocks.forEach(b => {
                 if (b.status === 'completed') totalSecs += (b.studySeconds || 0);
