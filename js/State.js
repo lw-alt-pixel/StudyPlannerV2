@@ -22,21 +22,22 @@ const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
 const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
-    'Mathematics': '#3b82f6', 'Physics': '#ef4444', 'Chemistry': '#10b981',
-    'Biology': '#f59e0b', 'English': '#8b5cf6', 'History': '#ec4899', 'Computer Science': '#14b8a6'
+    'Mathematics': '#3b82f6', 'Physics': '#ef4444', 'Chemistry': '#10b981', 'Biology': '#f59e0b', 'English': '#8b5cf6', 'History': '#ec4899', 'Computer Science': '#14b8a6'
 };
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
 const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
-    bgType: 'color', bgColor: '#f3f4f6', bgImage: null,
-    actionColor: '#2563eb', actionSize: 'md', floatingBtn: 'md', tabColor: '#2563eb',
-    bannerBgColor: '#dc2626', bannerTextColor: '#ffffff'
+    bgType: 'color', bgColor: '#f3f4f6', bgImage: null, actionColor: '#2563eb', actionSize: 'md', floatingBtn: 'md', tabColor: '#2563eb', bannerBgColor: '#dc2626', bannerTextColor: '#ffffff'
 };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
 
+// 🎯 NEW: AUDIO & MARATHON STATES
+const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'youtube', ytId: 'jfKfPfyJRdk', volume: 50 };
+
 export const defaultState = {
     activeTab: 'schedule', blocks: savedBlocks, exams: savedExams, subjects: savedSubjects, 
-    theme: savedTheme, settings: savedSettings, diaries: savedDiaries,
-    timer: { activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 }
+    theme: savedTheme, settings: savedSettings, diaries: savedDiaries, audio: savedAudio,
+    timer: { activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 },
+    marathon: { active: false, isWaitingForCheckIn: false, strikes: 0, phases: [], currentPhaseIdx: -1, checkInTime: null, warned5Min: false }
 };
 
 class Store {
@@ -51,16 +52,17 @@ class Store {
         if (key === 'theme') localStorage.setItem('studyTheme', JSON.stringify(newValue));
         if (key === 'settings') localStorage.setItem('studySettings', JSON.stringify(newValue));
         if (key === 'diaries') localStorage.setItem('studyDiaries', JSON.stringify(newValue)); 
+        if (key === 'audio') localStorage.setItem('studyAudio', JSON.stringify(newValue));
 
         if (this.listeners[key]) this.listeners[key].forEach(listener => listener(newValue));
 
-        if (currentUser && key !== 'timer' && key !== 'activeTab') {
+        if (currentUser && key !== 'timer' && key !== 'activeTab' && key !== 'marathon') {
             clearTimeout(syncTimeout);
             syncTimeout = setTimeout(async () => {
                 try {
                     const dataToSave = {
                         blocks: this.state.blocks, exams: this.state.exams, subjects: this.state.subjects,
-                        theme: this.state.theme, settings: this.state.settings, diaries: this.state.diaries, updatedAt: new Date().toISOString()
+                        theme: this.state.theme, settings: this.state.settings, diaries: this.state.diaries, audio: this.state.audio, updatedAt: new Date().toISOString()
                     };
                     await setDoc(doc(db, "users", currentUser.uid), dataToSave);
                 } catch (e) { console.error("Cloud Sync Error:", e); }
@@ -93,14 +95,9 @@ onAuthStateChanged(auth, async (user) => {
                 if (data.theme) { store.state.theme = data.theme; localStorage.setItem('studyTheme', JSON.stringify(data.theme)); }
                 if (data.settings) { store.state.settings = data.settings; localStorage.setItem('studySettings', JSON.stringify(data.settings)); }
                 if (data.diaries) { store.state.diaries = data.diaries; localStorage.setItem('studyDiaries', JSON.stringify(data.diaries)); }
+                if (data.audio) { store.state.audio = data.audio; localStorage.setItem('studyAudio', JSON.stringify(data.audio)); }
                 
                 Object.keys(store.listeners).forEach(key => store.listeners[key].forEach(l => l(store.state[key])));
-            } else {
-                const dataToSave = {
-                    blocks: store.state.blocks, exams: store.state.exams, subjects: store.state.subjects,
-                    theme: store.state.theme, settings: store.state.settings, diaries: store.state.diaries, updatedAt: new Date().toISOString()
-                };
-                await setDoc(doc(db, "users", user.uid), dataToSave);
             }
         } catch (e) { console.error("Data Fetch Error:", e); }
     } else {
