@@ -1,14 +1,15 @@
 // js/AudioEngine.js
-import { store } from './State.js';
+import { store, audioDB } from './State.js';
 
 class AudioEngine {
     init() {
         this.ytPlayer = null;
         this.localAudio = new Audio();
         
-        // 🚨 STRICT LOOP ENFORCEMENT FOR LOCAL FILES
+        // 🚨 STRICT LOOP ENFORCEMENT
         this.localAudio.loop = true;
         this.localAudio.preload = 'auto';
+        this.currentLocalUrl = null;
         
         this.currentTrackId = null;
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -30,46 +31,50 @@ class AudioEngine {
         store.subscribe('audio', (a) => this.handleTimerState(store.state.timer)); 
     }
 
-    handleTimerState(timerState) {
+    async handleTimerState(timerState) {
         const a = store.state.audio;
         
-        // 🚨 GATEKEEPER: Only play music if Pomodoro is active AND timer is running
         if (!a.enabled || !timerState.isRunning || timerState.mode !== 'pomodoro') {
             return this.pauseMusic();
         }
 
-        // 🚨 BREAK PHASE AUDIO LOGIC
-        if (timerState.phase === 'break') {
-            if (a.breakSource === 'silent') return this.pauseMusic();
-            
-            const breakSources = {
-                upbeat: { type: 'youtube', id: '7tNtU5XFwrU' }, 
-                nature: { type: 'youtube', id: 'mc0HInBqXOU' },
-                lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
-                zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3' }
-            };
-            this.playTrack(breakSources[a.breakSource] || breakSources.upbeat);
-        } else {
-            // 🚨 FOCUS PHASE AUDIO LOGIC
-            const sources = {
-                zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3' },
-                lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
-                nature: { type: 'youtube', id: 'mc0HInBqXOU' },
-                altpop: { type: 'youtube', id: 'lTRiuFIWV54' },
-                energetic: { type: 'youtube', id: '5qap5aO4i9A' }
-            };
-            this.playTrack(sources[a.source] || sources.zen);
+        const sourceId = timerState.phase === 'break' ? a.breakSource : a.source;
+        
+        if (sourceId === 'silence') return this.pauseMusic();
+
+        // 🚨 DYNAMIC INDEXEDDB INTERCEPTOR
+        if (sourceId.startsWith('custom_')) {
+            try {
+                const trackData = await audioDB.get(sourceId);
+                if (trackData && trackData.blob) {
+                    return this.playTrack({ type: 'local', blob: trackData.blob, id: sourceId });
+                }
+            } catch(e) {
+                console.error("Failed to load custom DB track", e);
+            }
         }
+
+        // Standard Fallbacks
+        const builtInSources = {
+            upbeat: { type: 'youtube', id: '7tNtU5XFwrU' }, 
+            nature: { type: 'youtube', id: 'mc0HInBqXOU' },
+            lofi: { type: 'youtube', id: 'jfKfPfyJRdk' },
+            zen: { type: 'local', url: './quietphase-ambient-zen-489706.mp3', id: 'zen' },
+            altpop: { type: 'youtube', id: 'lTRiuFIWV54' },
+            energetic: { type: 'youtube', id: '5qap5aO4i9A' }
+        };
+        
+        this.playTrack(builtInSources[sourceId] || builtInSources.lofi);
     }
 
     playTrack(track) {
-        if (this.currentTrackId === (track.id || track.url)) {
+        if (this.currentTrackId === track.id) {
             if (track.type === 'local') this.localAudio.play().catch(e => console.log(e));
             else if (this.ytPlayer && this.ytPlayer.getPlayerState && this.ytPlayer.getPlayerState() !== 1) this.ytPlayer.playVideo();
             return;
         }
 
-        this.currentTrackId = track.id || track.url;
+        this.currentTrackId = track.id;
         this.setVolume(store.state.audio.volume);
 
         if (track.type === 'youtube') {
@@ -80,7 +85,20 @@ class AudioEngine {
             }
         } else if (track.type === 'local') {
             if (this.ytPlayer && this.ytPlayer.pauseVideo) this.ytPlayer.pauseVideo();
-            this.localAudio.src = track.url;
+            
+            // Clean up old Object URLs to prevent memory leaks!
+            if (this.currentLocalUrl && this.currentLocalUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(this.currentLocalUrl);
+            }
+            
+            // 🚨 Generate secure browser URL for DB blobs
+            if (track.blob) {
+                this.currentLocalUrl = URL.createObjectURL(track.blob);
+                this.localAudio.src = this.currentLocalUrl;
+            } else {
+                this.localAudio.src = track.url;
+            }
+            
             this.localAudio.play().catch(e => console.log("Browser blocked local auto-play"));
         }
     }
