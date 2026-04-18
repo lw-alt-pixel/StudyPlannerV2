@@ -1,5 +1,5 @@
 // js/SettingsManager.js
-import { store } from './State.js';
+import { store, audioDB } from './State.js';
 
 class SettingsManager {
     init() {
@@ -9,6 +9,11 @@ class SettingsManager {
         this.bgMode = document.getElementById('settingsBgMode');
         this.bgColorDiv = document.getElementById('settingsBgColorDiv');
         this.bgImageDiv = document.getElementById('settingsBgImageDiv');
+        
+        this.customAudioUpload = document.getElementById('customAudioUpload');
+        this.customAudioList = document.getElementById('customAudioList');
+        this.sourceSelect = document.getElementById('settingsAudioSource');
+        this.breakSourceSelect = document.getElementById('settingsAudioBreakSource');
         
         this.bindEvents();
         this.populateForms();
@@ -37,9 +42,31 @@ class SettingsManager {
             this.saveSettings();
             closeSettings();
         });
+
+        // 🚨 CUSTOM AUDIO UPLOAD BINDING
+        this.customAudioUpload?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 20 * 1024 * 1024) return alert("File too large! Keep under 20MB.");
+            
+            const track = {
+                id: `custom_${Date.now()}`,
+                name: file.name,
+                blob: file
+            };
+            
+            try {
+                await audioDB.save(track);
+                alert(`${file.name} saved securely to your local library!`);
+                await this.renderCustomAudio();
+            } catch (err) {
+                console.error("Audio Save Error:", err);
+                alert("Failed to save audio. Your browser might be restricting storage.");
+            }
+        });
     }
 
-    populateForms() {
+    async populateForms() {
         const theme = store.state.theme;
         const settings = store.state.settings;
         const audio = store.state.audio;
@@ -54,15 +81,75 @@ class SettingsManager {
 
         const audioEnEl = document.getElementById('settingsAudioEnabled'); if(audioEnEl) audioEnEl.checked = audio.enabled;
         const audioVolEl = document.getElementById('settingsAudioVolume'); if(audioVolEl) audioVolEl.value = audio.volume || 50;
-        const audioSrcEl = document.getElementById('settingsAudioSource'); if(audioSrcEl) audioSrcEl.value = audio.source || 'zen';
-        
-        // 🚨 POPULATE NEW BREAK SOURCE
-        const audioBreakSrcEl = document.getElementById('settingsAudioBreakSource'); if(audioBreakSrcEl) audioBreakSrcEl.value = audio.breakSource || 'upbeat';
 
         if (theme.bgType === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
         else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
 
         this.renderSubjectList();
+        
+        // Render Custom Audio Database
+        await this.renderCustomAudio();
+        
+        // Restore Select values after dynamically populating them
+        if(this.sourceSelect) this.sourceSelect.value = audio.source || 'lofi';
+        if(this.breakSourceSelect) this.breakSourceSelect.value = audio.breakSource || 'upbeat';
+    }
+
+    async renderCustomAudio() {
+        if (!this.customAudioList || !this.sourceSelect || !this.breakSourceSelect) return;
+        
+        try {
+            const tracks = await audioDB.getAll();
+            
+            // Render UI List
+            this.customAudioList.innerHTML = '';
+            if (tracks.length === 0) {
+                this.customAudioList.innerHTML = '<div class="text-[10px] text-gray-400 font-bold text-center italic py-2">No custom tracks uploaded yet.</div>';
+            }
+            
+            // Render Dropdowns
+            const injectOptions = (selectEl, optgroupLabel) => {
+                let optgroup = selectEl.querySelector(`optgroup[label="${optgroupLabel}"]`);
+                if (optgroup) optgroup.remove(); // Clear old custom options
+                
+                if (tracks.length > 0) {
+                    optgroup = document.createElement('optgroup');
+                    optgroup.label = optgroupLabel;
+                    tracks.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = `🎵 ${t.name}`;
+                        optgroup.appendChild(opt);
+                    });
+                    selectEl.appendChild(optgroup);
+                }
+            };
+
+            injectOptions(this.sourceSelect, "My Uploaded Tracks");
+            injectOptions(this.breakSourceSelect, "My Uploaded Tracks");
+
+            // Build UI Elements
+            tracks.forEach(t => {
+                const row = document.createElement('div');
+                row.className = "flex justify-between items-center bg-white p-2 rounded border text-xs shadow-sm";
+                row.innerHTML = `
+                    <span class="font-bold text-gray-700 truncate mr-2" title="${t.name}">🎵 ${t.name}</span>
+                    <button class="delete-audio text-red-500 hover:text-red-700 font-black"><i class="fa-solid fa-trash"></i></button>
+                `;
+                
+                row.querySelector('.delete-audio').addEventListener('click', async () => {
+                    if(confirm("Delete this track?")) {
+                        await audioDB.delete(t.id);
+                        await this.renderCustomAudio();
+                    }
+                });
+                
+                this.customAudioList.appendChild(row);
+            });
+
+        } catch (e) {
+            console.error("Error rendering DB audio", e);
+        }
     }
 
     renderSubjectList() {
@@ -115,7 +202,6 @@ class SettingsManager {
             enabled: document.getElementById('settingsAudioEnabled').checked,
             volume: parseInt(document.getElementById('settingsAudioVolume').value) || 50,
             source: document.getElementById('settingsAudioSource').value,
-            // 🚨 SAVE NEW BREAK SOURCE
             breakSource: document.getElementById('settingsAudioBreakSource').value
         };
         store.update('audio', () => newAudio);
