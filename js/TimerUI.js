@@ -13,7 +13,7 @@ class TimerUI {
         this.phaseIndicator = document.getElementById('phaseIndicator');
         this.spontaneousSubjectSelect = document.getElementById('focusSpontaneousSubject');
         this.finishTimerBtn = document.getElementById('finishTimerBtn');
-        this.pushBackBtn = document.getElementById('pushBackTimerBtn'); // 🚨 NEW BUTTON
+        this.pushBackBtn = document.getElementById('pushBackTimerBtn');
 
         if (!this.display) return;
 
@@ -73,10 +73,9 @@ class TimerUI {
                     const expectedMins = Math.round((eObj - sObj) / 60000);
                     const studiedMins = Math.floor(t.studySeconds / 60);
                     
-                    // If they finished more than 5 minutes early, intercept!
+                    // Intercept early finish!
                     if (expectedMins - studiedMins > 5) {
                         if (confirm(`You scheduled ${expectedMins} mins, but only studied ${studiedMins} mins. Do you want to PUSH BACK the remaining time to another day? \n\n(Click OK to split & push back. Click Cancel to mark the whole block fully complete anyway).`)) {
-                            // They want to push back!
                             blockManager.openPushBackModal(t.activeBlockId, expectedMins - studiedMins);
                             return; 
                         }
@@ -100,13 +99,6 @@ class TimerUI {
             store.update('timer', state => ({ ...state, isRunning: false, activeBlockId: null, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, phase: 'study' }));
             alert("Session Finished and Saved!");
         });
-
-        document.getElementById('openMarathonModalBtn')?.addEventListener('click', () => {
-            document.getElementById('marathonSetupModal').classList.remove('hidden');
-        });
-        document.getElementById('closeMarathonModalBtn')?.addEventListener('click', () => {
-            document.getElementById('marathonSetupModal').classList.add('hidden');
-        });
     }
 
     updateUI() {
@@ -122,7 +114,6 @@ class TimerUI {
         this.phaseIndicator.className = t.phase === 'study' ? 'absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider' : 'absolute top-4 bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider';
         this.switchPhaseBtn.innerText = t.phase === 'study' ? 'TAKE BREAK' : 'RESUME STUDY';
 
-        // 🚨 SHOW PUSH BACK ONLY IF ACTIVE BLOCK
         if (this.pushBackBtn) {
             if (t.activeBlockId) this.pushBackBtn.classList.remove('hidden');
             else this.pushBackBtn.classList.add('hidden');
