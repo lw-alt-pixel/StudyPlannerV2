@@ -84,11 +84,11 @@ class TimerUI {
                 return b;
             }));
         } else if (t.studySeconds > 60) {
-            // 🚨 FIX: SPONTANEOUS SESSION DATA KEYS
+            // 🚨 FIX: Add precise Date strings so Canvas/Calendar can see it!
             const now = new Date();
             const actualStartObj = new Date(now.getTime() - (t.secondsElapsed * 1000));
             
-            const dateStr = now.toISOString().split('T')[0];
+            const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             const startTimeStr = actualStartObj.toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'});
             const endTimeStr = now.toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'});
 
@@ -96,10 +96,10 @@ class TimerUI {
                 id: Date.now().toString(),
                 title: 'Spontaneous Focus',
                 subject: t.spontaneousSubject || 'General',
-                startDate: dateStr,            // 🚨 Added
-                endDate: dateStr,              // 🚨 Added
-                scheduledStart: startTimeStr,  // 🚨 Added
-                scheduledEnd: endTimeStr,      // 🚨 Added
+                startDate: dateStr,            // Required for Canvas
+                endDate: dateStr,              // Required for Canvas
+                scheduledStart: startTimeStr,  // Required for Canvas drawing math
+                scheduledEnd: endTimeStr,      // Required for Canvas drawing math
                 actualStart: startTimeStr,
                 actualEnd: endTimeStr,
                 status: 'completed',
@@ -111,6 +111,10 @@ class TimerUI {
         }
 
         store.update('timer', () => ({ activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, spontaneousSubject: null }));
+        
+        const titleEl = document.getElementById('focusSessionTitle');
+        if (titleEl) titleEl.innerText = "🎯 Focus Mode";
+        
         alert("Session saved successfully!");
     }
 
@@ -147,22 +151,6 @@ class TimerUI {
             }
         }
 
-        const titleEl = document.getElementById('activeBlockTitle');
-        if (titleEl) {
-            if (t.activeBlockId) {
-                const activeBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
-                const subColor = activeBlock ? store.state.subjects[activeBlock.subject] || '#3b82f6' : '#3b82f6';
-                titleEl.innerHTML = `<div class="text-sm font-bold text-gray-500 mb-2">🎯 Scheduled Block</div>
-                                     <div class="w-full p-3 bg-white border-2 rounded-xl font-bold text-gray-800 shadow-sm text-center truncate" style="border-color: ${subColor}">${activeBlock ? activeBlock.title : 'Active Block'}</div>`;
-            } else {
-                titleEl.innerHTML = `<div class="text-sm font-bold text-gray-500 mb-2">🎯 Focus Mode: <span class="text-gray-400">Spontaneous Session</span></div>
-                                     <select id="focusSpontaneousSubject" class="w-full p-3 bg-white border rounded-xl font-bold text-gray-700 shadow-sm appearance-none text-center"></select>`;
-                this.spontaneousSubjectSelect = document.getElementById('focusSpontaneousSubject');
-                this.populateSubjects();
-                this.bindEvents(); 
-            }
-        }
-
         let displaySeconds = 0;
         
         if (t.mode === 'pomodoro') {
@@ -191,11 +179,11 @@ class TimerUI {
         }
 
         if (t.mode === 'stopwatch') {
-            this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-sm transition-all shadow-sm";
-            this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded-xl text-gray-500 font-bold text-sm transition-all hover:bg-gray-50";
+            this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded shadow bg-white font-bold text-sm transition-all text-gray-900";
+            this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
         } else {
-            this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-sm transition-all shadow-sm";
-            this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded-xl text-gray-500 font-bold text-sm transition-all hover:bg-gray-50";
+            this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
+            this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
         }
 
         if (t.isRunning || t.studySeconds > 0 || t.breakSeconds > 0) {
