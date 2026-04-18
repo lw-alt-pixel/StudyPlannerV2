@@ -1,25 +1,22 @@
 // js/App.js
 import { store, audioDB } from './State.js';
-import { audioEngine } from './AudioEngine.js';
-import { timerEngine } from './TimerEngine.js';
-import { settingsManager } from './SettingsManager.js';
+import { uiManager } from './UIManager.js';
 import { timerUI } from './TimerUI.js';
+import { themeManager } from './ThemeManager.js';
 import { canvasUI } from './CanvasUI.js';
-import { calendarUI } from './CalendarUI.js';
-import { analyticsUI } from './AnalyticsUI.js';
-
-// Attempt dynamic imports for optional managers to prevent crash if they were renamed
-let blockManager, examManager, marathonEngine;
-try { blockManager = (await import('./BlockManager.js')).blockManager; } catch(e){}
-try { examManager = (await import('./ExamManager.js')).examManager; } catch(e){}
-try { marathonEngine = (await import('./MarathonEngine.js')).marathonEngine; } catch(e){}
+import { blockManager } from './BlockManager.js'; 
+import { statsUI } from './StatsUI.js'; 
+import { examManager } from './ExamManager.js';
+import { settingsManager } from './SettingsManager.js';
+import { floatingWidgetManager } from './FloatingWidgetManager.js';
+import { audioEngine } from './AudioEngine.js'; 
+import { marathonEngine } from './MarathonEngine.js'; 
 
 document.addEventListener('DOMContentLoaded', async () => {
-    
-    // 1. Init Audio Database
+    // 1. Init Audio Database for Custom MP3s
     try { if(audioDB) await audioDB.init(); } catch (e) { console.warn("Audio DB init failed", e); }
 
-    // 2. Safe Initialization Function (Prevents app-wide crashes)
+    // 2. Safe Bootloader (Prevents chain-reaction crashes)
     const safeInit = (module, name) => {
         if (!module) return;
         try { 
@@ -30,59 +27,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    // 3. Boot Engines
+    // 3. Boot True Engines
+    safeInit(uiManager, 'UIManager');
+    safeInit(themeManager, 'ThemeManager');
     safeInit(audioEngine, 'AudioEngine');
     safeInit(settingsManager, 'SettingsManager');
     safeInit(timerUI, 'TimerUI');
     safeInit(canvasUI, 'CanvasUI');
-    safeInit(calendarUI, 'CalendarUI');
-    safeInit(analyticsUI, 'AnalyticsUI');
-    
     safeInit(blockManager, 'BlockManager');
+    safeInit(statsUI, 'StatsUI');
     safeInit(examManager, 'ExamManager');
+    safeInit(floatingWidgetManager, 'FloatingWidgetManager');
     safeInit(marathonEngine, 'MarathonEngine');
-
-    // 4. Robust Tab Switching Logic
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetId = btn.getAttribute('data-tab');
-            if (!targetId) return;
-
-            // Toggle Button Styles
-            tabBtns.forEach(b => {
-                b.classList.remove('text-blue-600', 'border-blue-600');
-                b.classList.add('text-gray-400', 'border-transparent');
-            });
-            btn.classList.add('text-blue-600', 'border-blue-600');
-            btn.classList.remove('text-gray-400', 'border-transparent');
-
-            // Toggle Content Visibility
-            tabContents.forEach(content => {
-                if (content.id === targetId) {
-                    content.classList.remove('hidden');
-                } else {
-                    content.classList.add('hidden');
-                }
-            });
-
-            // Refresh specific canvas bounds when opened
-            if (targetId === 'canvas' && canvasUI) canvasUI.updateTransform();
-        });
-    });
-
-    // 5. Global Fallback Bindings
-    document.getElementById('loginTabBtn')?.addEventListener('click', () => {
-        document.getElementById('loginModal')?.classList.remove('hidden');
-    });
-    document.getElementById('closeLoginModal')?.addEventListener('click', () => {
-        document.getElementById('loginModal')?.classList.add('hidden');
-    });
-    
-    document.getElementById('fallbackSettingsBtn')?.addEventListener('click', () => {
-        document.getElementById('settingsPanel')?.classList.remove('translate-x-full');
-        document.getElementById('settingsOverlay')?.classList.remove('hidden');
-    });
 });
