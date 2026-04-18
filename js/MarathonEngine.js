@@ -5,14 +5,24 @@ import { audioEngine } from './AudioEngine.js';
 class MarathonEngine {
     init() {
         this.checkInterval = null;
+        this.phaseCountInput = document.getElementById('marathonPhaseCount');
+        this.phaseListContainer = document.getElementById('marathonPhaseList');
+        
         this.bindEvents();
+        
+        // Generate the initial UI rows based on the default value
+        if (this.phaseCountInput && this.phaseListContainer) {
+            this.renderPhaseInputs();
+        }
     }
 
     bindEvents() {
+        // 🎯 NEW: Dynamic input generator
+        this.phaseCountInput?.addEventListener('input', () => this.renderPhaseInputs());
+
         document.addEventListener("visibilitychange", () => {
             const m = store.state.marathon;
             if (m.active && document.hidden && !m.isWaitingForCheckIn) {
-                // If in an EXAM phase, punish them!
                 const currentPhase = m.phases[m.currentPhaseIdx];
                 if (currentPhase && currentPhase.type === 'exam') {
                     this.issueStrike();
@@ -27,28 +37,61 @@ class MarathonEngine {
         });
     }
 
+    // 🎯 NEW FUNCTION: Builds custom duration rows based on phase count
+    renderPhaseInputs() {
+        let count = parseInt(this.phaseCountInput.value) || 1;
+        if (count > 10) { count = 10; this.phaseCountInput.value = 10; } // Max 10 phases
+        if (count < 1) { count = 1; this.phaseCountInput.value = 1; }
+
+        let html = '';
+        for (let i = 0; i < count; i++) {
+            html += `
+            <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg flex flex-col gap-2 shadow-sm">
+                <h4 class="text-[11px] font-black text-red-600 uppercase tracking-wider">Phase ${i + 1}</h4>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Exam (Mins)</label>
+                        <input type="number" class="marathon-exam-input w-full p-2 border rounded font-bold text-gray-700" value="120" min="1">
+                    </div>
+                    ${i < count - 1 ? `
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Break After (Mins)</label>
+                        <input type="number" class="marathon-break-input w-full p-2 border rounded font-bold text-gray-700" value="45" min="1">
+                    </div>
+                    ` : ''}
+                </div>
+            </div>`;
+        }
+        this.phaseListContainer.innerHTML = html;
+    }
+
     buildSchedule() {
         const startTimeStr = document.getElementById('marathonStartTime').value;
-        const examMins = parseInt(document.getElementById('marathonExamMins').value) || 120;
-        const breakMins = parseInt(document.getElementById('marathonBreakMins').value) || 45;
-        const phaseCount = parseInt(document.getElementById('marathonPhaseCount').value) || 2;
+        const count = parseInt(this.phaseCountInput.value) || 1;
         
         if (!startTimeStr) return alert("Please select a start time.");
+
+        // Grab all dynamically generated inputs
+        const examInputs = document.querySelectorAll('.marathon-exam-input');
+        const breakInputs = document.querySelectorAll('.marathon-break-input');
 
         const now = new Date();
         const [h, min] = startTimeStr.split(':');
         let scheduleStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(h), parseInt(min), 0);
         
-        if (scheduleStart < now) scheduleStart.setDate(scheduleStart.getDate() + 1); // Push to tomorrow if time passed
+        if (scheduleStart < now) scheduleStart.setDate(scheduleStart.getDate() + 1);
 
         const phases = [];
         let currentMarker = new Date(scheduleStart);
 
-        for (let i = 0; i < phaseCount; i++) {
+        // 🎯 NEW: Iterate and apply specific durations for each phase
+        for (let i = 0; i < count; i++) {
+            const examMins = Math.max(1, parseInt(examInputs[i]?.value) || 120);
             phases.push({ type: 'exam', start: new Date(currentMarker), end: new Date(currentMarker.getTime() + examMins * 60000) });
             currentMarker = new Date(currentMarker.getTime() + examMins * 60000);
             
-            if (i < phaseCount - 1) { // No break after the very last exam
+            if (i < count - 1) { 
+                const breakMins = Math.max(1, parseInt(breakInputs[i]?.value) || 45);
                 phases.push({ type: 'break', start: new Date(currentMarker), end: new Date(currentMarker.getTime() + breakMins * 60000) });
                 currentMarker = new Date(currentMarker.getTime() + breakMins * 60000);
             }
@@ -103,7 +146,6 @@ class MarathonEngine {
 
         const now = new Date();
 
-        // Check-in window logic
         if (m.isWaitingForCheckIn) {
             if (now >= m.checkInTime && now < m.phases[0].start) {
                 document.getElementById('marathonCheckInBtn').classList.remove('hidden');
@@ -115,14 +157,12 @@ class MarathonEngine {
             return;
         }
 
-        // Phase Logic
         let activeIdx = -1;
         for (let i = 0; i < m.phases.length; i++) {
             if (now >= m.phases[i].start && now < m.phases[i].end) { activeIdx = i; break; }
         }
 
         if (activeIdx === -1 && now >= m.phases[m.phases.length - 1].end) {
-            // Exam completely over
             audioEngine.playDoubleBell();
             audioEngine.playSpeech("Pencils down. The exam has concluded.");
             this.endMarathon(false);
@@ -133,7 +173,6 @@ class MarathonEngine {
             const phase = m.phases[activeIdx];
             const timeLeft = Math.floor((phase.end - now) / 1000);
             
-            // Phase Transition Detection
             if (activeIdx !== m.currentPhaseIdx) {
                 store.update('marathon', m => ({ ...m, currentPhaseIdx: activeIdx }));
                 if (phase.type === 'exam') {
@@ -145,18 +184,16 @@ class MarathonEngine {
                 }
             }
 
-            // Update Timer Display
             const min = Math.floor(timeLeft / 60).toString().padStart(2, '0');
             const sec = (timeLeft % 60).toString().padStart(2, '0');
             document.getElementById('timerDisplay').innerText = `${min}:${sec}`;
 
-            // 5 Minute Break Warning!
             if (phase.type === 'break' && timeLeft === 300 && !m.warned5Min) {
                 audioEngine.playDidaDida();
                 setTimeout(() => audioEngine.playSpeech("The exam is beginning in about 5 minutes. Please return to your seat."), 1500);
                 store.update('marathon', m => ({ ...m, warned5Min: true }));
             } else if (phase.type === 'exam') {
-                store.update('marathon', m => ({ ...m, warned5Min: false })); // Reset for next break
+                store.update('marathon', m => ({ ...m, warned5Min: false })); 
             }
         }
     }
