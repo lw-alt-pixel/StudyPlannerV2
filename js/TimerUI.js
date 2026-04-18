@@ -110,7 +110,7 @@ class TimerUI {
         this.toggleBtn.innerHTML = t.isRunning ? '⏸️ Pause' : '▶️ Start';
         this.toggleBtn.className = t.isRunning 
             ? "flex-1 md:flex-none px-6 py-3 bg-red-100 text-red-700 rounded-xl font-bold hover:bg-red-200 transition-colors"
-            : "flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/30";
+            : "flex-1 md:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/30 w-32";
 
         // 🚨 DYNAMIC UI BADGES FOR STOPWATCH VS POMODORO
         if (t.phase === 'study') {
@@ -119,10 +119,10 @@ class TimerUI {
             
             if (t.mode === 'stopwatch') {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2 animate-pulse"></span>⏱️ STOPWATCH: FOCUS';
-                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
+                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
             } else {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>🎯 POMODORO: STUDY';
-                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-blue-100 text-blue-800";
+                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-blue-100 text-blue-800";
             }
         } else {
             this.switchPhaseBtn.innerHTML = '🎯 Resume Focus';
@@ -130,10 +130,10 @@ class TimerUI {
             
             if (t.mode === 'stopwatch') {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2 animate-pulse"></span>⏱️ STOPWATCH: BREAK';
-                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
+                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-gray-100 text-gray-600";
             } else {
                 this.phaseIndicator.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-orange-500 mr-2 animate-pulse"></span>☕ POMODORO: BREAK';
-                this.phaseIndicator.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-widest bg-orange-100 text-orange-800";
+                this.phaseIndicator.className = "absolute top-4 inline-flex items-center px-4 py-1 rounded-full text-xs font-black tracking-widest bg-orange-100 text-orange-800";
             }
         }
 
@@ -175,7 +175,6 @@ class TimerUI {
             const min = Math.floor((displaySeconds % 3600) / 60).toString().padStart(2, '0');
             const sec = (displaySeconds % 60).toString().padStart(2, '0');
             
-            // Only show hours if we actually hit an hour, keeping UI clean
             if (hrs > 0) {
                 this.display.innerText = `${hrs}:${min}:${sec}`;
             } else {
