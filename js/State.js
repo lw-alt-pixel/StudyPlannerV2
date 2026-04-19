@@ -1,7 +1,7 @@
 // js/State.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDTdBpVPHLiWmfj_dSAw3pGwn_suIsUISA",
@@ -14,10 +14,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-export const db = getFirestore(app); // 🚨 EXPORTED DB FOR ADMIN ACCESS
+const db = getFirestore(app);
 
 let currentUser = null; let syncTimeout = null;
-let heartbeatInterval = null; let ticketsUnsubscribe = null;
 
 const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
@@ -38,7 +37,7 @@ class Store {
             timer: { activeBlockId: null, spontaneousSubject: null, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false },
             marathon: { active: false, phases: [], currentPhaseIdx: -1, strikes: 0, isWaitingForCheckIn: false },
             audio: { enabled: false, volume: 50, source: 'none', breakSource: 'none' },
-            activeTab: 'focus', userProfile: null, broadcast: null, adminReply: null
+            activeTab: 'focus', userProfile: null, broadcast: null
         };
         this.listeners = {};
     }
@@ -105,15 +104,6 @@ export const audioDB = window.indexedDB ? {
             req.onsuccess = () => resolve(req.result || []);
         });
     },
-    // 🚨 THE FIX THAT PREVENTS THE CRASH
-    async getAllIds() {
-        return new Promise((resolve) => {
-            const tx = this.db.transaction('files', 'readonly');
-            const req = tx.objectStore('files').getAllKeys();
-            req.onsuccess = () => resolve(req.result || []);
-            req.onerror = () => resolve([]);
-        });
-    },
     async delete(id) {
         return new Promise((resolve) => {
             const tx = this.db.transaction('files', 'readwrite');
@@ -128,28 +118,13 @@ onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         document.getElementById('loginModal').classList.add('hidden');
         
-        // 🚨 START HEARTBEAT ENGINE (Updates Admin Dashboard with Online Status)
-        const updateHeartbeat = () => {
-            setDoc(doc(db, 'users', user.uid), { lastOnline: new Date().toISOString() }, { merge: true }).catch(e=>console.warn(e));
-        };
-        updateHeartbeat();
-        heartbeatInterval = setInterval(updateHeartbeat, 5 * 60 * 1000); // Pulse every 5 mins
-
-        // 🚨 LISTEN FOR REPLIES FROM ADMIN
-        ticketsUnsubscribe = onSnapshot(query(collection(db, 'supportTickets'), where('uid', '==', user.uid), where('status', '==', 'replied')), (snap) => {
-            snap.docChanges().forEach(change => {
-                if (change.type === 'added' || change.type === 'modified') {
-                    const ticket = change.doc.data();
-                    if(!ticket.seenByUser) store.update('adminReply', () => ({ id: change.doc.id, ...ticket }));
-                }
-            });
-        });
-
+        // 🚨 LISTEN FOR GLOBAL BROADCASTS
         onSnapshot(doc(db, 'server', 'broadcast'), (docSnap) => {
             if (docSnap.exists()) store.update('broadcast', () => docSnap.data());
             else store.update('broadcast', () => null);
         });
 
+        // 🚨 LISTEN FOR LIVE CSS HOTFIXES
         onSnapshot(doc(db, 'server', 'hotfix'), (docSnap) => {
             if (docSnap.exists() && docSnap.data().css) {
                 let styleTag = document.getElementById('liveHotfixStyles');
@@ -186,8 +161,6 @@ onAuthStateChanged(auth, async (user) => {
         }
     } else {
         currentUser = null;
-        if(heartbeatInterval) clearInterval(heartbeatInterval);
-        if(ticketsUnsubscribe) ticketsUnsubscribe();
         document.getElementById('loginModal').classList.remove('hidden');
         document.getElementById('loginModal').classList.add('flex');
         store.update('userProfile', () => null);
@@ -199,52 +172,56 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('loginModal').classList.remove('hidden');
         document.getElementById('loginModal').classList.add('flex');
     });
+
     document.getElementById('cancelLoginBtn')?.addEventListener('click', () => {
         document.getElementById('loginModal').classList.remove('flex');
         document.getElementById('loginModal').classList.add('hidden');
     });
+
     document.getElementById('emailLoginBtn')?.addEventListener('click', async () => {
         const email = document.getElementById('authEmail').value; const pass = document.getElementById('authPassword').value;
         if(!email || !pass) return alert("Please enter email and password.");
         try { await signInWithEmailAndPassword(auth, email, pass); document.getElementById('loginModal').classList.add('hidden');
         } catch(e) { alert("Login Error: " + e.message); }
     });
+
     document.getElementById('emailSignupBtn')?.addEventListener('click', async () => {
         const email = document.getElementById('authEmail').value; const pass = document.getElementById('authPassword').value;
         if(!email || !pass) return alert("Please enter email and password.");
         try { await createUserWithEmailAndPassword(auth, email, pass); document.getElementById('loginModal').classList.add('hidden');
         } catch(e) { alert("Signup Error: " + e.message); }
     });
+
     document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
         const provider = new GoogleAuthProvider();
         try { await signInWithPopup(auth, provider); document.getElementById('loginModal').classList.add('hidden');
         } catch(e) { alert("Google Login Error: " + e.message); }
     });
+
     document.getElementById('logoutBtn')?.addEventListener('click', () => { signOut(auth); document.getElementById('loginModal').classList.add('hidden'); });
 });
 
+// 🚨 SUPPORT TICKET SENDER
 export const submitSupportTicket = async (message) => {
     if (!currentUser) throw new Error("Must be logged in.");
     try {
         await addDoc(collection(db, 'supportTickets'), {
-            uid: currentUser.uid, email: currentUser.email, message: message, status: 'open', seenByUser: false, timestamp: new Date().toISOString()
+            uid: currentUser.uid, email: currentUser.email, message: message, status: 'open', timestamp: new Date().toISOString()
         });
     } catch (e) { console.error("Ticket Error:", e); throw e; }
 };
 
-export const markTicketSeen = async (ticketId) => {
-    try { await updateDoc(doc(db, 'supportTickets', ticketId), { seenByUser: true }); } 
-    catch (e) { console.error(e); }
-};
-
+// 🚨 ADMIN GOD MODE POWERS
 export const pushGlobalBroadcast = async (message, active) => {
     if (!currentUser) return;
-    try { await setDoc(doc(db, 'server', 'broadcast'), { message, active, timestamp: new Date().toISOString() }); } 
-    catch (e) { console.error("Broadcast Error:", e); throw e; }
+    try {
+        await setDoc(doc(db, 'server', 'broadcast'), { message, active, timestamp: new Date().toISOString() });
+    } catch (e) { console.error("Broadcast Error:", e); throw e; }
 };
 
 export const pushGlobalHotfix = async (cssString) => {
     if (!currentUser) return;
-    try { await setDoc(doc(db, 'server', 'hotfix'), { css: cssString, timestamp: new Date().toISOString() }); } 
-    catch (e) { console.error("Hotfix Error:", e); throw e; }
+    try {
+        await setDoc(doc(db, 'server', 'hotfix'), { css: cssString, timestamp: new Date().toISOString() });
+    } catch (e) { console.error("Hotfix Error:", e); throw e; }
 };
