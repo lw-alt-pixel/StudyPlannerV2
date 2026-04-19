@@ -12,7 +12,7 @@ class CanvasUI {
         
         this.currentZoomTier = 60; 
         this.pxPerHour = 60; this.dayWidth = 180;
-        this.phantomPxPerHour = 180; // 🚨 NEW: Fixed, massive scale for the Phantom Grid!
+        this.phantomPxPerHour = 180; 
         
         this.offsetX = 60; 
         this.offsetY = 50; 
@@ -20,7 +20,6 @@ class CanvasUI {
         
         this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
         
-        // Edge Auto-Panning & Phantom State
         this.isSelecting = false;
         this.selectStartCol = 0;
         this.selectStartAbsMin = 0; 
@@ -33,28 +32,21 @@ class CanvasUI {
     getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
     formatDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
-    // 🚨 NEW NON-LINEAR TIMELINE MATH
     getMinsFromY(y) {
         const mainH = 24 * this.pxPerHour * this.zoom;
         if (y <= mainH) return (y / (this.pxPerHour * this.zoom)) * 60;
-        
-        // If we crossed 24:00, use the massive Phantom Scale!
         let excessMins = ((y - mainH) / this.phantomPxPerHour) * 60;
-        return Math.min(1440 + excessMins, 1440 + 300); // Hard cap at 5:00 AM (1440 + 300 mins)
+        return Math.min(1440 + excessMins, 1440 + 300); 
     }
 
     getYFromMins(mins) {
         const mainH = 24 * this.pxPerHour * this.zoom;
         if (mins <= 1440) return (mins / 60) * this.pxPerHour * this.zoom;
-        
-        // Convert excess minutes into the massive Phantom Scale!
         return mainH + ((mins - 1440) / 60) * this.phantomPxPerHour;
     }
 
     getSnappedLocal(m) {
-        // Normal Canvas: Snap to current zoom tier
         if (m < 1440) return Math.round(m / this.currentZoomTier) * this.currentZoomTier;
-        // Phantom Grid: Always perfectly snap to 15 minutes!
         return 1440 + Math.round((m - 1440) / 15) * 15;
     }
 
@@ -65,6 +57,9 @@ class CanvasUI {
         this.blocksLayer = document.getElementById('blocks-layer');
         this.timeLabels = document.getElementById('canvas-times');
         this.daysHeader = document.getElementById('canvas-days');
+        
+        // 🚨 NEW: Reference to the dynamic month label in the controls bar
+        this.canvasMonthLabel = document.getElementById('canvasMonthLabel');
 
         const upNext = document.getElementById('upNextBanner');
         if (upNext && !document.getElementById('dailyAgendaContainer')) {
@@ -106,7 +101,8 @@ class CanvasUI {
         if (!document.getElementById('phantom-layer')) {
             const pLayer = document.createElement('div');
             pLayer.id = 'phantom-layer';
-            pLayer.className = 'absolute top-0 left-0 w-full h-full pointer-events-none z-30 opacity-90';
+            // 🚨 FIX 1: z-[150] pierces perfectly through the white time-labels bar!
+            pLayer.className = 'absolute top-0 left-0 w-full h-full pointer-events-none z-[150] opacity-90';
             if(this.layer) this.layer.appendChild(pLayer);
         }
 
@@ -150,6 +146,7 @@ class CanvasUI {
             document.getElementById('prevDaysBtn')?.classList.add('hidden');
             document.getElementById('nextDaysBtn')?.classList.add('hidden');
             document.getElementById('fullscreenCanvasBtn')?.classList.add('hidden');
+            if (this.canvasMonthLabel) this.canvasMonthLabel.classList.add('hidden');
             
             const addToggleCluster = controlsBar?.querySelector('.items-center');
             if (addToggleCluster) addToggleCluster.classList.add('hidden');
@@ -168,6 +165,7 @@ class CanvasUI {
             document.getElementById('prevDaysBtn')?.classList.remove('hidden');
             document.getElementById('nextDaysBtn')?.classList.remove('hidden');
             document.getElementById('fullscreenCanvasBtn')?.classList.remove('hidden');
+            if (this.canvasMonthLabel) this.canvasMonthLabel.classList.remove('hidden');
             
             const addToggleCluster = controlsBar?.querySelector('.items-center');
             if (addToggleCluster) addToggleCluster.classList.remove('hidden');
@@ -197,8 +195,6 @@ class CanvasUI {
 
     updateSelection(clientX, clientY) {
         const containerRect = this.container.getBoundingClientRect();
-        
-        // Lock X to starting column so we don't accidentally slide sideways while dragging down!
         const canvasY = clientY - containerRect.top - this.panY - this.offsetY;
         
         let localMins = this.getMinsFromY(canvasY);
@@ -212,6 +208,29 @@ class CanvasUI {
         this.renderPhantomGrid();
     }
 
+    // 🚨 NEW: Math engine to cleanly jump by exactly 1 month
+    jumpToMonth(offset) {
+        const leftEdgeDays = Math.round(-this.panX / this.dayWidth);
+        const currentDate = new Date(this.baseDate.getTime() + (leftEdgeDays * 86400000));
+        
+        let newMonth = currentDate.getMonth() + offset;
+        let newYear = currentDate.getFullYear();
+        
+        // Target perfectly to the 1st of the designated month
+        const targetDate = new Date(newYear, newMonth, 1);
+        targetDate.setHours(0,0,0,0);
+        
+        const diffTime = targetDate.getTime() - this.baseDate.getTime();
+        const diffDays = Math.round(diffTime / 86400000);
+        
+        // Lock panX directly so that the 1st touches the exact left edge (+10 padding so we don't clip the line)
+        this.panX = -diffDays * this.dayWidth + 10; 
+        
+        this.updateTransform();
+        this.renderHeaders();
+        this.renderBlocks();
+    }
+
     bindEvents() {
         document.getElementById('fullscreenCanvasBtn')?.addEventListener('click', () => this.toggleFullscreen(true));
         document.getElementById('exitFullscreenBtn')?.addEventListener('click', () => this.toggleFullscreen(false));
@@ -222,8 +241,9 @@ class CanvasUI {
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => this.setZoom(1));
         document.getElementById('centerTodayBtn')?.addEventListener('click', () => this.centerOnToday());
 
-        document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.updateTransform(); });
-        document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.updateTransform(); });
+        // 🚨 FIX 2: Connect buttons to the new Jump Engine!
+        document.getElementById('prevDaysBtn')?.addEventListener('click', () => this.jumpToMonth(-1));
+        document.getElementById('nextDaysBtn')?.addEventListener('click', () => this.jumpToMonth(1));
         
         document.getElementById('viewCanvasBtn')?.addEventListener('click', () => {
             this.container?.classList.remove('hidden'); this.container?.classList.add('block');
@@ -306,7 +326,6 @@ class CanvasUI {
                 const margin = 50; 
                 let dx = 0; let dy = 0;
                 
-                // 🚨 FIX: Speed Limiter! Reduced from 15 down to 6 for smooth, easy control!
                 if (e.clientX < rect.left + margin) dx = 6;
                 else if (e.clientX > rect.right - margin) dx = -6;
                 
@@ -345,10 +364,9 @@ class CanvasUI {
             return;
         }
 
-        // We crossed midnight! Build the Phantom Dimension!
         const leftPx = this.selectStartCol * this.dayWidth;
-        const topPx = this.getYFromMins(1440); // 24:00 mark
-        const heightPx = this.getYFromMins(1740) - topPx; // Up to 05:00 cap
+        const topPx = this.getYFromMins(1440); 
+        const heightPx = this.getYFromMins(1740) - topPx; 
         
         let html = '';
         
@@ -359,7 +377,6 @@ class CanvasUI {
             </div>
         `;
 
-        // 🚨 FIX: Massive 15-minute grids explicitly drawn up to 5 hours!
         for (let m = 0; m <= 300; m += 15) {
             const y = this.getYFromMins(1440 + m);
             const isHour = m % 60 === 0;
@@ -369,11 +386,11 @@ class CanvasUI {
             
             if (isHour) {
                 let hr = m / 60;
-                html += `<div class="absolute text-[10px] font-bold text-purple-500 right-2 -translate-y-1/2 opacity-70" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(hr).padStart(2, '0')}:00</div>`;
+                html += `<div class="absolute text-[10px] font-bold text-purple-500 right-2 -translate-y-1/2 opacity-100 drop-shadow-sm bg-white px-1 rounded-sm" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(hr).padStart(2, '0')}:00</div>`;
             } else {
                  let hr = Math.floor(m / 60);
                  let min = m % 60;
-                 html += `<div class="absolute text-[8px] font-medium text-purple-400 right-2 -translate-y-1/2 opacity-50" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(hr).padStart(2, '0')}:${min}</div>`;
+                 html += `<div class="absolute text-[8px] font-medium text-purple-400 right-2 -translate-y-1/2 opacity-90 bg-white px-1 rounded-sm drop-shadow-sm" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(hr).padStart(2, '0')}:${min}</div>`;
             }
         }
         
@@ -428,12 +445,10 @@ class CanvasUI {
             let eCol = this.selectStartCol;
             let eMin = endAbs - (sCol * 1440);
             
-            // Convert phantom time properly!
             if (eMin > 1440) { 
                 eCol += Math.floor(eMin / 1440); 
                 eMin %= 1440; 
             } else if (eMin === 1440) {
-                // If ending exactly at 24:00, map it cleanly to next day 00:00
                 eCol += 1;
                 eMin = 0;
             }
@@ -575,6 +590,13 @@ class CanvasUI {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)'); this.root.style.setProperty('--grid-15', 'transparent');
         } else {
             this.root.style.setProperty('--grid-30', 'transparent'); this.root.style.setProperty('--grid-15', 'transparent');
+        }
+
+        // 🚨 NEW: Dynamic Month Label Tracker!
+        if (this.canvasMonthLabel) {
+            const leftEdgeDays = Math.round(-this.panX / this.dayWidth);
+            const currentDate = new Date(this.baseDate.getTime() + (leftEdgeDays * 86400000));
+            this.canvasMonthLabel.innerText = currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         }
     }
 
