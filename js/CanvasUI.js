@@ -131,7 +131,38 @@ class CanvasUI {
         store.subscribe('activeTab', () => this.renderDailyAgenda());
     }
 
+    // 🚨 FULLSCREEN LOGIC
+    toggleFullscreen(enable) {
+        const header = document.getElementById('appHeader');
+        const nav = document.getElementById('appNav');
+        const banner = document.getElementById('upNextBanner');
+        const scheduleTab = document.getElementById('schedule');
+        const exitBtn = document.getElementById('exitFullscreenBtn');
+
+        if (enable) {
+            header?.classList.add('hidden');
+            nav?.classList.add('hidden');
+            banner?.classList.add('hidden');
+            scheduleTab?.classList.add('!fixed', '!inset-0', '!z-[9999]');
+            exitBtn?.classList.remove('hidden');
+        } else {
+            header?.classList.remove('hidden');
+            nav?.classList.remove('hidden');
+            banner?.classList.remove('hidden');
+            scheduleTab?.classList.remove('!fixed', '!inset-0', '!z-[9999]');
+            exitBtn?.classList.add('hidden');
+        }
+        this.updateTransform();
+    }
+
     bindEvents() {
+        // Fullscreen Bindings
+        document.getElementById('fullscreenCanvasBtn')?.addEventListener('click', () => this.toggleFullscreen(true));
+        document.getElementById('exitFullscreenBtn')?.addEventListener('click', () => this.toggleFullscreen(false));
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.toggleFullscreen(false);
+        });
+
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => this.setZoom(this.zoom * 1.5));
         document.getElementById('canvasZoomOut')?.addEventListener('click', () => this.setZoom(this.zoom / 1.5));
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => this.setZoom(1));
@@ -450,15 +481,15 @@ class CanvasUI {
             const cleanTime = (t) => t ? t.split(':').slice(0, 2).join(':') : "??:??";
             
             const el = document.createElement('div');
-            el.className = "agenda-item flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow";
+            el.className = "agenda-item flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow relative";
             el.draggable = true;
             el.dataset.id = b.id;
             
             el.innerHTML = `
                 <div class="w-1.5 h-full rounded-full" style="background-color: ${subColor}"></div>
-                <div class="flex-1 pointer-events-none">
+                <div class="flex-1 pointer-events-none pr-16">
                     <div class="text-[10px] font-black text-gray-400 mb-0.5">${cleanTime(b.scheduledStart)} - ${cleanTime(b.scheduledEnd)}</div>
-                    <div class="text-sm font-bold text-gray-800">${b.title || b.subject || 'Focus'}</div>
+                    <div class="text-sm font-bold text-gray-800 truncate">${b.title || b.subject || 'Focus'}</div>
                 </div>
                 <div class="text-gray-300 pointer-events-none"><i class="fa fa-grip-lines"></i></div>
             `;
@@ -613,7 +644,6 @@ class CanvasUI {
                 else if (now > bEnd) { opacityClass = 'opacity-70 grayscale'; borderClass = 'border-2 border-red-500 border-dashed'; }
 
                 const el = document.createElement('div');
-                // 🚨 FIX 1: pointer-events-auto added here so blocks are clickable through the glass layer!
                 el.className = `ypt-block absolute rounded p-1 shadow-sm text-white overflow-hidden cursor-pointer hover:shadow-md transition-shadow pointer-events-auto ${opacityClass} ${borderClass}`;
                 el.style.left = `${leftPx + 2}px`; el.style.top = `${topPx}px`;
                 el.style.width = `${this.dayWidth - 4}px`; el.style.height = `${heightPx}px`;
@@ -726,6 +756,7 @@ class CanvasUI {
         overlay.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
     }
 
+    // 🚨 AGENDA SYNC LOGIC: Play and Delete buttons now match the Canvas!
     renderSlidePanelBlocks(dateStr) {
         const container = document.getElementById('slidePanelBlocks');
         const totalEl = document.getElementById('slidePanelTotalTime');
@@ -751,13 +782,16 @@ class CanvasUI {
                 const eTime = cleanTime(b.scheduledEnd || b.actualEnd);
 
                 container.innerHTML += `
-                    <div class="agenda-item flex items-center gap-3 p-2 bg-white rounded border shadow-sm cursor-pointer hover:bg-gray-50 transition-colors ${opacity}" data-id="${b.id}">
-                        <div class="w-3 h-full rounded-l" style="background-color: ${subColor}"></div>
-                        <div class="flex-1">
+                    <div class="agenda-item relative flex items-center gap-3 p-2 bg-white rounded border shadow-sm cursor-pointer hover:bg-gray-50 transition-colors ${opacity}" data-id="${b.id}">
+                        <div class="w-3 h-full rounded-l absolute left-0 top-0 bottom-0" style="background-color: ${subColor}"></div>
+                        <div class="flex-1 pl-4 pr-16 truncate">
                             <div class="text-[10px] font-black text-gray-400">${sTime} - ${eTime}</div>
-                            <div class="text-sm font-bold text-gray-800">${b.title || b.subject || 'Focus'}</div>
+                            <div class="text-sm font-bold text-gray-800 truncate">${b.title || b.subject || 'Focus'}</div>
                         </div>
-                        ${b.status === 'completed' || b.studySeconds > 0 ? `<div class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">✓ ${Math.floor((b.studySeconds||0)/60)}m</div>` : ''}
+                        ${b.status === 'completed' || b.studySeconds > 0 ? `<div class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded mr-16">✓ ${Math.floor((b.studySeconds||0)/60)}m</div>` : ''}
+                        
+                        <button class="run-btn absolute right-10 bg-white text-gray-800 hover:bg-gray-100 rounded px-2 py-1 text-xs font-black shadow border border-gray-200 z-20">▶️</button>
+                        <button class="delete-btn absolute right-2 bg-red-100 hover:bg-red-200 text-red-600 rounded px-2 py-1 text-xs font-black z-20">X</button>
                     </div>
                 `;
             });
@@ -766,7 +800,24 @@ class CanvasUI {
 
         container.onclick = (e) => {
             const item = e.target.closest('.agenda-item');
-            if (item && item.dataset.id) this.openEditModal(item.dataset.id);
+            if (!item || !item.dataset.id) return;
+            
+            if (e.target.closest('.delete-btn')) {
+                e.stopPropagation();
+                if (confirm("Delete block?")) store.update('blocks', old => old.filter(x => x.id !== item.dataset.id));
+                return;
+            }
+            if (e.target.closest('.run-btn')) {
+                e.stopPropagation();
+                const b = store.state.blocks.find(x => x.id === item.dataset.id);
+                if(b) {
+                    store.update('timer', t => ({ ...t, activeBlockId: b.id, spontaneousSubject: b.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
+                    timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
+                    document.getElementById('closeSlidePanel')?.click();
+                }
+                return;
+            }
+            this.openEditModal(item.dataset.id);
         };
     }
 
