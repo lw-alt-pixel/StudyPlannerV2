@@ -84,7 +84,7 @@
             </div>
         </div>
 
-        <div id="schedule" class="tab-content hidden flex-1 w-full flex-col relative bg-gray-50">
+        <div id="schedule" class="tab-content hidden flex-1 w-full flex-col relative bg-gray-50 min-h-0">
             
             <div id="upNextBanner" class="hidden mx-4 mt-4 mb-2 p-4 rounded-2xl border-l-4 border-blue-500 bg-white shadow-md items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors z-40 relative">
                 <div>
@@ -136,7 +136,7 @@
                 <div id="canvas-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
             </div>
 
-            <div id="calendar-container" class="hidden flex-1 p-4 overflow-y-auto bg-gray-50 flex-col">
+            <div id="calendar-container" class="hidden flex-1 p-4 overflow-y-auto bg-gray-50 flex-col min-h-0">
                 <div class="grid grid-cols-7 gap-1 md:gap-2 mb-2 text-center text-xs font-black text-gray-400 uppercase tracking-wider">
                     <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                 </div>
@@ -481,6 +481,7 @@
         </div>
         
         <div class="flex-1 overflow-y-auto p-6 space-y-8">
+            
             <div class="bg-white p-4 rounded-xl border shadow-sm">
                 <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Header & Branding</h3>
                 <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">App Title</label>
@@ -498,19 +499,12 @@
                 </div>
 
                 <div class="p-3 border rounded-lg bg-gray-50 border-dashed">
-                    <label class="block text-xs font-bold text-gray-600 mb-2">Sticker Tray <span class="font-normal text-gray-400 text-[10px]">(Drag to Header! Double-click to delete)</span></label>
-                    <div class="flex gap-3 text-3xl flex-wrap cursor-grab" id="stickerTray">
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🔥</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">⭐</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">📚</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🚀</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">💯</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🎯</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">☕</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">💻</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🏆</span>
-                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">✨</span>
+                    <label class="block text-xs font-bold text-gray-600 mb-2">Custom Emoji Sticker</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="customEmojiInput" maxlength="2" class="w-16 p-2 border rounded text-center text-xl" placeholder="🔥">
+                        <button id="spawnEmojiBtn" class="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded transition-colors text-sm">Spawn on Header</button>
                     </div>
+                    <p class="text-[10px] text-gray-400 mt-2 italic">Drag stickers directly on the header to arrange them! Double-click to delete.</p>
                 </div>
             </div>
 
