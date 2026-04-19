@@ -1,7 +1,7 @@
 // js/State.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot, getDocs, deleteDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDTdBpVPHLiWmfj_dSAw3pGwn_suIsUISA",
@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+export const db = getFirestore(app);
 
 let currentUser = null; let syncTimeout = null;
 
@@ -73,6 +73,7 @@ class Store {
 }
 export const store = new Store();
 
+// 🚨 THE FIX: Re-added getAllIds() to stop the crash!
 export const audioDB = window.indexedDB ? {
     db: null,
     async init() {
@@ -104,6 +105,14 @@ export const audioDB = window.indexedDB ? {
             req.onsuccess = () => resolve(req.result || []);
         });
     },
+    async getAllIds() {
+        return new Promise((resolve) => {
+            const tx = this.db.transaction('files', 'readonly');
+            const req = tx.objectStore('files').getAllKeys();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+        });
+    },
     async delete(id) {
         return new Promise((resolve) => {
             const tx = this.db.transaction('files', 'readwrite');
@@ -118,13 +127,11 @@ onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         document.getElementById('loginModal').classList.add('hidden');
         
-        // 🚨 LISTEN FOR GLOBAL BROADCASTS
         onSnapshot(doc(db, 'server', 'broadcast'), (docSnap) => {
             if (docSnap.exists()) store.update('broadcast', () => docSnap.data());
             else store.update('broadcast', () => null);
         });
 
-        // 🚨 LISTEN FOR LIVE CSS HOTFIXES
         onSnapshot(doc(db, 'server', 'hotfix'), (docSnap) => {
             if (docSnap.exists() && docSnap.data().css) {
                 let styleTag = document.getElementById('liveHotfixStyles');
@@ -135,6 +142,24 @@ onAuthStateChanged(auth, async (user) => {
                 }
                 styleTag.innerHTML = docSnap.data().css;
             }
+        });
+
+        // 🚨 NEW: Notify user if Admin replies to their ticket!
+        const ticketQuery = query(collection(db, 'supportTickets'), where("uid", "==", user.uid));
+        onSnapshot(ticketQuery, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added" || change.type === "modified") {
+                    const ticket = change.doc.data();
+                    if (ticket.status === 'answered') {
+                        const seenTickets = JSON.parse(localStorage.getItem('seenTickets') || '[]');
+                        if (!seenTickets.includes(change.doc.id)) {
+                            alert(`📬 Message from Admin regarding your report:\n\n"${ticket.adminResponse}"`);
+                            seenTickets.push(change.doc.id);
+                            localStorage.setItem('seenTickets', JSON.stringify(seenTickets));
+                        }
+                    }
+                }
+            });
         });
 
         try {
@@ -201,7 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('logoutBtn')?.addEventListener('click', () => { signOut(auth); document.getElementById('loginModal').classList.add('hidden'); });
 });
 
-// 🚨 SUPPORT TICKET SENDER
 export const submitSupportTicket = async (message) => {
     if (!currentUser) throw new Error("Must be logged in.");
     try {
@@ -211,17 +235,40 @@ export const submitSupportTicket = async (message) => {
     } catch (e) { console.error("Ticket Error:", e); throw e; }
 };
 
-// 🚨 ADMIN GOD MODE POWERS
 export const pushGlobalBroadcast = async (message, active) => {
     if (!currentUser) return;
-    try {
-        await setDoc(doc(db, 'server', 'broadcast'), { message, active, timestamp: new Date().toISOString() });
+    try { await setDoc(doc(db, 'server', 'broadcast'), { message, active, timestamp: new Date().toISOString() });
     } catch (e) { console.error("Broadcast Error:", e); throw e; }
 };
 
 export const pushGlobalHotfix = async (cssString) => {
     if (!currentUser) return;
-    try {
-        await setDoc(doc(db, 'server', 'hotfix'), { css: cssString, timestamp: new Date().toISOString() });
+    try { await setDoc(doc(db, 'server', 'hotfix'), { css: cssString, timestamp: new Date().toISOString() });
     } catch (e) { console.error("Hotfix Error:", e); throw e; }
+};
+
+// 🚨 NEW ADMIN POWERS: User & Ticket Management
+export const fetchAllUsers = async () => {
+    if (!currentUser) return [];
+    const snapshot = await getDocs(collection(db, 'users'));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const toggleUserSuspension = async (uid, isSuspended) => {
+    await setDoc(doc(db, 'users', uid), { status: isSuspended ? 'suspended' : 'active' }, { merge: true });
+};
+
+export const deleteUserData = async (uid) => {
+    await deleteDoc(doc(db, 'users', uid));
+};
+
+export const fetchSupportTickets = async () => {
+    if (!currentUser) return [];
+    const q = query(collection(db, 'supportTickets'), orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const replyToTicket = async (ticketId, replyMessage) => {
+    await setDoc(doc(db, 'supportTickets', ticketId), { adminResponse: replyMessage, status: 'answered' }, { merge: true });
 };
