@@ -56,6 +56,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('openAdminDashboardBtn')?.classList.add('hidden');
         }
     });
+    // 🚨 GLOBAL BROADCAST BANNER CONTROLLER
+    store.subscribe('broadcast', (broadcastData) => {
+        const banner = document.getElementById('globalBroadcastBanner');
+        const textEl = document.getElementById('globalBroadcastText');
+        
+        if (!banner || !textEl) return;
+
+        // If there is an active broadcast, slide it down
+        if (broadcastData && broadcastData.active && broadcastData.message) {
+            textEl.innerText = broadcastData.message;
+            banner.classList.remove('hidden');
+            
+            // Small delay to allow display:block to render before transitioning transform
+            setTimeout(() => {
+                banner.classList.remove('-translate-y-full');
+            }, 50);
+            
+            // Adjust the app header down so the banner doesn't cover the title
+            document.getElementById('appHeader').style.marginTop = '40px';
+        } else {
+            // Hide it
+            banner.classList.add('-translate-y-full');
+            setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 300); // Wait for transition to finish
+            
+            document.getElementById('appHeader').style.marginTop = '0px';
+        }
+    });
 
     // 🚨 FIX 3: Universal "Click Outside to Close Modal" Listener
     document.addEventListener('click', (e) => {
