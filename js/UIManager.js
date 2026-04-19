@@ -16,21 +16,20 @@ class UIManager {
     }
 
     renderTab(tabId) {
-        // Forcefully hide all tabs completely
+        // Forcefully hide all tabs and safely remove the 'flex' display class
         document.querySelectorAll('.tab-content').forEach(el => { 
             el.classList.add('hidden'); 
-            el.classList.remove('block', 'flex'); 
+            el.classList.remove('flex'); 
         });
         
-        // Forcefully render the active tab
+        // Forcefully render the active tab while preserving its strict flex-1 flex-col height chain
         const activeContent = document.getElementById(tabId);
         if (activeContent) { 
             activeContent.classList.remove('hidden'); 
-            // We use Flex Flex-Col so the internal charts and timers stretch correctly!
-            activeContent.classList.add('flex', 'flex-col'); 
+            activeContent.classList.add('flex'); 
         }
 
-        // Update Button Colors
+        // Update Nav Button Colors
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active-tab', 'text-white', 'shadow');
             btn.classList.add('text-gray-500', 'hover:bg-gray-200');
@@ -39,7 +38,7 @@ class UIManager {
         const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
         if (activeBtn) {
             activeBtn.classList.remove('text-gray-500', 'hover:bg-gray-200');
-            activeBtn.classList.add('active-tab');
+            activeBtn.classList.add('active-tab', 'text-white', 'shadow');
         }
     }
 }
