@@ -101,12 +101,14 @@
             </div>
 
             <div id="scheduleControlsBar" class="p-4 bg-white border-b shadow-sm z-40 flex justify-between items-center relative shrink-0">
-                <div id="canvasControls" class="flex gap-2">
+                <div id="canvasControls" class="flex gap-2 items-center">
                     <button id="prevDaysBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-left"></i></button>
+                    <span id="canvasMonthLabel" class="font-black text-gray-800 min-w-[80px] text-center text-sm">...</span>
                     <button id="nextDaysBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-right"></i></button>
-                    <button id="centerTodayBtn" class="px-3 border rounded font-bold text-sm hover:bg-gray-50 text-gray-700 shadow-sm transition-colors">Today</button>
+                    <button id="centerTodayBtn" class="px-3 py-1.5 border rounded font-bold text-sm hover:bg-gray-50 text-gray-700 shadow-sm transition-colors">Today</button>
                     <button id="fullscreenCanvasBtn" class="p-2 ml-2 border rounded hover:bg-gray-50 text-blue-600 transition-colors" title="Zen Fullscreen"><i class="fa fa-expand"></i></button>
                 </div>
+                
                 <div id="calendarControls" class="hidden flex items-center gap-3">
                     <button id="prevMonthBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-left"></i></button>
                     <span id="currentMonthLabel" class="font-black text-gray-800 min-w-[120px] text-center"></span>
