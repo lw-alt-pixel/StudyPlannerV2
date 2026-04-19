@@ -9,8 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="transition-colors duration-500 overflow-x-hidden h-[100dvh] flex flex-col">
+<body class="transition-colors duration-500 overflow-x-hidden h-[100dvh] flex flex-col relative">
     
+    <button id="exitFullscreenBtn" class="hidden fixed top-4 right-4 z-[99999] bg-gray-900/90 hover:bg-black text-white px-6 py-2 rounded-full font-bold shadow-2xl backdrop-blur-md border border-gray-700 transition-transform active:scale-95"><i class="fa fa-compress mr-2"></i>Exit Fullscreen (Esc)</button>
+
     <div id="yt-player-container" class="hidden"></div>
 
     <div id="upNextAlarmOverlay" class="hidden fixed inset-0 bg-blue-600/95 backdrop-blur-md z-[20000] flex-col items-center justify-center transition-all text-white">
@@ -33,7 +35,7 @@
     </div>
 
     <header id="appHeader" class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center relative overflow-hidden transition-colors z-50">
-        <div id="headerStickerZone" class="absolute inset-0 z-0 pointer-events-none"></div>
+        <div id="headerStickerZone" class="absolute inset-0 z-50 pointer-events-none"></div>
         <h1 id="appTitle" class="text-2xl font-black text-gray-800 tracking-tight relative z-10 select-none">Study Planner Pro</h1>
         <div class="flex items-center gap-4 relative z-10">
             <div id="userInfo" class="text-xs font-bold text-gray-500 hidden md:block bg-gray-100 px-3 py-1 rounded-full border"></div>
@@ -42,10 +44,10 @@
         </div>
     </header>
 
-    <nav class="flex overflow-x-auto hide-scrollbar bg-white border-b shadow-sm sticky top-0 z-40 relative">
+    <nav id="appNav" class="flex overflow-x-auto hide-scrollbar bg-white border-b shadow-sm sticky top-0 z-40 relative">
         <button class="tab-btn active-tab flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap border-r border-gray-100" data-tab="focus"><i class="fa fa-clock mr-2"></i>Focus</button>
         <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50 border-r border-gray-100" data-tab="schedule"><i class="fa fa-calendar-alt mr-2"></i>Schedule</button>
-        <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50 border-r border-gray-100" data-tab="marathon"><i class="fa fa-fire mr-2"></i>Marathon</button>
+        <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50 border-r border-gray-100" data-tab="marathon"><i class="fa fa-file-signature mr-2"></i>Exam</button>
         <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50" data-tab="stats"><i class="fa fa-chart-pie mr-2"></i>Analytics</button>
     </nav>
 
@@ -98,11 +100,12 @@
                 </div>
             </div>
 
-            <div class="p-4 bg-white border-b shadow-sm z-40 flex justify-between items-center relative">
+            <div class="p-4 bg-white border-b shadow-sm z-40 flex justify-between items-center relative shrink-0">
                 <div id="canvasControls" class="flex gap-2">
                     <button id="prevDaysBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-left"></i></button>
                     <button id="nextDaysBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-right"></i></button>
                     <button id="centerTodayBtn" class="px-3 border rounded font-bold text-sm hover:bg-gray-50 text-gray-700 shadow-sm transition-colors">Today</button>
+                    <button id="fullscreenCanvasBtn" class="p-2 ml-2 border rounded hover:bg-gray-50 text-blue-600 transition-colors" title="Zen Fullscreen"><i class="fa fa-expand"></i></button>
                 </div>
                 <div id="calendarControls" class="hidden flex items-center gap-3">
                     <button id="prevMonthBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-left"></i></button>
@@ -114,7 +117,6 @@
                     <button onclick="document.getElementById('addBlockModal').classList.remove('hidden')" class="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg shadow-sm font-bold text-sm hover:bg-blue-100 transition-colors flex items-center gap-1">
                         <i class="fa fa-plus"></i> Add
                     </button>
-                    
                     <div class="flex gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
                         <button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action">Canvas</button>
                         <button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">Calendar</button>
@@ -144,34 +146,49 @@
             </div>
         </div>
 
-        <div id="marathon" class="tab-content hidden flex-1 w-full flex-col items-center overflow-y-auto bg-gray-50/50 p-4 md:p-8">
-            <div class="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
-                <div class="flex items-center gap-4 mb-6 border-b pb-4">
-                    <div class="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner"><i class="fa fa-fire"></i></div>
-                    <div>
-                        <h2 class="text-2xl font-black text-gray-800">Marathon Mode</h2>
-                        <p class="text-sm font-bold text-gray-500">Extreme focus. No mercy. 3 strikes and you're out.</p>
+        <div id="marathon" class="tab-content hidden flex-1 w-full flex-col items-center overflow-y-auto bg-gray-50 p-4 md:p-8">
+            <div class="w-full max-w-6xl space-y-6">
+                
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center border-b pb-4 mb-4">
+                        <div>
+                            <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider">Exam Countdowns</h3>
+                            <p class="text-xs font-bold text-gray-500 mt-1">Ebbinghaus Ghost Blocks will auto-generate based on these dates.</p>
+                        </div>
+                        <button id="openAddExamBtn" class="text-sm font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md px-4 py-2 rounded-full transition-colors">+ Add Exam</button>
                     </div>
+                    <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div class="bg-gray-50 p-4 rounded-xl border">
-                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Strikes</div>
-                        <div class="text-2xl font-black text-red-600" id="marathonStrikesDisplay">0 / 3</div>
+                <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
+                    <div class="flex items-center gap-4 mb-6 border-b pb-4">
+                        <div class="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner"><i class="fa fa-fire"></i></div>
+                        <div>
+                            <h2 class="text-2xl font-black text-gray-800">Mock Exam Mode</h2>
+                            <p class="text-sm font-bold text-gray-500">Extreme focus. No mercy. 3 strikes and you're out.</p>
+                        </div>
                     </div>
-                    <div class="bg-gray-50 p-4 rounded-xl border">
-                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Phase</div>
-                        <div class="text-2xl font-black text-gray-800" id="marathonPhaseDisplay">0 / 0</div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-gray-50 p-4 rounded-xl border">
+                            <div class="text-xs font-bold text-gray-400 uppercase mb-1">Strikes</div>
+                            <div class="text-2xl font-black text-red-600" id="marathonStrikesDisplay">0 / 3</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-xl border">
+                            <div class="text-xs font-bold text-gray-400 uppercase mb-1">Phase</div>
+                            <div class="text-2xl font-black text-gray-800" id="marathonPhaseDisplay">0 / 0</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-xl border md:col-span-2">
+                            <div class="text-xs font-bold text-gray-400 uppercase mb-1">Status</div>
+                            <div class="text-lg font-black text-blue-600" id="marathonStatusDisplay">Ready to start</div>
+                        </div>
                     </div>
-                    <div class="bg-gray-50 p-4 rounded-xl border md:col-span-2">
-                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Status</div>
-                        <div class="text-lg font-black text-blue-600" id="marathonStatusDisplay">Ready to start</div>
-                    </div>
+
+                    <button id="openMarathonModalBtn" class="w-full custom-action-btn font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg flex items-center justify-center gap-2">
+                        <i class="fa fa-cog"></i> Setup Mock Exam
+                    </button>
                 </div>
 
-                <button id="openMarathonModalBtn" class="w-full custom-action-btn font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg flex items-center justify-center gap-2">
-                    <i class="fa fa-cog"></i> Setup Marathon
-                </button>
             </div>
         </div>
 
@@ -226,24 +243,6 @@
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center border-b pb-4 mb-4">
-                        <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider">Exam Countdowns</h3>
-                        <button id="openAddExamBtn" class="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors">+ Add Exam</button>
-                    </div>
-                    <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
-                </div>
-
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center border-b pb-4 mb-4">
-                        <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider">Bulk Tools</h3>
-                    </div>
-                    <div class="flex flex-wrap gap-3">
-                        <button id="openBulkModalBtn" class="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 rounded shadow-sm text-sm transition-colors"><i class="fa fa-layer-group mr-2"></i>Generate Bulk Blocks</button>
-                        <button id="undoBulkBtn" class="hidden px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold border border-gray-200 rounded shadow-sm text-sm transition-colors"><i class="fa fa-undo mr-2"></i>Undo Last Bulk</button>
-                    </div>
-                </div>
-
                 <div id="fallbackButtons" class="hidden flex-col gap-2 mt-4">
                     <button id="fallbackSettingsBtn" class="w-full px-4 py-4 bg-gray-800 text-white font-bold rounded-xl shadow transition-transform active:scale-95"><i class="fa fa-cog mr-2"></i> Open Settings & Preferences</button>
                 </div>
@@ -255,8 +254,16 @@
 
     <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Schedule Focus Block</h2>
-            <div class="space-y-4">
+            
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h2 class="text-xl font-black text-gray-800 tracking-tight">Schedule Focus</h2>
+                <div class="flex gap-1 bg-gray-100 p-1 rounded-lg border shadow-inner">
+                    <button id="tabSingleBlock" class="px-3 py-1 rounded bg-white shadow-sm font-black text-xs text-blue-600 transition-colors">Single</button>
+                    <button id="tabBulkBlock" class="px-3 py-1 rounded font-bold text-xs text-gray-500 hover:text-gray-800 transition-colors">Bulk Tools</button>
+                </div>
+            </div>
+
+            <div id="singleBlockForm" class="space-y-4">
                 <div>
                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Subject</label>
                     <select id="newBlockSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></select>
@@ -294,6 +301,48 @@
                     <button id="saveNewBlock" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition-colors">Save Block</button>
                 </div>
             </div>
+
+            <div id="bulkBlockForm" class="space-y-4 hidden">
+                <div class="p-3 bg-purple-50 border border-purple-100 rounded-lg mb-4">
+                    <p class="text-xs font-bold text-purple-800">Generate repetitive blocks automatically across multiple days.</p>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Target Subject</label>
+                    <select id="bulkTargetSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date Start</label>
+                        <input type="date" id="bulkStartDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date End</label>
+                        <input type="date" id="bulkEndDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Time Start</label>
+                        <input type="time" id="bulkStartTime" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Time End</label>
+                        <input type="time" id="bulkEndTime" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="border-b pb-4">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Interval (Mins per block)</label>
+                    <input type="number" id="bulkInterval" value="60" class="w-full p-2 border rounded font-bold text-sm">
+                </div>
+                <div class="flex justify-between gap-3 pt-2">
+                    <button id="undoBulkBtn" class="hidden px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold shadow-inner transition-colors text-xs"><i class="fa fa-undo"></i> Undo Bulk</button>
+                    <div class="flex flex-1 justify-end gap-3">
+                        <button id="cancelBulkSchedule" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                        <button id="saveBulkSchedule" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-md transition-colors">Generate</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -359,46 +408,6 @@
         </div>
     </div>
 
-    <div id="bulkScheduleModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Bulk Generate Blocks</h2>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Target Subject</label>
-                    <select id="bulkTargetSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></select>
-                </div>
-                <div class="grid grid-cols-2 gap-4 border-t pt-4">
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date Start</label>
-                        <input type="date" id="bulkStartDate" class="w-full p-2 border rounded font-bold text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date End</label>
-                        <input type="date" id="bulkEndDate" class="w-full p-2 border rounded font-bold text-sm">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Time Start</label>
-                        <input type="time" id="bulkStartTime" class="w-full p-2 border rounded font-bold text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Time End</label>
-                        <input type="time" id="bulkEndTime" class="w-full p-2 border rounded font-bold text-sm">
-                    </div>
-                </div>
-                <div class="border-b pb-4">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Interval (Mins per block)</label>
-                    <input type="number" id="bulkInterval" value="60" class="w-full p-2 border rounded font-bold text-sm">
-                </div>
-                <div class="flex justify-end gap-3 pt-2">
-                    <button id="cancelBulkSchedule" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
-                    <button id="saveBulkSchedule" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-md transition-colors">Generate</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Add Exam Countdown</h2>
@@ -435,7 +444,7 @@
 
     <div id="marathonSetupModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] flex flex-col">
-            <h2 class="text-xl font-black text-gray-800 mb-2">Marathon Setup</h2>
+            <h2 class="text-xl font-black text-gray-800 mb-2">Mock Exam Setup</h2>
             <p class="text-xs text-gray-500 font-bold mb-4 border-b pb-2">Define your intense focus phases. Break them, and you get a strike.</p>
             
             <div class="mb-4">
@@ -464,9 +473,9 @@
         <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
             <div>
                 <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-3">Daily Agenda</h3>
-                <div id="slidePanelBlocks" class="space-y-2"></div>
+                <div id="slidePanelBlocks" class="space-y-2 relative pb-8"></div>
             </div>
-            <div class="flex-1 flex flex-col">
+            <div class="flex-1 flex flex-col border-t pt-4">
                 <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-3">Diary & Reflections</h3>
                 <textarea id="slidePanelDiary" class="flex-1 w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none font-medium text-gray-700 shadow-inner" placeholder="How did today go? Write your thoughts here..."></textarea>
             </div>
@@ -499,12 +508,16 @@
                 </div>
 
                 <div class="p-3 border rounded-lg bg-gray-50 border-dashed">
-                    <label class="block text-xs font-bold text-gray-600 mb-2">Custom Emoji Sticker</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="customEmojiInput" maxlength="2" class="w-16 p-2 border rounded text-center text-xl" placeholder="🔥">
-                        <button id="spawnEmojiBtn" class="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded transition-colors text-sm">Spawn on Header</button>
+                    <div class="flex justify-between items-end mb-2">
+                        <label class="block text-xs font-bold text-gray-600">Custom Emoji Sticker</label>
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Size Slider</label>
                     </div>
-                    <p class="text-[10px] text-gray-400 mt-2 italic">Drag stickers directly on the header to arrange them! Double-click to delete.</p>
+                    <div class="flex gap-2 items-center mb-2">
+                        <input type="text" id="customEmojiInput" maxlength="2" class="w-12 p-2 border rounded text-center text-lg" placeholder="🔥">
+                        <input type="range" id="customEmojiSize" min="1" max="8" step="0.5" value="3" class="w-20 accent-blue-600">
+                        <button id="spawnEmojiBtn" class="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded transition-colors text-xs py-2.5">Spawn Sticker</button>
+                    </div>
+                    <p class="text-[10px] text-gray-400 italic">Drag stickers directly on the header to arrange them! Double-click to delete.</p>
                 </div>
             </div>
 
