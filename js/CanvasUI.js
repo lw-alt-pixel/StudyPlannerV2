@@ -342,7 +342,6 @@ class CanvasUI {
         const saveBtn = document.getElementById('saveEditBlock');
         if (saveBtn) saveBtn.dataset.id = b.id;
         
-        // 🚨 FAIL-SAFE: Gracefully handle if Modal is missing from DOM!
         const modal = document.getElementById('editBlockModal');
         if (modal) modal.classList.remove('hidden');
         else console.warn("Missing editBlockModal in HTML");
@@ -363,7 +362,6 @@ class CanvasUI {
             const st = document.getElementById('newBlockStart'); if (st) st.value = `${sH}:${sM}`;
             const ed = document.getElementById('newBlockEnd'); if (ed) ed.value = `${eH}:${eM}`;
             
-            // 🚨 FAIL-SAFE
             const modal = document.getElementById('addBlockModal');
             if(modal) modal.classList.remove('hidden');
         }
@@ -615,7 +613,8 @@ class CanvasUI {
                 else if (now > bEnd) { opacityClass = 'opacity-70 grayscale'; borderClass = 'border-2 border-red-500 border-dashed'; }
 
                 const el = document.createElement('div');
-                el.className = `ypt-block absolute rounded p-1 shadow-sm text-white overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${opacityClass} ${borderClass}`;
+                // 🚨 FIX 1: pointer-events-auto added here so blocks are clickable through the glass layer!
+                el.className = `ypt-block absolute rounded p-1 shadow-sm text-white overflow-hidden cursor-pointer hover:shadow-md transition-shadow pointer-events-auto ${opacityClass} ${borderClass}`;
                 el.style.left = `${leftPx + 2}px`; el.style.top = `${topPx}px`;
                 el.style.width = `${this.dayWidth - 4}px`; el.style.height = `${heightPx}px`;
                 el.style.backgroundColor = store.state.subjects[b.subject] || '#3b82f6';
@@ -631,7 +630,6 @@ class CanvasUI {
                     <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
                 `;
 
-                // 🚨 FAIL-SAFE: Protect against missing tooltips!
                 el.addEventListener('mouseenter', () => {
                     if(tooltip) {
                         tooltip.innerHTML = `<div class="text-[10px] font-black text-gray-400">${b.subject}</div><div class="text-base font-bold">${b.title || 'Focus'}</div><div class="text-xs text-blue-300">${sTime} - ${eTime}</div>`;
@@ -709,7 +707,6 @@ class CanvasUI {
     openSlidePanelForDate(dateStr) {
         this.currentSlideDate = dateStr;
         
-        // 🚨 FAIL-SAFE: Gracefully abort if Slide Panel is missing!
         const panel = document.getElementById('daySlidePanel');
         const overlay = document.getElementById('diaryOverlay');
         if (!panel || !overlay) {
