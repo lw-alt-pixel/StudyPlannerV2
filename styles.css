@@ -21,6 +21,13 @@
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 #canvas-grid {
+    position: absolute;
+    top: 0;
+    left: -50400px; /* Spans 280 days into the past */
+    width: 100800px; /* Spans 560 days total */
+    height: calc(24 * 60px * var(--zoom));
+    pointer-events: none;
+    z-index: 0;
     background-image: 
         linear-gradient(to bottom, var(--grid-60) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-30) 1px, transparent 1px),
