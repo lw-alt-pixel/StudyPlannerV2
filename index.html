@@ -110,9 +110,15 @@
                     <button id="nextMonthBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-right"></i></button>
                 </div>
                 
-                <div class="flex gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
-                    <button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action">Canvas</button>
-                    <button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">Calendar</button>
+                <div class="flex gap-2 items-center">
+                    <button onclick="document.getElementById('addBlockModal').classList.remove('hidden')" class="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg shadow-sm font-bold text-sm hover:bg-blue-100 transition-colors flex items-center gap-1">
+                        <i class="fa fa-plus"></i> Add
+                    </button>
+                    
+                    <div class="flex gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
+                        <button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action">Canvas</button>
+                        <button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">Calendar</button>
+                    </div>
                 </div>
 
                 <div class="absolute right-4 top-full mt-2 flex flex-col gap-2 z-50">
@@ -246,6 +252,227 @@
     </main>
 
     <button id="openSettingsBtn" class="floating-widget bottom-6 right-6 shadow-xl"><i class="fa fa-cog"></i></button>
+
+    <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Schedule Focus Block</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Subject</label>
+                    <select id="newBlockSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></select>
+                </div>
+                <div id="newBlockCustomSubjectDiv" class="hidden gap-2">
+                    <input type="text" id="newBlockCustomName" class="flex-1 p-2 border rounded font-bold text-sm" placeholder="New Subject Name">
+                    <input type="color" id="newBlockCustomColor" class="w-10 h-10 p-1 border rounded cursor-pointer" value="#3b82f6">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Specific Topic / Title</label>
+                    <input type="text" id="newBlockTitle" class="w-full p-2 border rounded font-bold text-sm" placeholder="e.g., Chapter 4 Review">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Start Date</label>
+                        <input type="date" id="newBlockStartDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Start Time</label>
+                        <input type="time" id="newBlockStart" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 border-b pb-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">End Date</label>
+                        <input type="date" id="newBlockEndDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">End Time</label>
+                        <input type="time" id="newBlockEnd" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button id="cancelAddBlock" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                    <button id="saveNewBlock" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition-colors">Save Block</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Edit Block</h2>
+            <div id="editBlockRealWarning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs font-bold rounded-lg"></div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Subject</label>
+                    <input type="text" id="editBlockSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-100 cursor-not-allowed" readonly>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Topic / Title</label>
+                    <input type="text" id="editBlockTitle" class="w-full p-2 border rounded font-bold text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sched Start Date</label>
+                        <input type="date" id="editBlockSchedStartDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sched Start Time</label>
+                        <input type="time" id="editBlockSchedStart" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sched End Date</label>
+                        <input type="date" id="editBlockSchedEndDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sched End Time</label>
+                        <input type="time" id="editBlockSchedEnd" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="border-t pt-4">
+                    <label class="block text-[10px] font-bold text-green-600 uppercase mb-1">Actual Study Time (Minutes)</label>
+                    <input type="number" id="editBlockStudyMins" class="w-full p-2 border rounded font-bold text-sm text-green-700 bg-green-50 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Remarks / Diary</label>
+                    <textarea id="editBlockRemarks" class="w-full p-2 border rounded font-bold text-sm" rows="2"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button id="cancelEditBlock" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                    <button id="saveEditBlock" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition-colors">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pushBackModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
+            <h2 class="text-xl font-black text-gray-800 mb-2">Push Back Schedule</h2>
+            <p class="text-sm font-bold text-gray-500 mb-6 border-b pb-4">Shift remaining blocks later.</p>
+            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Minutes to push back</label>
+            <input type="number" id="pushBackMins" class="w-full p-3 border rounded-xl font-bold text-lg text-gray-800 mb-6 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" value="15">
+            <div class="flex justify-end gap-3">
+                <button id="cancelPushBackBtn" class="px-5 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                <button id="confirmPushBackBtn" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-md transition-colors">Confirm Push</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="bulkScheduleModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Bulk Generate Blocks</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Target Subject</label>
+                    <select id="bulkTargetSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date Start</label>
+                        <input type="date" id="bulkStartDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Date End</label>
+                        <input type="date" id="bulkEndDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Time Start</label>
+                        <input type="time" id="bulkStartTime" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Time End</label>
+                        <input type="time" id="bulkEndTime" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                </div>
+                <div class="border-b pb-4">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Interval (Mins per block)</label>
+                    <input type="number" id="bulkInterval" value="60" class="w-full p-2 border rounded font-bold text-sm">
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button id="cancelBulkSchedule" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                    <button id="saveBulkSchedule" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-md transition-colors">Generate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 class="text-xl font-black text-gray-800 mb-4 border-b pb-2">Add Exam Countdown</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Exam Title</label>
+                    <input type="text" id="newExamTitle" class="w-full p-2 border rounded font-bold text-sm" placeholder="e.g., Final Physics Exam">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Subject</label>
+                    <select id="newExamSubject" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></select>
+                </div>
+                <div id="newExamCustomSubjectDiv" class="hidden gap-2">
+                    <input type="text" id="newExamCustomName" class="flex-1 p-2 border rounded font-bold text-sm" placeholder="New Subject">
+                    <input type="color" id="newExamCustomColor" class="w-10 h-10 p-1 border rounded cursor-pointer" value="#dc2626">
+                </div>
+                <div class="grid grid-cols-2 gap-4 border-b pb-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Exam Date</label>
+                        <input type="date" id="newExamDate" class="w-full p-2 border rounded font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Time</label>
+                        <input type="time" id="newExamTime" class="w-full p-2 border rounded font-bold text-sm" value="09:00">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button id="cancelAddExam" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                    <button id="saveNewExam" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition-colors">Save Exam</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="marathonSetupModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] flex flex-col">
+            <h2 class="text-xl font-black text-gray-800 mb-2">Marathon Setup</h2>
+            <p class="text-xs text-gray-500 font-bold mb-4 border-b pb-2">Define your intense focus phases. Break them, and you get a strike.</p>
+            
+            <div class="mb-4">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Number of Phases</label>
+                <input type="number" id="marathonPhaseCount" value="3" min="1" max="10" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+            </div>
+            
+            <div id="marathonPhaseList" class="flex-1 overflow-y-auto space-y-3 mb-4 pr-2"></div>
+            
+            <div class="flex justify-end gap-3 pt-4 border-t">
+                <button id="closeMarathonModalBtn" class="px-5 py-2 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                <button id="saveMarathonSetup" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-md transition-colors"><i class="fa fa-fire mr-2"></i> Lock In</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="diaryOverlay" class="hidden fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-[10000] transition-opacity duration-300"></div>
+    <div id="daySlidePanel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[10005] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <div class="p-6 bg-gray-50 border-b flex justify-between items-center">
+            <div>
+                <h2 id="slidePanelDate" class="text-xl font-black text-gray-800 tracking-tight">Date</h2>
+                <div class="text-xs font-bold text-gray-500 mt-1">Total Focus: <span id="slidePanelTotalTime" class="text-blue-600 font-black">0h 0m</span></div>
+            </div>
+            <button id="closeSlidePanel" class="text-gray-400 hover:text-gray-800 text-2xl transition-colors">&times;</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+            <div>
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-3">Daily Agenda</h3>
+                <div id="slidePanelBlocks" class="space-y-2"></div>
+            </div>
+            <div class="flex-1 flex flex-col">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-3">Diary & Reflections</h3>
+                <textarea id="slidePanelDiary" class="flex-1 w-full p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none font-medium text-gray-700 shadow-inner" placeholder="How did today go? Write your thoughts here..."></textarea>
+            </div>
+        </div>
+    </div>
+
     <div id="settingsOverlay" class="hidden fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[9900] transition-opacity"></div>
     <div id="settingsPanel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[10000] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
         <div class="p-6 bg-gray-50 border-b flex justify-between items-center">
@@ -254,7 +481,6 @@
         </div>
         
         <div class="flex-1 overflow-y-auto p-6 space-y-8">
-            
             <div class="bg-white p-4 rounded-xl border shadow-sm">
                 <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Header & Branding</h3>
                 <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">App Title</label>
@@ -415,16 +641,30 @@
         </div>
     </div>
 
-    <div id="pushBackModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
-            <h2 class="text-xl font-black text-gray-800 mb-2">Push Back Schedule</h2>
-            <p class="text-sm font-bold text-gray-500 mb-6 border-b pb-4">Shift remaining blocks later.</p>
-            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Minutes to push back</label>
-            <input type="number" id="pushBackMins" class="w-full p-3 border rounded-xl font-bold text-lg text-gray-800 mb-6 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" value="15">
-            <div class="flex justify-end gap-3">
-                <button id="cancelPushBackBtn" class="px-5 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
-                <button id="confirmPushBackBtn" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-md transition-colors">Confirm Push</button>
+    <div id="loginModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-md z-[20000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl"><i class="fa fa-cloud"></i></div>
+            <h2 class="text-2xl font-black text-gray-800 mb-2">Cloud Sync</h2>
+            <p class="text-sm font-bold text-gray-500 mb-6">Never lose your schedule again.</p>
+            
+            <input type="email" id="authEmail" class="w-full p-3 border rounded-xl font-bold text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none mb-3" placeholder="Email Address">
+            <input type="password" id="authPassword" class="w-full p-3 border rounded-xl font-bold text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none mb-6" placeholder="Password">
+            
+            <div class="flex gap-2 mb-4">
+                <button id="emailLoginBtn" class="flex-1 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-bold shadow-md transition-colors">Login</button>
+                <button id="emailSignupBtn" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition-colors">Sign Up</button>
             </div>
+            
+            <div class="relative flex py-2 items-center mb-4">
+                <div class="flex-grow border-t border-gray-200"></div>
+                <span class="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold uppercase">Or</span>
+                <div class="flex-grow border-t border-gray-200"></div>
+            </div>
+            
+            <button id="googleLoginBtn" class="w-full py-3 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors mb-4">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" class="w-5 h-5"> Continue with Google
+            </button>
+            <button id="cancelLoginBtn" class="text-sm font-bold text-gray-400 hover:text-gray-600">Continue Offline</button>
         </div>
     </div>
 
