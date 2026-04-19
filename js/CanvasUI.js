@@ -14,7 +14,6 @@ class CanvasUI {
         this.currentZoomTier = 60; 
         this.pxPerHour = 60; this.dayWidth = 180;
         
-        // 🚨 The L-Shape Safe Zone Offsets
         this.offsetX = 60; 
         this.offsetY = 50; 
         
@@ -43,7 +42,31 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
-        // 🚨 THE MASTER LAYER FIX: Forcing absolute position activates the z-index over the frosted glass!
+        // 🚨 1. DOM RE-PARENTING: Yank elements out of HTML traps and enforce correct layering!
+        if (this.container) {
+            if (this.gridBg) this.container.appendChild(this.gridBg);
+            if (this.blocksLayer) this.container.appendChild(this.blocksLayer);
+            if (this.layer) this.container.appendChild(this.layer);
+            // Append headers LAST so they sit physically above everything else in the DOM
+            if (this.timeLabels) this.container.appendChild(this.timeLabels);
+            if (this.daysHeader) this.container.appendChild(this.daysHeader);
+        }
+
+        // 🚨 2. STYLE STRIPPING: Nuke the ancient "120px" inline styles causing the 00:00 gap!
+        if (this.gridBg) {
+            this.gridBg.style.top = '0px';
+            this.gridBg.style.marginTop = '0px';
+            this.gridBg.style.backgroundPosition = '0 0'; // Force gradient to start exactly at 00:00
+        }
+        if (this.blocksLayer) {
+            this.blocksLayer.style.top = '0px';
+            this.blocksLayer.style.marginTop = '0px';
+        }
+        if (this.layer) {
+            this.layer.style.top = '0px';
+            this.layer.style.marginTop = '0px';
+        }
+
         if (this.daysHeader) {
             this.daysHeader.style.position = 'absolute';
             this.daysHeader.style.top = '0px';
@@ -51,7 +74,7 @@ class CanvasUI {
             this.daysHeader.style.width = '100%';
             this.daysHeader.style.height = '50px'; 
             this.daysHeader.style.zIndex = '100';
-            this.daysHeader.style.pointerEvents = 'none'; // Lets you click "through" the empty space
+            this.daysHeader.style.pointerEvents = 'none';
         }
         if (this.timeLabels) {
             this.timeLabels.style.position = 'absolute';
@@ -397,7 +420,6 @@ class CanvasUI {
             const bgClass = isToday ? 'bg-blue-100 text-blue-700 rounded shadow-sm px-2 py-1' : 'text-gray-600 bg-white/95 shadow-sm border border-gray-200/50 rounded-full px-3 py-1 backdrop-blur-md';
             
             const leftPx = i * this.dayWidth;
-            // Children explicitly have pointer-events-auto so you can still interact with them if needed!
             this.daysHeader.innerHTML += `
                 <div class="absolute flex items-center justify-center pointer-events-auto" style="left: ${leftPx}px; width: ${this.dayWidth}px; top: 0px; height: ${this.offsetY}px;">
                     <span class="inline-block text-xs font-bold ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span>
