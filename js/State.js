@@ -1,8 +1,7 @@
 // js/State.js
-import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDTdBpVPHLiWmfj_dSAw3pGwn_suIsUISA",
@@ -22,131 +21,119 @@ let currentUser = null; let syncTimeout = null;
 const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
-const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {};
+const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
+    'Physics': '#3b82f6', 'Math': '#ef4444', 'English': '#10b981', 'History': '#f59e0b', 'Biology': '#8b5cf6', 'Chemistry': '#ec4899', 'Computer Science': '#14b8a6'
+};
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
-const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, volume: 50, source: 'none', breakSource: 'none' };
-const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || { bgType: 'color', bgColor: '#f3f4f6', bgImage: '', actionColor: '#3b82f6', actionSize: 'md', floatingBtn: 'md', bannerBgColor: '#dc2626', bannerTextColor: '#ffffff' };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
+const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {};
+const savedHeader = JSON.parse(localStorage.getItem('studyHeader')) || {};
 
-// 🚨 NEW: Header Customization State
-const savedHeader = JSON.parse(localStorage.getItem('studyHeader')) || { title: 'Study Planner Pro', bgColor: '#ffffff', textColor: '#1f2937', stickers: [] };
-
-class State {
+class Store {
     constructor() {
         this.state = {
-            activeTab: 'schedule',
-            blocks: savedBlocks,
-            exams: savedExams,
-            subjects: savedSubjects,
-            settings: savedSettings,
-            audio: savedAudio,
-            theme: savedTheme,
-            header: savedHeader,
-            diaries: savedDiaries,
-            marathon: { active: false, phases: [], currentPhaseIdx: -1, isWaitingForCheckIn: false },
-            timer: {
-                activeBlockId: null,
-                spontaneousSubject: null,
-                mode: 'pomodoro', 
-                phase: 'study', 
-                studySeconds: 0,
-                breakSeconds: 0,
-                secondsElapsed: 0,
-                isRunning: false
-            }
+            blocks: savedBlocks, exams: savedExams, subjects: savedSubjects,
+            settings: savedSettings, diaries: savedDiaries, theme: savedTheme, header: savedHeader,
+            timer: { activeBlockId: null, spontaneousSubject: null, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false },
+            marathon: { active: false, phases: [], currentPhaseIdx: -1, strikes: 0, isWaitingForCheckIn: false },
+            audio: { enabled: false, volume: 50, source: 'none', breakSource: 'none' },
+            activeTab: 'focus', userProfile: null, broadcast: null
         };
         this.listeners = {};
     }
-
-    subscribe(key, callback) {
-        if (!this.listeners[key]) this.listeners[key] = [];
-        this.listeners[key].push(callback);
-    }
-
+    subscribe(key, listener) { if (!this.listeners[key]) this.listeners[key] = []; this.listeners[key].push(listener); }
     update(key, updater) {
-        const oldVal = this.state[key];
-        const newVal = typeof updater === 'function' ? updater(oldVal) : updater;
-        this.state[key] = newVal;
-        
-        if (key === 'blocks') localStorage.setItem('studyBlocks', JSON.stringify(newVal));
-        if (key === 'exams') localStorage.setItem('studyExams', JSON.stringify(newVal));
-        if (key === 'subjects') localStorage.setItem('studySubjects', JSON.stringify(newVal));
-        if (key === 'settings') localStorage.setItem('studySettings', JSON.stringify(newVal));
-        if (key === 'audio') localStorage.setItem('studyAudio', JSON.stringify(newVal));
-        if (key === 'theme') localStorage.setItem('studyTheme', JSON.stringify(newVal));
-        if (key === 'header') localStorage.setItem('studyHeader', JSON.stringify(newVal));
-        if (key === 'diaries') localStorage.setItem('studyDiaries', JSON.stringify(newVal));
-
-        if (this.listeners[key]) this.listeners[key].forEach(cb => cb(newVal));
-        if (currentUser && ['blocks', 'exams', 'subjects', 'settings', 'audio', 'theme', 'header', 'diaries'].includes(key)) this.debouncedSync();
+        this.state[key] = updater(this.state[key]);
+        if (this.listeners[key]) this.listeners[key].forEach(l => l(this.state[key]));
+        if (['blocks', 'exams', 'subjects', 'settings', 'diaries', 'theme', 'header'].includes(key)) this.saveLocal();
     }
-
-    debouncedSync() {
-        if (syncTimeout) clearTimeout(syncTimeout);
-        syncTimeout = setTimeout(() => this.syncToFirebase(), 2000);
+    saveLocal() {
+        localStorage.setItem('studyBlocks', JSON.stringify(this.state.blocks));
+        localStorage.setItem('studyExams', JSON.stringify(this.state.exams));
+        localStorage.setItem('studySubjects', JSON.stringify(this.state.subjects));
+        localStorage.setItem('studySettings', JSON.stringify(this.state.settings));
+        localStorage.setItem('studyDiaries', JSON.stringify(this.state.diaries));
+        localStorage.setItem('studyTheme', JSON.stringify(this.state.theme));
+        localStorage.setItem('studyHeader', JSON.stringify(this.state.header));
+        if (currentUser) {
+            clearTimeout(syncTimeout);
+            syncTimeout = setTimeout(() => this.saveToFirebase(), 2000);
+        }
     }
-
-    async syncToFirebase() {
+    async saveToFirebase() {
         if (!currentUser) return;
         try {
-            const dataToSync = {
+            await setDoc(doc(db, 'users', currentUser.uid), {
                 blocks: this.state.blocks, exams: this.state.exams, subjects: this.state.subjects,
-                settings: this.state.settings, audio: this.state.audio, theme: this.state.theme,
-                header: this.state.header, diaries: this.state.diaries, lastUpdated: new Date().toISOString()
-            };
-            await setDoc(doc(db, "users", currentUser.uid), dataToSync, { merge: true });
-            console.log("Auto-synced to Firebase");
-        } catch (e) { console.error("Sync failed", e); }
-    }
-
-    async loadFromFirebase(uid) {
-        try {
-            const docSnap = await getDoc(doc(db, "users", uid));
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if(data.blocks) this.update('blocks', data.blocks);
-                if(data.exams) this.update('exams', data.exams);
-                if(data.subjects) this.update('subjects', data.subjects);
-                if(data.settings) this.update('settings', data.settings);
-                if(data.audio) this.update('audio', data.audio);
-                if(data.theme) this.update('theme', data.theme);
-                if(data.header) this.update('header', data.header);
-                if(data.diaries) this.update('diaries', data.diaries);
-                console.log("Loaded from Firebase");
-            }
-        } catch (e) { console.error("Load failed", e); }
+                settings: this.state.settings, diaries: this.state.diaries, theme: this.state.theme, header: this.state.header,
+                lastUpdated: new Date().toISOString()
+            }, { merge: true });
+        } catch (e) { console.error("Sync Error:", e); }
     }
 }
+export const store = new Store();
 
-export const store = new State();
+export const audioDB = window.indexedDB ? {
+    db: null,
+    async init() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open('AudioDB', 1);
+            req.onupgradeneeded = e => e.target.result.createObjectStore('files', { keyPath: 'id' });
+            req.onsuccess = e => { this.db = e.target.result; resolve(); };
+            req.onerror = e => reject(e);
+        });
+    },
+    async save(id, blob, name) {
+        return new Promise((resolve) => {
+            const tx = this.db.transaction('files', 'readwrite');
+            tx.objectStore('files').put({ id, blob, name });
+            tx.oncomplete = () => resolve();
+        });
+    },
+    async get(id) {
+        return new Promise((resolve) => {
+            const tx = this.db.transaction('files', 'readonly');
+            const req = tx.objectStore('files').get(id);
+            req.onsuccess = () => resolve(req.result);
+        });
+    },
+    async getAll() {
+        return new Promise((resolve) => {
+            const tx = this.db.transaction('files', 'readonly');
+            const req = tx.objectStore('files').getAll();
+            req.onsuccess = () => resolve(req.result || []);
+        });
+    },
+    async delete(id) {
+        return new Promise((resolve) => {
+            const tx = this.db.transaction('files', 'readwrite');
+            tx.objectStore('files').delete(id);
+            tx.oncomplete = () => resolve();
+        });
+    }
+} : null;
 
-const dbName = "AudioStorage";
-let idb;
-export const audioDB = {
-    init: () => new Promise((resolve, reject) => {
-        const req = indexedDB.open(dbName, 1);
-        req.onupgradeneeded = e => { idb = e.target.result; if(!idb.objectStoreNames.contains('files')) idb.createObjectStore('files'); };
-        req.onsuccess = e => { idb = e.target.result; resolve(); };
-        req.onerror = () => reject();
-    }),
-    save: (id, blob) => new Promise(res => { const tx = idb.transaction('files', 'readwrite'); tx.objectStore('files').put(blob, id); tx.oncomplete = res; }),
-    get: id => new Promise(res => { const tx = idb.transaction('files', 'readonly'); const req = tx.objectStore('files').get(id); req.onsuccess = () => res(req.result); }),
-    getAllIds: () => new Promise(res => { const tx = idb.transaction('files', 'readonly'); const req = tx.objectStore('files').getAllKeys(); req.onsuccess = () => res(req.result); }),
-    delete: id => new Promise(res => { const tx = idb.transaction('files', 'readwrite'); tx.objectStore('files').delete(id); tx.oncomplete = res; })
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         document.getElementById('loginModal').classList.add('hidden');
         
-        // 🚨 1. LISTEN FOR GLOBAL BROADCASTS IN REAL-TIME
+        // 🚨 LISTEN FOR GLOBAL BROADCASTS
         onSnapshot(doc(db, 'server', 'broadcast'), (docSnap) => {
-            if (docSnap.exists()) {
-                store.update('broadcast', () => docSnap.data());
-            } else {
-                store.update('broadcast', () => null);
+            if (docSnap.exists()) store.update('broadcast', () => docSnap.data());
+            else store.update('broadcast', () => null);
+        });
+
+        // 🚨 LISTEN FOR LIVE CSS HOTFIXES
+        onSnapshot(doc(db, 'server', 'hotfix'), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().css) {
+                let styleTag = document.getElementById('liveHotfixStyles');
+                if(!styleTag) {
+                    styleTag = document.createElement('style');
+                    styleTag.id = 'liveHotfixStyles';
+                    document.head.appendChild(styleTag);
+                }
+                styleTag.innerHTML = docSnap.data().css;
             }
         });
 
@@ -163,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(data.theme) store.update('theme', () => data.theme);
                 if(data.header) store.update('header', () => data.header);
                 
-                // 🚨 2. FETCH USER PROFILE (For the Bouncer!)
                 store.update('userProfile', () => ({
                     email: user.email,
                     status: data.status || 'active',
@@ -181,8 +167,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-    document.getElementById('openLoginModalBtn')?.addEventListener('click', () => document.getElementById('loginModal').classList.remove('hidden'));
-    document.getElementById('cancelLoginBtn')?.addEventListener('click', () => document.getElementById('loginModal').classList.add('hidden'));
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('openLoginModalBtn')?.addEventListener('click', () => {
+        document.getElementById('loginModal').classList.remove('hidden');
+        document.getElementById('loginModal').classList.add('flex');
+    });
+
+    document.getElementById('cancelLoginBtn')?.addEventListener('click', () => {
+        document.getElementById('loginModal').classList.remove('flex');
+        document.getElementById('loginModal').classList.add('hidden');
+    });
 
     document.getElementById('emailLoginBtn')?.addEventListener('click', async () => {
         const email = document.getElementById('authEmail').value; const pass = document.getElementById('authPassword').value;
@@ -206,18 +200,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('logoutBtn')?.addEventListener('click', () => { signOut(auth); document.getElementById('loginModal').classList.add('hidden'); });
 });
+
+// 🚨 SUPPORT TICKET SENDER
 export const submitSupportTicket = async (message) => {
     if (!currentUser) throw new Error("Must be logged in.");
     try {
         await addDoc(collection(db, 'supportTickets'), {
-            uid: currentUser.uid,
-            email: currentUser.email,
-            message: message,
-            status: 'open',
-            timestamp: new Date().toISOString()
+            uid: currentUser.uid, email: currentUser.email, message: message, status: 'open', timestamp: new Date().toISOString()
         });
-    } catch (e) {
-        console.error("Ticket Error:", e);
-        throw e;
-    }
+    } catch (e) { console.error("Ticket Error:", e); throw e; }
+};
+
+// 🚨 ADMIN GOD MODE POWERS
+export const pushGlobalBroadcast = async (message, active) => {
+    if (!currentUser) return;
+    try {
+        await setDoc(doc(db, 'server', 'broadcast'), { message, active, timestamp: new Date().toISOString() });
+    } catch (e) { console.error("Broadcast Error:", e); throw e; }
+};
+
+export const pushGlobalHotfix = async (cssString) => {
+    if (!currentUser) return;
+    try {
+        await setDoc(doc(db, 'server', 'hotfix'), { css: cssString, timestamp: new Date().toISOString() });
+    } catch (e) { console.error("Hotfix Error:", e); throw e; }
 };
