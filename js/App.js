@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 2. Check for God Mode (Admin)
         // REPLACE WITH YOUR ACTUAL EMAIL!
-        const adminEmail = "your.email@gmail.com"; 
+        const adminEmail = "luke.wong.1120@gmail.com"; 
         
         if (profile.email === adminEmail) {
             document.getElementById('openAdminDashboardBtn')?.classList.remove('hidden');
