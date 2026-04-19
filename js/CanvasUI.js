@@ -78,7 +78,6 @@ class CanvasUI {
             document.body.appendChild(tooltip);
         }
 
-        // 🚨 FIX: ALL ghost calls to renderCalendar() have been scrubbed from this init flow!
         this.bindEvents();
 
         if (this.container) {
@@ -154,7 +153,6 @@ class CanvasUI {
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.updateTransform(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.updateTransform(); });
         
-        // 🚨 FIX: View Canvas button logic cleanly isolated!
         document.getElementById('viewCanvasBtn')?.addEventListener('click', () => {
             this.container?.classList.remove('hidden'); this.container?.classList.add('block');
             document.getElementById('calendar-container')?.classList.add('hidden'); document.getElementById('calendar-container')?.classList.remove('flex');
@@ -166,6 +164,18 @@ class CanvasUI {
         });
 
         if (!this.container) return;
+
+        // 🚨 RESTORED: Wheel event for trackpad/mouse scrolling & zooming!
+        this.container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) {
+                const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+                this.setZoom(this.zoom * zoomFactor, e.clientX, e.clientY);
+            } else {
+                this.panX -= e.deltaX; this.panY -= e.deltaY;
+                this.updateTransform();
+            }
+        }, { passive: false });
 
         this.container.addEventListener('pointerdown', (e) => {
             this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -544,15 +554,29 @@ class CanvasUI {
                     <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
                 `;
 
+                // 🚨 BYPASSING NATIVE CLICKS FOR SAFETY: Using pointerdown directly!
+                el.querySelector('.delete-btn')?.addEventListener('pointerdown', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id));
+                });
+                
+                el.querySelector('.run-btn')?.addEventListener('pointerdown', (e) => {
+                    e.stopPropagation();
+                    store.update('timer', t => ({ ...t, activeBlockId: b.id, spontaneousSubject: b.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
+                    timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
+                });
+
                 if (b.status !== 'completed' && !isActive) {
                     let isDraggingBlock = false;
                     let dragStartX, dragStartY, initialLeft, initialTop;
+                    let hasBlockDragged = false;
 
                     el.addEventListener('pointerdown', (e) => {
                         if (e.target.closest('.action-btn')) return;
                         e.stopPropagation(); 
                         
                         isDraggingBlock = true;
+                        hasBlockDragged = false;
                         dragStartX = e.clientX; dragStartY = e.clientY;
                         initialLeft = parseFloat(el.style.left); initialTop = parseFloat(el.style.top);
                         
@@ -563,6 +587,7 @@ class CanvasUI {
                     el.addEventListener('pointermove', (e) => {
                         if (!isDraggingBlock) return;
                         const dx = e.clientX - dragStartX; const dy = e.clientY - dragStartY;
+                        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasBlockDragged = true;
                         el.style.left = `${initialLeft + dx}px`; el.style.top = `${initialTop + dy}px`;
                     });
 
@@ -571,6 +596,12 @@ class CanvasUI {
                         isDraggingBlock = false;
                         el.releasePointerCapture(e.pointerId);
                         el.classList.remove('z-[100]', 'opacity-80', 'scale-105');
+
+                        if (!hasBlockDragged) {
+                            // 🚨 Trigger Edit Modal explicitly if it was a fast click, bypassing the bug!
+                            this.openEditModal(b.id);
+                            return;
+                        }
 
                         const finalLeft = parseFloat(el.style.left);
                         const finalTop = parseFloat(el.style.top);
@@ -598,20 +629,14 @@ class CanvasUI {
                             scheduledEnd: `${pad(newEndDateObj.getHours())}:${pad(newEndDateObj.getMinutes())}` 
                         } : x));
                     });
-                }
-
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (e.target.closest('.delete-btn')) { if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); return; }
-                    if (e.target.closest('.run-btn')) {
-                        store.update('timer', t => ({ ...t, activeBlockId: b.id, spontaneousSubject: b.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
-                        timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
-                        return;
-                    }
-                    if (Math.abs(parseFloat(el.style.left) - leftPx) < 5 && Math.abs(parseFloat(el.style.top) - topPx) < 5) {
+                } else {
+                    // For completed/active blocks that shouldn't be dragged
+                    el.addEventListener('pointerdown', (e) => {
+                        if (e.target.closest('.action-btn')) return;
+                        e.stopPropagation();
                         this.openEditModal(b.id);
-                    }
-                });
+                    });
+                }
 
                 this.blocksLayer.appendChild(el);
             } catch (err) {
