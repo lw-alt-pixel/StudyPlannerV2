@@ -20,7 +20,7 @@
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* 🚨 FROSTED GLASS BACKDROPS for the Sticky L-Shape Zones */
+/* 🚨 FROSTED GLASS BACKDROPS */
 #canvas-container::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50px;
     background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); z-index: 90; pointer-events: none;
@@ -32,7 +32,6 @@
     border-right: 1px solid rgba(0,0,0,0.05);
 }
 
-/* 🚨 MASTER LAYER FIX: Grid explicitly locked to top: 0 to perfectly sync with the math! */
 #canvas-grid {
     position: absolute;
     top: 0; 
@@ -57,6 +56,9 @@
 
 #blocks-layer { z-index: 20; }
 #canvas-layer { z-index: 30; }
+
+/* 🚨 DYNAMIC COLOR FIXES */
+.text-theme-action { color: var(--action-color) !important; }
 
 .custom-action-btn {
     background-color: var(--action-color) !important;
@@ -84,8 +86,6 @@
 }
 
 .dragging-widget { transition: none !important; opacity: 0.9; cursor: grabbing !important; z-index: 9000 !important; }
-
-/* MIN-HEIGHT Ensures 1-minute blocks are always clickable */
 .ypt-block { cursor: pointer; min-height: 8px; }
 .ypt-block.dragging-block { cursor: grabbing !important; z-index: 100 !important; opacity: 0.8; transition: none !important; }
 
