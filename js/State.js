@@ -21,141 +21,138 @@ let currentUser = null; let syncTimeout = null;
 const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
-const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
-    'Mathematics': '#3b82f6', 'Physics': '#ef4444', 'Chemistry': '#10b981', 'Biology': '#f59e0b', 'English': '#8b5cf6', 'History': '#ec4899', 'Computer Science': '#14b8a6'
-};
+const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {};
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
-const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {
-    bgType: 'color', bgColor: '#f3f4f6', bgImage: null, actionColor: '#2563eb', actionSize: 'md', floatingBtn: 'md', tabColor: '#2563eb', bannerBgColor: '#dc2626', bannerTextColor: '#ffffff'
-};
+const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, volume: 50, source: 'none', breakSource: 'none' };
+const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || { bgType: 'color', bgColor: '#f3f4f6', bgImage: '', actionColor: '#3b82f6', actionSize: 'md', floatingBtn: 'md', bannerBgColor: '#dc2626', bannerTextColor: '#ffffff' };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
-const savedAudio = JSON.parse(localStorage.getItem('studyAudio')) || { enabled: true, source: 'lofi', breakSource: 'lofi', volume: 50 };
 
-export const defaultState = {
-    activeTab: 'schedule', blocks: savedBlocks, exams: savedExams, subjects: savedSubjects, 
-    theme: savedTheme, settings: savedSettings, diaries: savedDiaries, audio: savedAudio,
-    timer: { activeBlockId: null, mode: 'stopwatch', phase: 'study', isRunning: false, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 },
-    marathon: { active: false, isWaitingForCheckIn: false, strikes: 0, phases: [], currentPhaseIdx: -1, checkInTime: null, warned5Min: false }
-};
+// 🚨 NEW: Header Customization State
+const savedHeader = JSON.parse(localStorage.getItem('studyHeader')) || { title: 'Study Planner Pro', bgColor: '#ffffff', textColor: '#1f2937', stickers: [] };
 
-class Store {
-    constructor(initialState) { this.state = initialState; this.listeners = {}; }
-    subscribe(key, listener) { if (!this.listeners[key]) this.listeners[key] = []; this.listeners[key].push(listener); }
+class State {
+    constructor() {
+        this.state = {
+            activeTab: 'schedule',
+            blocks: savedBlocks,
+            exams: savedExams,
+            subjects: savedSubjects,
+            settings: savedSettings,
+            audio: savedAudio,
+            theme: savedTheme,
+            header: savedHeader,
+            diaries: savedDiaries,
+            marathon: { active: false, phases: [], currentPhaseIdx: -1, isWaitingForCheckIn: false },
+            timer: {
+                activeBlockId: null,
+                spontaneousSubject: null,
+                mode: 'pomodoro', 
+                phase: 'study', 
+                studySeconds: 0,
+                breakSeconds: 0,
+                secondsElapsed: 0,
+                isRunning: false
+            }
+        };
+        this.listeners = {};
+    }
+
+    subscribe(key, callback) {
+        if (!this.listeners[key]) this.listeners[key] = [];
+        this.listeners[key].push(callback);
+    }
+
     update(key, updater) {
-        const newValue = updater(this.state[key]); this.state[key] = newValue;
+        const oldVal = this.state[key];
+        const newVal = typeof updater === 'function' ? updater(oldVal) : updater;
+        this.state[key] = newVal;
         
-        if (key === 'blocks') localStorage.setItem('studyBlocks', JSON.stringify(newValue));
-        if (key === 'exams') localStorage.setItem('studyExams', JSON.stringify(newValue));
-        if (key === 'subjects') localStorage.setItem('studySubjects', JSON.stringify(newValue));
-        if (key === 'theme') localStorage.setItem('studyTheme', JSON.stringify(newValue));
-        if (key === 'settings') localStorage.setItem('studySettings', JSON.stringify(newValue));
-        if (key === 'diaries') localStorage.setItem('studyDiaries', JSON.stringify(newValue)); 
-        if (key === 'audio') localStorage.setItem('studyAudio', JSON.stringify(newValue));
+        if (key === 'blocks') localStorage.setItem('studyBlocks', JSON.stringify(newVal));
+        if (key === 'exams') localStorage.setItem('studyExams', JSON.stringify(newVal));
+        if (key === 'subjects') localStorage.setItem('studySubjects', JSON.stringify(newVal));
+        if (key === 'settings') localStorage.setItem('studySettings', JSON.stringify(newVal));
+        if (key === 'audio') localStorage.setItem('studyAudio', JSON.stringify(newVal));
+        if (key === 'theme') localStorage.setItem('studyTheme', JSON.stringify(newVal));
+        if (key === 'header') localStorage.setItem('studyHeader', JSON.stringify(newVal));
+        if (key === 'diaries') localStorage.setItem('studyDiaries', JSON.stringify(newVal));
 
-        if (this.listeners[key]) this.listeners[key].forEach(listener => listener(newValue));
-
-        if (currentUser && key !== 'timer' && key !== 'activeTab' && key !== 'marathon') {
-            clearTimeout(syncTimeout);
-            syncTimeout = setTimeout(async () => {
-                try {
-                    const dataToSave = {
-                        blocks: this.state.blocks, exams: this.state.exams, subjects: this.state.subjects,
-                        theme: this.state.theme, settings: this.state.settings, diaries: this.state.diaries, audio: this.state.audio, updatedAt: new Date().toISOString()
-                    };
-                    await setDoc(doc(db, "users", currentUser.uid), dataToSave);
-                } catch (e) { console.error("Cloud Sync Error:", e); }
-            }, 2500); 
-        }
+        if (this.listeners[key]) this.listeners[key].forEach(cb => cb(newVal));
+        if (currentUser && ['blocks', 'exams', 'subjects', 'settings', 'audio', 'theme', 'header', 'diaries'].includes(key)) this.debouncedSync();
     }
-}
-export const store = new Store(defaultState);
 
-// 🚨 NEW: High-Capacity Local Audio Database (IndexedDB)
-export const audioDB = {
-    init() {
-        return new Promise((resolve, reject) => {
-            const req = indexedDB.open('PlannerAudioDB', 1);
-            req.onupgradeneeded = e => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains('tracks')) db.createObjectStore('tracks', { keyPath: 'id' });
-            };
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-    },
-    async getAll() {
-        const db = await this.init();
-        return new Promise(res => {
-            const req = db.transaction('tracks', 'readonly').objectStore('tracks').getAll();
-            req.onsuccess = () => res(req.result || []);
-        });
-    },
-    async get(id) {
-        const db = await this.init();
-        return new Promise(res => {
-            const req = db.transaction('tracks', 'readonly').objectStore('tracks').get(id);
-            req.onsuccess = () => res(req.result);
-        });
-    },
-    async save(track) {
-        const db = await this.init();
-        return new Promise(res => {
-            const tx = db.transaction('tracks', 'readwrite');
-            tx.objectStore('tracks').put(track);
-            tx.oncomplete = () => res();
-        });
-    },
-    async delete(id) {
-        const db = await this.init();
-        return new Promise(res => {
-            const tx = db.transaction('tracks', 'readwrite');
-            tx.objectStore('tracks').delete(id);
-            tx.oncomplete = () => res();
-        });
+    debouncedSync() {
+        if (syncTimeout) clearTimeout(syncTimeout);
+        syncTimeout = setTimeout(() => this.syncToFirebase(), 2000);
     }
-};
 
-// Auth Listeners...
-onAuthStateChanged(auth, async (user) => {
-    currentUser = user;
-    const statusText = document.getElementById('cloudStatusText'); const statusIcon = document.getElementById('cloudStatusIcon');
-    const authForms = document.getElementById('authForms'); const logoutBtn = document.getElementById('logoutBtn');
-    const authUserDisplay = document.getElementById('authUserDisplay');
-
-    if (user) {
-        if (statusText) statusText.innerText = 'Synced';
-        if (statusIcon) { statusIcon.innerText = '☁️'; statusIcon.classList.add('text-blue-500'); }
-        if (authForms) authForms.classList.add('hidden');
-        if (logoutBtn) logoutBtn.classList.remove('hidden');
-        if (authUserDisplay) { authUserDisplay.classList.remove('hidden'); authUserDisplay.innerText = `Connected as: ${user.email}`; }
-
+    async syncToFirebase() {
+        if (!currentUser) return;
         try {
-            const docRef = doc(db, "users", user.uid); const docSnap = await getDoc(docRef);
+            const dataToSync = {
+                blocks: this.state.blocks, exams: this.state.exams, subjects: this.state.subjects,
+                settings: this.state.settings, audio: this.state.audio, theme: this.state.theme,
+                header: this.state.header, diaries: this.state.diaries, lastUpdated: new Date().toISOString()
+            };
+            await setDoc(doc(db, "users", currentUser.uid), dataToSync, { merge: true });
+            console.log("Auto-synced to Firebase");
+        } catch (e) { console.error("Sync failed", e); }
+    }
+
+    async loadFromFirebase(uid) {
+        try {
+            const docSnap = await getDoc(doc(db, "users", uid));
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.blocks) { store.state.blocks = data.blocks; localStorage.setItem('studyBlocks', JSON.stringify(data.blocks)); }
-                if (data.exams) { store.state.exams = data.exams; localStorage.setItem('studyExams', JSON.stringify(data.exams)); }
-                if (data.subjects) { store.state.subjects = data.subjects; localStorage.setItem('studySubjects', JSON.stringify(data.subjects)); }
-                if (data.theme) { store.state.theme = data.theme; localStorage.setItem('studyTheme', JSON.stringify(data.theme)); }
-                if (data.settings) { store.state.settings = data.settings; localStorage.setItem('studySettings', JSON.stringify(data.settings)); }
-                if (data.diaries) { store.state.diaries = data.diaries; localStorage.setItem('studyDiaries', JSON.stringify(data.diaries)); }
-                if (data.audio) { store.state.audio = data.audio; localStorage.setItem('studyAudio', JSON.stringify(data.audio)); }
-                
-                Object.keys(store.listeners).forEach(key => store.listeners[key].forEach(l => l(store.state[key])));
+                if(data.blocks) this.update('blocks', data.blocks);
+                if(data.exams) this.update('exams', data.exams);
+                if(data.subjects) this.update('subjects', data.subjects);
+                if(data.settings) this.update('settings', data.settings);
+                if(data.audio) this.update('audio', data.audio);
+                if(data.theme) this.update('theme', data.theme);
+                if(data.header) this.update('header', data.header);
+                if(data.diaries) this.update('diaries', data.diaries);
+                console.log("Loaded from Firebase");
             }
-        } catch (e) { console.error("Data Fetch Error:", e); }
-    } else {
-        if (statusText) statusText.innerText = 'Offline';
-        if (statusIcon) { statusIcon.innerText = '⚠️'; statusIcon.classList.remove('text-blue-500'); }
-        if (authForms) authForms.classList.remove('hidden');
-        if (logoutBtn) logoutBtn.classList.add('hidden');
-        if (authUserDisplay) authUserDisplay.classList.add('hidden');
+        } catch (e) { console.error("Load failed", e); }
     }
-});
+}
+
+export const store = new State();
+
+const dbName = "AudioStorage";
+let idb;
+export const audioDB = {
+    init: () => new Promise((resolve, reject) => {
+        const req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = e => { idb = e.target.result; if(!idb.objectStoreNames.contains('files')) idb.createObjectStore('files'); };
+        req.onsuccess = e => { idb = e.target.result; resolve(); };
+        req.onerror = () => reject();
+    }),
+    save: (id, blob) => new Promise(res => { const tx = idb.transaction('files', 'readwrite'); tx.objectStore('files').put(blob, id); tx.oncomplete = res; }),
+    get: id => new Promise(res => { const tx = idb.transaction('files', 'readonly'); const req = tx.objectStore('files').get(id); req.onsuccess = () => res(req.result); }),
+    getAllIds: () => new Promise(res => { const tx = idb.transaction('files', 'readonly'); const req = tx.objectStore('files').getAllKeys(); req.onsuccess = () => res(req.result); }),
+    delete: id => new Promise(res => { const tx = idb.transaction('files', 'readwrite'); tx.objectStore('files').delete(id); tx.oncomplete = res; })
+};
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('openLoginBtn')?.addEventListener('click', () => document.getElementById('loginModal')?.classList.remove('hidden'));
-    document.getElementById('closeLoginModal')?.addEventListener('click', () => document.getElementById('loginModal')?.classList.add('hidden'));
+    onAuthStateChanged(auth, user => {
+        currentUser = user;
+        const info = document.getElementById('userInfo');
+        const loginBtn = document.getElementById('openLoginModalBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        if (user) {
+            info.innerText = `Logged in as: ${user.email}`;
+            loginBtn.classList.add('hidden'); logoutBtn.classList.remove('hidden');
+            store.loadFromFirebase(user.uid);
+        } else {
+            info.innerText = "Local Mode (Not Synced)";
+            loginBtn.classList.remove('hidden'); logoutBtn.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('openLoginModalBtn')?.addEventListener('click', () => document.getElementById('loginModal').classList.remove('hidden'));
+    document.getElementById('cancelLoginBtn')?.addEventListener('click', () => document.getElementById('loginModal').classList.add('hidden'));
 
     document.getElementById('emailLoginBtn')?.addEventListener('click', async () => {
         const email = document.getElementById('authEmail').value; const pass = document.getElementById('authPassword').value;
