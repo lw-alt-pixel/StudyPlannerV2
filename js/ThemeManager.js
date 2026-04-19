@@ -21,22 +21,67 @@ class ThemeManager {
             titleEl.innerText = header.title || 'Study Planner Pro';
         }
 
-        // 🚨 RENDER STICKERS FROM PERCENTAGES
+        // 🚨 CUSTOM DRAG ENGINE FOR STICKERS
         if (zone) {
             zone.innerHTML = '';
             const stickers = header.stickers || [];
+            
             stickers.forEach(s => {
                 const el = document.createElement('div');
                 el.innerText = s.emoji;
-                // Add pointer-events-auto so you can double click to delete them!
-                el.className = 'absolute text-2xl md:text-3xl cursor-pointer hover:scale-125 transition-transform pointer-events-auto select-none';
+                el.className = 'absolute text-2xl md:text-4xl cursor-grab hover:scale-110 transition-transform pointer-events-auto select-none';
                 el.style.left = `${s.x}%`;
                 el.style.top = `${s.y}%`;
                 el.style.transform = 'translate(-50%, -50%)';
                 
+                // Double click to delete
                 el.ondblclick = () => {
                     store.update('header', state => ({ ...state, stickers: state.stickers.filter(x => x.id !== s.id) }));
                 };
+
+                // Pointer Events for custom Freeform Dragging
+                let isDragging = false;
+
+                el.addEventListener('pointerdown', (e) => {
+                    isDragging = true;
+                    el.setPointerCapture(e.pointerId);
+                    el.classList.remove('cursor-grab', 'transition-transform', 'hover:scale-110');
+                    el.classList.add('cursor-grabbing');
+                });
+
+                el.addEventListener('pointermove', (e) => {
+                    if (!isDragging) return;
+                    const zoneRect = zone.getBoundingClientRect();
+                    
+                    // Convert raw mouse coordinates to perfect percentages!
+                    let newX = ((e.clientX - zoneRect.left) / zoneRect.width) * 100;
+                    let newY = ((e.clientY - zoneRect.top) / zoneRect.height) * 100;
+                    
+                    // Clamp to edges so they don't get lost
+                    newX = Math.max(0, Math.min(100, newX));
+                    newY = Math.max(0, Math.min(100, newY));
+                    
+                    el.style.left = `${newX}%`;
+                    el.style.top = `${newY}%`;
+                });
+
+                el.addEventListener('pointerup', (e) => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    el.releasePointerCapture(e.pointerId);
+                    el.classList.add('cursor-grab', 'transition-transform', 'hover:scale-110');
+                    el.classList.remove('cursor-grabbing');
+                    
+                    // Save final exact position to the database
+                    const finalX = parseFloat(el.style.left);
+                    const finalY = parseFloat(el.style.top);
+                    
+                    store.update('header', state => ({
+                        ...state,
+                        stickers: state.stickers.map(x => x.id === s.id ? { ...x, x: finalX, y: finalY } : x)
+                    }));
+                });
+
                 zone.appendChild(el);
             });
         }
@@ -64,7 +109,6 @@ class ThemeManager {
         root.style.setProperty('--action-padding', padding);
         root.style.setProperty('--action-font-size', fontSize);
 
-        // 🚨 DYNAMIC FLOATING BUTTON SIZING
         const fStyle = theme.floatingBtn || 'md';
         const fBtns = [document.getElementById('openAddBlockModal'), document.getElementById('openSettingsBtn')];
         const fallback = document.getElementById('fallbackButtons');
