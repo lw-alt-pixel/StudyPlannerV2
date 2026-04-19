@@ -18,9 +18,14 @@ class CanvasUI {
         this.root = document.documentElement;
         
         this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
+        
+        // 🚨 NEW: Edge Auto-Panning State Variables
         this.isSelecting = false;
         this.selectStartAbsMin = 0; 
         this.selectEndAbsMin = 0;
+        this.autoPanVector = { x: 0, y: 0 };
+        this.lastPointer = { x: 0, y: 0 };
+        this.isAutoPanning = false;
     }
 
     getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
@@ -70,7 +75,6 @@ class CanvasUI {
             this.timeLabels.style.zIndex = '100'; this.timeLabels.style.pointerEvents = 'none';
         }
 
-        // 🚨 OVERNIGHT SELECTION LAYER
         if (!document.getElementById('drag-selection-layer')) {
             const layerBox = document.createElement('div');
             layerBox.id = 'drag-selection-layer';
@@ -111,7 +115,6 @@ class CanvasUI {
 
         if (enable) {
             header?.classList.add('hidden'); nav?.classList.add('hidden'); 
-            // 🚨 FIX: Clean inline styling prevents the dummy banner from flashing!
             if (banner) banner.style.setProperty('display', 'none', 'important');
             
             scheduleTab?.classList.add('!fixed', '!inset-0', '!z-[9999]');
@@ -147,6 +150,41 @@ class CanvasUI {
             exitBtn?.classList.add('hidden');
         }
         this.updateTransform();
+    }
+
+    // 🚨 NEW: The engine that acts like a conveyor belt when you hold at the edge!
+    autoPanLoop() {
+        if (!this.isSelecting) {
+            this.isAutoPanning = false;
+            return;
+        }
+        
+        if (this.autoPanVector.x !== 0 || this.autoPanVector.y !== 0) {
+            this.panX += this.autoPanVector.x;
+            this.panY += this.autoPanVector.y;
+            this.updateTransform();
+            
+            // Constantly recalculate the math while panning!
+            this.updateSelection(this.lastPointer.x, this.lastPointer.y);
+        }
+        
+        requestAnimationFrame(() => this.autoPanLoop());
+    }
+
+    updateSelection(clientX, clientY) {
+        const containerRect = this.container.getBoundingClientRect();
+        
+        // This math is unconstrained, allowing it to span into the next day perfectly!
+        const canvasX = clientX - containerRect.left - this.panX - this.offsetX;
+        const canvasY = clientY - containerRect.top - this.panY - this.offsetY;
+        
+        const rawAbs = this.getAbsoluteMin(canvasX, canvasY);
+        let endAbs = Math.round(rawAbs / this.currentZoomTier) * this.currentZoomTier;
+        
+        if (endAbs <= this.selectStartAbsMin) endAbs = this.selectStartAbsMin + this.currentZoomTier;
+        this.selectEndAbsMin = endAbs;
+        
+        this.renderSelectionBox();
     }
 
     bindEvents() {
@@ -197,10 +235,10 @@ class CanvasUI {
 
             if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return;
             
-            // 🚨 OVERNIGHT SELECTION START
             if (e.shiftKey) { 
                 this.isSelecting = true;
                 this.container.style.cursor = 'crosshair';
+                this.lastPointer = { x: e.clientX, y: e.clientY };
                 
                 const containerRect = this.container.getBoundingClientRect();
                 const canvasX = e.clientX - containerRect.left - this.panX - this.offsetX;
@@ -209,6 +247,12 @@ class CanvasUI {
                 const rawAbs = this.getAbsoluteMin(canvasX, canvasY);
                 this.selectStartAbsMin = Math.floor(rawAbs / this.currentZoomTier) * this.currentZoomTier;
                 this.selectEndAbsMin = this.selectStartAbsMin + this.currentZoomTier;
+                
+                // 🚨 Start the Conveyor Belt Engine!
+                if (!this.isAutoPanning) {
+                    this.isAutoPanning = true;
+                    this.autoPanLoop();
+                }
                 
                 this.renderSelectionBox();
                 return; 
@@ -229,19 +273,23 @@ class CanvasUI {
                 return;
             }
 
-            // 🚨 OVERNIGHT SELECTION MOVE
             if (this.isSelecting) {
-                const containerRect = this.container.getBoundingClientRect();
-                const canvasX = e.clientX - containerRect.left - this.panX - this.offsetX;
-                const canvasY = e.clientY - containerRect.top - this.panY - this.offsetY;
+                this.lastPointer = { x: e.clientX, y: e.clientY };
                 
-                const rawAbs = this.getAbsoluteMin(canvasX, canvasY);
-                let endAbs = Math.round(rawAbs / this.currentZoomTier) * this.currentZoomTier;
+                const rect = this.container.getBoundingClientRect();
+                const margin = 50; 
+                let dx = 0; let dy = 0;
                 
-                if (endAbs <= this.selectStartAbsMin) endAbs = this.selectStartAbsMin + this.currentZoomTier;
-                this.selectEndAbsMin = endAbs;
+                // Set the speed of the conveyor belt based on edge proximity
+                if (e.clientX < rect.left + margin) dx = 15;
+                else if (e.clientX > rect.right - margin) dx = -15;
                 
-                this.renderSelectionBox();
+                if (e.clientY < rect.top + this.offsetY + margin) dy = 15;
+                else if (e.clientY > rect.bottom - margin) dy = -15;
+                
+                this.autoPanVector = { x: dx, y: dy };
+                
+                this.updateSelection(e.clientX, e.clientY);
                 return;
             }
 
@@ -295,6 +343,7 @@ class CanvasUI {
 
         if (this.isSelecting) {
             this.isSelecting = false;
+            this.autoPanVector = { x: 0, y: 0 };
             this.container.style.cursor = 'grab';
             const layer = document.getElementById('drag-selection-layer');
             if (layer) layer.innerHTML = '';
@@ -366,7 +415,6 @@ class CanvasUI {
         document.getElementById('editBlockModal')?.classList.remove('hidden');
     }
 
-    // 🚨 OVERNIGHT MODAL ADAPTER
     openAddBlockModal(startCol, startMin, endCol, endMin) {
         const targetStartDate = new Date(this.baseDate.getTime() + (startCol * 86400000));
         let targetEndDate = new Date(this.baseDate.getTime() + (endCol * 86400000));
@@ -375,9 +423,6 @@ class CanvasUI {
         let sH = Math.floor(startMin/60); let sM = startMin%60;
         let eH = Math.floor(endMin/60); let eM = endMin%60;
 
-        // If time is exactly midnight, HTML time inputs cannot take 24:00.
-        // We set it to 23:59, or leave it 00:00 on the next day (which is logically better).
-        
         const sDateInput = document.getElementById('newBlockStartDate');
         if(sDateInput) {
             sDateInput.value = this.formatDate(targetStartDate);
@@ -506,11 +551,10 @@ class CanvasUI {
                 else if (isActive) { opacityClass = 'opacity-100'; borderClass = 'ring-4 ring-yellow-400 z-30'; }
                 else if (isPast) { opacityClass = 'opacity-70 grayscale'; borderClass = 'border-2 border-red-500 border-dashed'; }
 
-                // 🚨 OVERNIGHT VISUAL SLICING ENGINE
                 let currentStart = new Date(bStart);
                 while (currentStart < bEnd) {
                     let endOfDay = new Date(currentStart);
-                    endOfDay.setHours(24, 0, 0, 0); // Midnight boundary
+                    endOfDay.setHours(24, 0, 0, 0); 
                     
                     let chunkEnd = new Date(Math.min(bEnd.getTime(), endOfDay.getTime()));
                     let durationMins = (chunkEnd - currentStart) / 60000;
@@ -539,7 +583,6 @@ class CanvasUI {
                         <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
                     `;
 
-                    // Handle internal buttons safely
                     el.querySelector('.delete-btn')?.addEventListener('pointerdown', (e) => {
                         e.stopPropagation();
                         if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id));
@@ -551,13 +594,11 @@ class CanvasUI {
                         timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
                     });
 
-                    // 🚨 DRAG ENGINE: Converts Drag Delta to mathematically move sliced overnight blocks!
                     if (b.status !== 'completed' && !isActive) {
                         let isDraggingBlock = false;
                         let dragStartX, dragStartY, initialLeft, initialTop;
                         let hasBlockDragged = false;
                         
-                        // We track the original state of this specific sliced chunk!
                         const chunkOriginalCol = diffDays;
                         const chunkOriginalMin = currentStart.getHours() * 60 + currentStart.getMinutes();
 
@@ -597,10 +638,8 @@ class CanvasUI {
                             const newColOffset = Math.round((finalLeft - 2) / this.dayWidth);
                             const newMinOffset = Math.round((finalTop / (this.pxPerHour * this.zoom)) * 60);
 
-                            // Calculate total minute delta shifted by mouse!
                             const deltaMins = (newColOffset * 1440 + newMinOffset) - (chunkOriginalCol * 1440 + chunkOriginalMin);
 
-                            // Safely shift the ENTIRE multi-day block!
                             const newBStart = new Date(bStart.getTime() + deltaMins * 60000);
                             const newBEnd = new Date(bEnd.getTime() + deltaMins * 60000);
                             const pad = n => String(n).padStart(2, '0');
@@ -621,7 +660,6 @@ class CanvasUI {
                         });
                     }
 
-                    // Tooltip Logic
                     el.addEventListener('mouseenter', () => {
                         if(tooltip) {
                             tooltip.innerHTML = `<div class="text-[10px] font-black text-gray-400">${b.subject}</div><div class="text-base font-bold">${b.title || 'Focus'}</div><div class="text-xs text-blue-300">${sTime} - ${eTime}</div>`;
@@ -632,8 +670,7 @@ class CanvasUI {
                     el.addEventListener('mouseleave', () => { if(tooltip) tooltip.style.opacity = '0'; });
 
                     this.blocksLayer.appendChild(el);
-                    
-                    currentStart = chunkEnd; // Move to next day slice if needed!
+                    currentStart = chunkEnd; 
                 }
             } catch (err) {
                 console.warn("Failed to render a block, but app is safe.", err);
