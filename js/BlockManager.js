@@ -18,14 +18,12 @@ class BlockManager {
         this.editModal = document.getElementById('editBlockModal');
         this.editBlockId = null;
 
-        // NEW: Sub-Tab Modals for Add Block
         this.tabSingle = document.getElementById('tabSingleBlock');
         this.tabBulk = document.getElementById('tabBulkBlock');
         this.singleForm = document.getElementById('singleBlockForm');
         this.bulkForm = document.getElementById('bulkBlockForm');
 
         this.pushBackModal = document.getElementById('pushBackModal');
-        this.activePushBackId = null;
         this.lastBulkBatchId = null;
 
         store.subscribe('subjects', () => this.populateSubjects());
@@ -48,7 +46,6 @@ class BlockManager {
     }
 
     bindEvents() {
-        // 🚨 SUB-TAB LOGIC
         this.tabSingle?.addEventListener('click', () => {
             this.tabSingle.className = "px-3 py-1 rounded bg-white shadow-sm font-black text-xs text-blue-600 transition-colors";
             this.tabBulk.className = "px-3 py-1 rounded font-bold text-xs text-gray-500 hover:text-gray-800 transition-colors";
@@ -63,7 +60,6 @@ class BlockManager {
             this.singleForm?.classList.add('hidden');
         });
 
-        // 🚨 CANCEL CLOSES THE ENTIRE UNIFIED MODAL
         document.getElementById('cancelAddBlock')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
         document.getElementById('cancelBulkSchedule')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
 
@@ -82,7 +78,36 @@ class BlockManager {
         document.getElementById('saveBulkSchedule')?.addEventListener('click', () => this.generateBulkBlocks());
         document.getElementById('undoBulkBtn')?.addEventListener('click', () => this.undoLastBulk());
 
-        document.getElementById('cancelPushBackBtn')?.addEventListener('click', () => this.pushBackModal?.classList.add('hidden'));
+        // 🚨 ADVANCED PUSH BACK (RESCHEDULE) LOGIC
+        document.getElementById('pushBackTimerBtn')?.addEventListener('click', () => {
+            const t = store.state.timer;
+            if(!t.activeBlockId) return alert("You must be running an active scheduled block to reschedule it.");
+            
+            // Instantly halt the timer!
+            store.update('timer', state => ({ ...state, isRunning: false }));
+            timerEngine.stop();
+
+            const b = store.state.blocks.find(x => x.id === t.activeBlockId);
+            
+            // Prefill inputs to make rescheduling fast
+            const pad = n => String(n).padStart(2, '0');
+            document.getElementById('pushBackDate').value = b.startDate || '';
+            document.getElementById('pushBackStart').value = b.scheduledEnd || '';
+            
+            if (b.scheduledEnd) {
+                const [h, m] = b.scheduledEnd.split(':').map(Number);
+                let newH = h + 1;
+                if (newH > 23) newH = 23;
+                document.getElementById('pushBackEnd').value = `${pad(newH)}:${pad(m)}`;
+            }
+
+            this.pushBackModal?.classList.remove('hidden');
+        });
+
+        document.getElementById('cancelPushBackBtn')?.addEventListener('click', () => {
+            this.pushBackModal?.classList.add('hidden');
+        });
+
         document.getElementById('confirmPushBackBtn')?.addEventListener('click', () => this.confirmPushBack());
     }
 
@@ -206,44 +231,56 @@ class BlockManager {
     }
 
     confirmPushBack() {
-        const mins = parseInt(document.getElementById('pushBackMins').value);
-        if(!mins || mins <= 0) return alert("Enter a valid number of minutes.");
+        const newDate = document.getElementById('pushBackDate').value;
+        const newStart = document.getElementById('pushBackStart').value;
+        const newEnd = document.getElementById('pushBackEnd').value;
+        
+        if (!newDate || !newStart || !newEnd) return alert("Please fill out all date and time fields.");
 
         const t = store.state.timer;
-        if(!t.activeBlockId) return alert("No active block to push back from.");
+        const b = store.state.blocks.find(x => x.id === t.activeBlockId);
+        if (!b) {
+            this.pushBackModal?.classList.add('hidden');
+            return;
+        }
 
-        const targetBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
-        if(!targetBlock || !targetBlock.startDate) return;
+        // 1. Update the original block: Completed + Not Finished + Real Time Recorded
+        const updatedOriginal = {
+            ...b,
+            status: 'completed',
+            studySeconds: t.studySeconds,
+            breakSeconds: t.breakSeconds,
+            title: b.title + " (Not Finished)",
+            remarks: b.remarks ? b.remarks + "\n[Rescheduled]" : "[Rescheduled]"
+        };
 
-        const pushDateStr = targetBlock.startDate;
-        const pushStart = new Date(`${targetBlock.startDate}T${targetBlock.scheduledStart}:00`);
+        // 2. Create the clone block for the new Date/Time
+        const newBlock = {
+            id: 'block_' + Date.now() + Math.random().toString(36).substr(2, 5),
+            subject: b.subject,
+            title: b.title.replace(" (Not Finished)", "") + " (cont.)",
+            startDate: newDate,
+            endDate: newDate,
+            scheduledStart: newStart,
+            scheduledEnd: newEnd,
+            status: 'pending',
+            studySeconds: 0,
+            breakSeconds: 0,
+            remarks: ''
+        };
 
-        store.update('blocks', blocks => {
-            return blocks.map(b => {
-                if (b.startDate === pushDateStr) {
-                    const bStart = new Date(`${b.startDate}T${b.scheduledStart}:00`);
-                    const bEnd = new Date(`${b.endDate}T${b.scheduledEnd}:00`);
-                    
-                    if (bStart >= pushStart) {
-                        const newStart = new Date(bStart.getTime() + mins * 60000);
-                        const newEnd = new Date(bEnd.getTime() + mins * 60000);
-                        
-                        return {
-                            ...b,
-                            scheduledStart: newStart.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-                            scheduledEnd: newEnd.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-                            startDate: newStart.toISOString().split('T')[0],
-                            endDate: newEnd.toISOString().split('T')[0]
-                        };
-                    }
-                }
-                return b;
-            });
-        });
+        // Save both to state
+        store.update('blocks', old => old.map(x => x.id === b.id ? updatedOriginal : x).concat(newBlock));
+
+        // Completely reset the timer!
+        store.update('timer', () => ({
+            activeBlockId: null, spontaneousSubject: null,
+            mode: 'pomodoro', phase: 'study',
+            studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false
+        }));
 
         this.pushBackModal?.classList.add('hidden');
-        this.activePushBackId = null;
-        alert(`Pushed back remaining blocks by ${mins} minutes!`);
+        alert("Block Rescheduled! Current progress saved.");
     }
 }
 export const blockManager = new BlockManager();
