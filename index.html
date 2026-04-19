@@ -13,198 +13,420 @@
     
     <div id="yt-player-container" class="hidden"></div>
 
+    <div id="upNextAlarmOverlay" class="hidden fixed inset-0 bg-blue-600/95 backdrop-blur-md z-[20000] flex-col items-center justify-center transition-all text-white">
+        <div class="text-6xl mb-4 animate-bounce">⏰</div>
+        <div class="text-2xl font-bold opacity-80 mb-2">It's time for</div>
+        <h1 id="alarmTitle" class="text-5xl md:text-7xl font-black text-center tracking-wide mb-8 shadow-black drop-shadow-lg uppercase">Physics Study</h1>
+        <button id="alarmStartBtn" class="px-12 py-4 bg-white text-blue-600 rounded-full font-black text-2xl shadow-2xl hover:scale-105 transition-transform">START NOW</button>
+        <button id="alarmDismissBtn" class="mt-6 text-sm font-bold opacity-60 hover:opacity-100 uppercase tracking-widest">Dismiss for now</button>
+    </div>
+
     <div id="strikeOverlay" class="hidden fixed inset-0 bg-red-600/90 backdrop-blur-md z-[15000] flex flex-col items-center justify-center pointer-events-none transition-all">
         <div class="text-8xl mb-4">⚠️</div>
         <h1 id="strikeText" class="text-4xl md:text-6xl font-black text-white text-center tracking-widest uppercase shadow-black drop-shadow-2xl">WARNING</h1>
     </div>
 
-    <div id="globalExamBanner" class="hidden text-white text-center py-2 px-4 font-black tracking-wide z-[9000] shadow-md flex justify-center items-center gap-2">
-        🚨 <span id="bannerText">Next Exam</span> 🚨
+    <div id="globalExamBanner" class="hidden text-white text-center py-2 px-4 font-black tracking-wide z-[9000] shadow-md border-b border-black/10 flex flex-col md:flex-row items-center justify-center gap-2">
+        <span class="animate-pulse">⚠️</span>
+        <span id="bannerText"></span>
+        <span class="animate-pulse">⚠️</span>
     </div>
 
-    <div id="settingsOverlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-[9995] transition-opacity"></div>
-    <div id="diaryOverlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-[9995] transition-opacity"></div>
+    <header id="appHeader" class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center relative overflow-hidden transition-colors z-50">
+        <div id="headerStickerZone" class="absolute inset-0 z-0 pointer-events-none"></div>
+        <h1 id="appTitle" class="text-2xl font-black text-gray-800 tracking-tight relative z-10 select-none">Study Planner Pro</h1>
+        <div class="flex items-center gap-4 relative z-10">
+            <div id="userInfo" class="text-xs font-bold text-gray-500 hidden md:block bg-gray-100 px-3 py-1 rounded-full border"></div>
+            <button id="openLoginModalBtn" class="text-sm font-bold custom-action-btn rounded-full shadow-sm">Login / Sync</button>
+            <button id="logoutBtn" class="hidden text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-full transition-colors border border-red-100">Logout</button>
+        </div>
+    </header>
 
-    <div class="p-4 md:p-8 flex-1 flex flex-col max-w-[1600px] mx-auto w-full relative z-10 overflow-hidden">
+    <nav class="flex overflow-x-auto hide-scrollbar bg-white border-b shadow-sm sticky top-0 z-40 relative">
+        <button class="tab-btn active-tab flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap border-r border-gray-100" data-tab="focus"><i class="fa fa-clock mr-2"></i>Focus</button>
+        <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50 border-r border-gray-100" data-tab="schedule"><i class="fa fa-calendar-alt mr-2"></i>Schedule</button>
+        <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50 border-r border-gray-100" data-tab="marathon"><i class="fa fa-fire mr-2"></i>Marathon</button>
+        <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50" data-tab="stats"><i class="fa fa-chart-pie mr-2"></i>Analytics</button>
+    </nav>
+
+    <main class="flex-1 relative w-full h-full overflow-hidden">
         
-        <div class="flex justify-between items-center mb-4 md:mb-6 shrink-0 z-50">
-            <h1 class="text-2xl md:text-3xl font-bold drop-shadow-md">Study Planner Pro</h1>
-            <button id="openLoginBtn" class="flex items-center gap-2 bg-white/80 backdrop-blur border px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-sm text-xs md:text-sm font-bold text-gray-600 hover:text-blue-600 transition-colors">
-                <span id="cloudStatusIcon">⚠️</span> <span id="cloudStatusText" class="hidden md:inline">Offline</span>
-            </button>
-        </div>
+        <div id="focus" class="tab-content h-full p-4 md:p-8 bg-gray-50/50 flex flex-col items-center justify-center overflow-y-auto">
+            <div class="w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden transform transition-all hover:shadow-2xl">
+                <div class="p-8 flex flex-col items-center">
+                    <div id="phaseIndicator" class="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-wider mb-6 shadow-sm">Focus Time</div>
+                    <div id="timerDisplay" class="text-7xl md:text-8xl font-black text-gray-800 tracking-tighter mb-8 font-mono drop-shadow-sm">25:00</div>
+                    
+                    <div class="flex gap-2 w-full mb-6 p-1 bg-gray-100 rounded-lg">
+                        <button id="modePomodoro" class="flex-1 px-4 py-2 rounded shadow bg-white font-bold text-sm transition-all text-theme-action">Pomodoro</button>
+                        <button id="modeStopwatch" class="flex-1 px-4 py-2 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600">Stopwatch</button>
+                    </div>
 
-        <div class="flex gap-2 md:gap-4 mb-4 md:mb-6 border-b pb-2 shrink-0 overflow-x-auto hide-scrollbar whitespace-nowrap">
-            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="schedule">Schedule</button>
-            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="focus">Focus</button>
-            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="stats">Analytics</button>
-            <button class="tab-btn px-4 py-2 rounded-lg font-bold transition-all" data-tab="exams">Exams</button>
-        </div>
+                    <div id="standardTimerControls" class="flex gap-3 w-full">
+                        <button id="toggleTimerBtn" class="flex-1 custom-action-btn text-white font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg">Start</button>
+                        <button id="switchPhaseBtn" class="hidden px-6 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors shadow-inner border border-gray-200">Skip</button>
+                    </div>
 
-        <div id="schedule" class="tab-content active bg-white/95 backdrop-blur-md rounded-lg shadow-lg overflow-hidden relative flex flex-col w-full">
-            <div class="p-3 md:p-4 border-b bg-gray-50/80 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 z-50 relative shadow-sm">
-                <div class="flex flex-wrap items-center gap-2 md:gap-4 w-full lg:w-auto">
-                    <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer"><button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600">🗺️ Timeline</button><button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">📅 Month</button></div>
-                    <div id="canvasControls" class="flex flex-1 md:flex-none justify-between items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"><button id="prevDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600">&lt;</button><button id="centerTodayBtn" class="px-4 py-1 hover:bg-blue-50 font-bold text-sm text-blue-600 w-full md:w-auto text-center">Go to Today</button><button id="nextDaysBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600">&gt;</button></div>
-                    <div id="calendarControls" class="hidden flex-1 md:flex-none justify-between items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"><button id="prevMonthBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-r text-gray-600">&lt;</button><div id="currentMonthLabel" class="px-4 py-1 font-bold text-sm text-gray-700 w-full md:w-auto text-center">April 2024</div><button id="nextMonthBtn" class="px-3 py-1 hover:bg-gray-100 font-bold border-l text-gray-600">&gt;</button></div>
-                </div>
-                <div class="flex gap-2 w-full lg:w-auto mt-2 lg:mt-0">
-                    <button id="undoBulkBtn" class="hidden bg-gray-200 text-gray-700 rounded-lg font-bold shadow-md px-3 py-2 text-sm hover:bg-gray-300">↩️ Undo Fill</button>
-                    <button id="openBulkModalBtn" class="bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg font-bold shadow-md px-3 py-2 text-sm">🪄 Auto-Fill</button>
-                    <button id="openAddBlockModalHeader" class="custom-action-btn rounded-lg font-bold shadow-md flex-1 lg:flex-none">+ Add Block</button>
-                </div>
-            </div>
-            
-            <div id="canvas-container" class="relative w-full h-[600px] md:h-[700px] overflow-hidden bg-slate-50/90 cursor-grab touch-none block" style="touch-action: none;">
-                <div id="canvas-layer" class="absolute top-12 left-16 will-change-transform" style="transform: translate(var(--pan-x), var(--pan-y));">
-                    <div id="canvas-grid"></div>
-                    <div id="blocks-layer" class="absolute top-0 pointer-events-auto" style="left: -100800px; width: 201600px; height: calc(24 * 60px * var(--zoom));"></div>
-                </div>
-                <div class="absolute top-0 left-16 right-0 h-12 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200 pointer-events-none">
-                    <div id="canvas-days" class="absolute top-0 h-12 flex items-end pb-2 font-bold text-gray-700 text-sm" style="left: calc(-100800px + var(--pan-x)); width: 201600px;"></div>
-                </div>
-                <div class="absolute top-12 left-0 bottom-0 w-16 z-20 bg-white/90 backdrop-blur-md border-r border-gray-200 pointer-events-none">
-                    <div id="canvas-times" class="absolute left-0 w-16 flex flex-col items-center text-xs font-bold text-gray-500" style="top: var(--pan-y); height: calc(24 * 60px * var(--zoom));"></div>
-                </div>
-                <div class="absolute top-0 left-0 w-16 h-12 z-30 bg-gray-100 border-b border-r border-gray-200"></div>
-                <div class="absolute bottom-6 left-20 z-50 flex flex-col bg-white shadow-lg border rounded-lg overflow-hidden pointer-events-auto">
-                    <button id="canvasZoomIn" class="px-3 py-2 bg-white hover:bg-gray-100 font-black text-gray-700 border-b transition-colors">+</button>
-                    <button id="canvasZoomReset" class="px-3 py-2 bg-white hover:bg-gray-100 font-bold text-xs text-gray-500 border-b transition-colors">FIT</button>
-                    <button id="canvasZoomOut" class="px-3 py-2 bg-white hover:bg-gray-100 font-black text-gray-700 transition-colors">-</button>
-                </div>
-                <div id="drag-selection-box" class="hidden absolute bg-blue-500/20 border-2 border-blue-600 rounded-md pointer-events-none z-[40] backdrop-blur-[1px]"></div>
-            </div>
-            
-            <div id="calendar-container" class="hidden w-full p-2 md:p-4 bg-gray-50/90 flex-col overflow-x-auto">
-                <div class="grid grid-cols-7 gap-1 md:gap-2 mb-2 text-center font-bold text-gray-500 text-xs md:text-sm uppercase min-w-[500px]"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
-                <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2 flex-1 auto-rows-fr min-w-[500px]"></div>
-            </div>
-        </div>
+                    <div id="marathonControls" class="hidden flex gap-3 w-full">
+                        <button id="marathonCheckInBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg uppercase tracking-widest animate-pulse">CHECK IN NOW</button>
+                    </div>
 
-        <div id="focus" class="tab-content hidden bg-white/95 backdrop-blur-md p-4 md:p-6 rounded-lg shadow-lg w-full transition-all duration-500">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 id="activeBlockTitle" class="text-xl font-bold text-gray-800">🎯 Focus Mode</h2>
-                <div class="flex bg-gray-200 rounded-lg p-1 cursor-pointer w-full md:w-auto">
-                    <button id="modeStopwatch" class="flex-1 md:flex-none px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all">Stopwatch</button>
-                    <button id="modePomodoro" class="flex-1 md:flex-none px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all">Pomodoro</button>
-                    <button id="openMarathonModalBtn" class="flex-1 md:flex-none px-4 py-1 rounded bg-red-100 text-red-600 font-black text-sm hover:bg-red-200 transition-all ml-1">MARATHON</button>
-                </div>
-            </div>
-            
-            <div id="standardFocusConfig" class="mb-4 bg-gray-50 border p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm gap-4">
-                <div class="flex-1 w-full"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Study Subject</label><select id="focusSpontaneousSubject" class="w-full p-2 border rounded font-bold text-gray-700"></select></div>
-                <div class="flex items-end gap-2 w-full md:w-auto">
-                    <button id="pushBackTimerBtn" class="bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg font-bold shadow-md px-4 py-2 text-sm transition-colors flex items-center justify-center hidden">➡️ Push Back</button>
-                    <button id="finishTimerBtn" class="custom-action-btn rounded-lg font-bold shadow-md w-full md:w-auto px-4 py-2 hidden">🏁 Finish & Save</button>
-                </div>
-            </div>
+                    <div class="flex gap-2 w-full mt-3">
+                        <button id="finishTimerBtn" class="hidden flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow-md transition-colors text-sm uppercase tracking-wide">Finish & Save</button>
+                        <button id="pushBackTimerBtn" class="hidden flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-md transition-colors text-sm uppercase tracking-wide" onclick="document.getElementById('pushBackModal').classList.remove('hidden')">Push Back</button>
+                    </div>
 
-            <div class="flex flex-col items-center justify-center p-6 md:p-10 bg-gray-50 rounded-xl border-2 border-gray-100 relative h-72 md:h-96 w-full">
-                <div id="phaseIndicator" class="absolute top-4 bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider">Study Phase</div>
-                <div id="marathonStatusText" class="absolute top-12 text-red-600 font-black tracking-widest uppercase text-sm drop-shadow-sm"></div>
-                <div id="timerDisplay" class="text-6xl md:text-8xl font-bold font-mono text-gray-800 my-8 transition-colors">00:00</div>
-                <div id="standardTimerControls" class="flex gap-4">
-                    <button id="toggleTimerBtn" class="custom-action-btn rounded-lg font-bold shadow-md w-32">START</button>
-                    <button id="switchPhaseBtn" class="custom-action-btn rounded-lg font-bold shadow-md opacity-80">TAKE BREAK</button>
-                </div>
-                <div id="marathonControls" class="hidden flex gap-4">
-                    <button id="marathonCheckInBtn" class="hidden bg-green-500 hover:bg-green-600 text-white rounded-lg font-black px-6 py-3 shadow-xl animate-pulse uppercase tracking-wider w-48">CHECK IN NOW</button>
-                    <button id="abortMarathonBtn" class="bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-bold px-4 py-2 shadow-sm text-xs mt-4">ABORT EXAM</button>
+                    <div class="w-full mt-6 pt-6 border-t border-gray-100">
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tag Spontaneous Session</label>
+                        <select id="focusSpontaneousSubject" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 font-bold outline-none transition-colors hover:bg-gray-100"></select>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div id="stats" class="tab-content hidden bg-white/95 backdrop-blur-md rounded-lg shadow-lg p-4 md:p-6 w-full"><div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b pb-4 gap-4"><h2 class="text-2xl font-bold text-gray-800">📊 Advanced Analytics</h2><div id="fallbackButtons" class="hidden gap-2"><button id="fallbackAddBlockBtn" class="custom-action-btn rounded shadow-md text-xs">+ Add Block</button><button id="fallbackSettingsBtn" class="custom-action-btn rounded shadow-md text-xs">⚙️ Settings</button></div><div class="flex flex-wrap items-center gap-2 w-full md:w-auto"><select id="statsDateRange" class="p-2 border rounded font-bold text-gray-700 bg-gray-50 flex-1 md:flex-none"><option value="1">Today</option><option value="7" selected>Last 7 Days</option><option value="30">Last 30 Days</option><option value="custom">Custom Range...</option></select><div id="customDateInputs" class="hidden items-center gap-2 w-full md:w-auto"><input type="date" id="statsStart" class="p-2 border rounded text-xs md:text-sm flex-1"><span class="text-gray-400 font-bold">to</span><input type="date" id="statsEnd" class="p-2 border rounded text-xs md:text-sm flex-1"><button id="applyCustomStats" class="custom-action-btn rounded font-bold">Apply</button></div></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8"><div class="bg-blue-50 border border-blue-100 p-4 md:p-6 rounded-xl flex flex-col justify-center items-center"><h3 class="text-xs md:text-sm font-bold text-blue-400 uppercase tracking-wide">Total Study Time</h3><p id="statsTotalTime" class="text-3xl md:text-4xl font-black text-blue-700 mt-2">0h 0m</p></div><div class="bg-green-50 border border-green-100 p-4 md:p-6 rounded-xl flex flex-col justify-center items-center"><h3 class="text-xs md:text-sm font-bold text-green-400 uppercase tracking-wide">Daily Average</h3><p id="statsAvgTime" class="text-3xl md:text-4xl font-black text-green-700 mt-2">0h 0m</p></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8"><div class="col-span-1 lg:col-span-2 bg-white border border-gray-200 p-4 rounded-xl shadow-sm"><h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 text-center">Study Trend</h3><div class="relative w-full h-[200px] md:h-[250px]"><canvas id="trendBarChart"></canvas></div></div><div class="col-span-1 bg-white border border-gray-200 p-4 rounded-xl shadow-sm"><h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 text-center">Subject Allocation</h3><div class="relative w-full h-[200px] md:h-[250px]"><canvas id="subjectPieChart"></canvas></div></div></div></div>
-        <div id="exams" class="tab-content hidden bg-white/95 backdrop-blur-md rounded-lg shadow-lg p-4 md:p-6 w-full"><div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b pb-4 gap-4"><h2 class="text-2xl font-bold text-gray-800">🚨 Exam Deadlines</h2><button id="openAddExamBtn" class="custom-action-btn rounded-lg font-bold shadow-md w-full md:w-auto">+ Add Exam</button></div><div id="examsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>
-    </div>
-
-    <div id="daySlidePanel" class="fixed top-0 right-0 bottom-0 w-full md:w-96 bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.2)] border-l transform translate-x-full transition-transform duration-300 z-[10000] flex flex-col">
-        <div class="p-4 border-b bg-gray-50 flex justify-between items-center"><h3 id="slidePanelDate" class="font-bold text-lg text-blue-600">Date</h3><button id="closeSlidePanel" class="text-gray-400 hover:text-red-500 font-bold text-2xl">&times;</button></div>
-        <div class="p-4 border-b flex justify-between items-center"><div class="text-sm font-bold text-gray-500 uppercase">Total Logged</div><div id="slidePanelTotalTime" class="text-2xl font-black text-gray-800">0h 0m</div></div>
-        <div class="max-h-[40%] overflow-y-auto p-4 bg-gray-50/80 border-b"><h4 class="text-xs font-bold text-gray-400 uppercase mb-3">Agenda</h4><div id="slidePanelBlocks" class="flex flex-col gap-3"></div></div>
-        <div class="flex-1 flex flex-col p-4 bg-white"><h4 class="text-xs font-bold text-gray-400 uppercase mb-2">📝 Daily Diary</h4><textarea id="slidePanelDiary" class="flex-1 w-full p-3 border rounded-lg bg-gray-50 text-sm font-medium text-gray-700 resize-none focus:outline-none focus:border-blue-400 focus:bg-white transition-all" placeholder="Write your daily notes, thoughts, or reflections here..."></textarea></div>
-    </div>
-
-    <button id="openAddBlockModal" class="floating-widget" style="bottom: 30px; right: 30px;">+</button>
-    <button id="openSettingsBtn" class="floating-widget" style="top: 30px; right: 30px;">⚙️</button>
-
-    <div id="settingsPanel" class="fixed top-0 right-0 bottom-0 w-full md:w-96 bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.2)] border-l transform translate-x-full transition-transform duration-300 z-[10000] flex flex-col">
-        <div class="p-4 border-b bg-gray-50 flex justify-between items-center shadow-sm z-10"><h3 class="font-bold text-xl text-gray-800">⚙️ Settings</h3><button id="closeSettingsPanel" class="text-gray-400 hover:text-red-500 font-bold text-2xl">&times;</button></div>
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+        <div id="schedule" class="tab-content hidden h-full flex flex-col relative bg-gray-50">
             
-            <div class="p-4 border rounded-xl bg-gray-50">
-                <h3 class="text-sm font-black text-gray-700 uppercase mb-4 tracking-wide"><i class="fa-solid fa-music mr-2"></i>Flow State Audio</h3>
-                <div class="flex items-center justify-between mb-4">
-                    <span class="text-xs font-bold text-gray-600">Enable Auto-Play</span>
-                    <input type="checkbox" id="settingsAudioEnabled" class="w-4 h-4 text-blue-600 rounded" checked>
+            <div id="upNextBanner" class="hidden mx-4 mt-4 mb-2 p-4 rounded-2xl border-l-4 border-blue-500 bg-white shadow-md flex items-center justify-between cursor-pointer hover:bg-blue-50 transition-colors z-40 relative">
+                <div>
+                    <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-0.5">Up Next</div>
+                    <div id="upNextTitle" class="text-lg font-black text-gray-800 leading-tight">Physics Study</div>
+                    <div id="upNextTime" class="text-xs font-bold text-gray-500">14:00 - 16:00</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Starts In</div>
+                    <div id="upNextCountdown" class="text-2xl font-mono font-black text-blue-600 drop-shadow-sm">01:45:00</div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-white border-b shadow-sm z-40 flex justify-between items-center relative">
+                <div id="canvasControls" class="flex gap-2">
+                    <button id="prevDaysBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-left"></i></button>
+                    <button id="nextDaysBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-right"></i></button>
+                    <button id="centerTodayBtn" class="px-3 border rounded font-bold text-sm hover:bg-gray-50 text-gray-700 shadow-sm transition-colors">Today</button>
+                </div>
+                <div id="calendarControls" class="hidden flex items-center gap-3">
+                    <button id="prevMonthBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-left"></i></button>
+                    <span id="currentMonthLabel" class="font-black text-gray-800 min-w-[120px] text-center"></span>
+                    <button id="nextMonthBtn" class="p-2 border rounded hover:bg-gray-50 text-gray-600 transition-colors"><i class="fa fa-chevron-right"></i></button>
+                </div>
+                
+                <div class="flex gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-inner">
+                    <button id="viewCanvasBtn" class="px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action">Canvas</button>
+                    <button id="viewCalendarBtn" class="px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700">Calendar</button>
+                </div>
+
+                <div class="absolute right-4 top-full mt-2 flex flex-col gap-2 z-50">
+                    <button id="canvasZoomIn" class="w-8 h-8 bg-white border rounded shadow hover:bg-gray-50 font-bold text-gray-600">+</button>
+                    <button id="canvasZoomReset" class="w-8 h-8 bg-white border rounded shadow hover:bg-gray-50 font-bold text-xs text-gray-600">1x</button>
+                    <button id="canvasZoomOut" class="w-8 h-8 bg-white border rounded shadow hover:bg-gray-50 font-bold text-gray-600">-</button>
+                </div>
+            </div>
+            
+            <div id="canvas-container" class="flex-1 relative overflow-hidden bg-white touch-none will-change-transform">
+                <div id="canvas-grid"></div>
+                <div id="canvas-times"></div>
+                <div id="canvas-days"></div>
+                <div id="blocks-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+                <div id="canvas-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+            </div>
+
+            <div id="calendar-container" class="hidden flex-1 p-4 overflow-y-auto bg-gray-50 flex-col">
+                <div class="grid grid-cols-7 gap-1 md:gap-2 mb-2 text-center text-xs font-black text-gray-400 uppercase tracking-wider">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2 auto-rows-fr flex-1"></div>
+            </div>
+        </div>
+
+        <div id="marathon" class="tab-content hidden h-full p-4 md:p-8 bg-gray-50/50 flex flex-col items-center overflow-y-auto">
+            <div class="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
+                <div class="flex items-center gap-4 mb-6 border-b pb-4">
+                    <div class="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner"><i class="fa fa-fire"></i></div>
+                    <div>
+                        <h2 class="text-2xl font-black text-gray-800">Marathon Mode</h2>
+                        <p class="text-sm font-bold text-gray-500">Extreme focus. No mercy. 3 strikes and you're out.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-gray-50 p-4 rounded-xl border">
+                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Strikes</div>
+                        <div class="text-2xl font-black text-red-600" id="marathonStrikesDisplay">0 / 3</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl border">
+                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Phase</div>
+                        <div class="text-2xl font-black text-gray-800" id="marathonPhaseDisplay">0 / 0</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl border md:col-span-2">
+                        <div class="text-xs font-bold text-gray-400 uppercase mb-1">Status</div>
+                        <div class="text-lg font-black text-blue-600" id="marathonStatusDisplay">Ready to start</div>
+                    </div>
+                </div>
+
+                <button id="openMarathonModalBtn" class="w-full custom-action-btn font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg flex items-center justify-center gap-2">
+                    <i class="fa fa-cog"></i> Setup Marathon
+                </button>
+            </div>
+        </div>
+
+        <div id="stats" class="tab-content hidden h-full overflow-y-auto bg-gray-50 p-4 md:p-8">
+            <div class="max-w-6xl mx-auto space-y-6">
+                
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-end justify-between">
+                    <div class="w-full md:w-auto flex-1">
+                        <label class="block text-xs font-black text-gray-400 uppercase tracking-wider mb-2">Time Period</label>
+                        <select id="statsDateRange" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg p-2.5 font-bold outline-none cursor-pointer">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="all">All Time</option>
+                            <option value="custom">Custom Range...</option>
+                        </select>
+                    </div>
+                    <div id="customDateInputs" class="hidden w-full md:w-auto flex-col md:flex-row gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Start Date</label>
+                            <input type="date" id="statsStart" class="w-full p-2 border rounded font-bold text-sm text-gray-700 bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">End Date</label>
+                            <input type="date" id="statsEnd" class="w-full p-2 border rounded font-bold text-sm text-gray-700 bg-white">
+                        </div>
+                        <button id="applyCustomStats" class="mt-auto px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white font-bold rounded shadow transition-colors text-sm">Apply</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-md text-white relative overflow-hidden">
+                        <i class="fa fa-clock absolute right-[-20px] bottom-[-20px] text-8xl opacity-10"></i>
+                        <h3 class="text-sm font-black uppercase tracking-widest opacity-80 mb-1">Total Focus Time</h3>
+                        <div id="statsTotalTime" class="text-5xl font-black drop-shadow-sm">0h 0m</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl shadow-md text-white relative overflow-hidden">
+                        <i class="fa fa-fire absolute right-[-20px] bottom-[-20px] text-8xl opacity-10"></i>
+                        <h3 class="text-sm font-black uppercase tracking-widest opacity-80 mb-1">Daily Average</h3>
+                        <div id="statsAvgTime" class="text-5xl font-black drop-shadow-sm">0h 0m</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider mb-4 border-b pb-2">Focus Trend</h3>
+                        <div class="h-64"><canvas id="dailyBarChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider mb-4 border-b pb-2">Subject Distribution</h3>
+                        <div class="h-64 relative"><canvas id="subjectPieChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center border-b pb-4 mb-4">
+                        <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider">Exam Countdowns</h3>
+                        <button id="openAddExamBtn" class="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors">+ Add Exam</button>
+                    </div>
+                    <div id="examsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center border-b pb-4 mb-4">
+                        <h3 class="text-sm font-black text-gray-800 uppercase tracking-wider">Bulk Tools</h3>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button id="openBulkModalBtn" class="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold border border-purple-200 rounded shadow-sm text-sm transition-colors"><i class="fa fa-layer-group mr-2"></i>Generate Bulk Blocks</button>
+                        <button id="undoBulkBtn" class="hidden px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold border border-gray-200 rounded shadow-sm text-sm transition-colors"><i class="fa fa-undo mr-2"></i>Undo Last Bulk</button>
+                    </div>
+                </div>
+
+                <div id="fallbackButtons" class="hidden flex-col gap-2 mt-4">
+                    <button id="fallbackSettingsBtn" class="w-full px-4 py-4 bg-gray-800 text-white font-bold rounded-xl shadow transition-transform active:scale-95"><i class="fa fa-cog mr-2"></i> Open Settings & Preferences</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <button id="openSettingsBtn" class="floating-widget bottom-6 right-6 shadow-xl"><i class="fa fa-cog"></i></button>
+    <div id="settingsOverlay" class="hidden fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[9900] transition-opacity"></div>
+    <div id="settingsPanel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[10000] transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <div class="p-6 bg-gray-50 border-b flex justify-between items-center">
+            <h2 class="text-xl font-black text-gray-800 tracking-tight">Settings</h2>
+            <button id="closeSettingsPanel" class="text-gray-400 hover:text-gray-800 text-2xl transition-colors">&times;</button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-6 space-y-8">
+            
+            <div class="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Header & Branding</h3>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">App Title</label>
+                <input type="text" id="settingsAppTitle" class="w-full p-2 border rounded mb-3 font-bold text-sm" placeholder="Study Planner Pro">
+                
+                <div class="flex gap-4 mb-4">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Bg Color</label>
+                        <input type="color" id="settingsHeaderBg" class="w-full h-10 rounded border cursor-pointer" value="#ffffff">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Text Color</label>
+                        <input type="color" id="settingsHeaderTextColor" class="w-full h-10 rounded border cursor-pointer" value="#1f2937">
+                    </div>
+                </div>
+
+                <div class="p-3 border rounded-lg bg-gray-50 border-dashed">
+                    <label class="block text-xs font-bold text-gray-600 mb-2">Sticker Tray <span class="font-normal text-gray-400 text-[10px]">(Drag to Header! Double-click to delete)</span></label>
+                    <div class="flex gap-3 text-3xl flex-wrap cursor-grab" id="stickerTray">
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🔥</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">⭐</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">📚</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🚀</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">💯</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🎯</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">☕</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">💻</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">🏆</span>
+                        <span class="sticker-source hover:scale-125 transition-transform" draggable="true">✨</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Visual Theme</h3>
+                <div class="mb-3">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Background Type</label>
+                    <select id="settingsBgMode" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                        <option value="color">Solid Color</option>
+                        <option value="image">Image URL</option>
+                    </select>
+                </div>
+                <div id="settingsBgColorDiv" class="mb-3 flex items-center gap-3">
+                    <input type="color" id="settingsBgColor" class="w-10 h-10 rounded border cursor-pointer">
+                    <label class="text-xs font-bold text-gray-700">App Background Color</label>
+                </div>
+                <div id="settingsBgImageDiv" class="mb-3 hidden">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Image URL</label>
+                    <input type="text" id="settingsBgImage" class="w-full p-2 border rounded font-bold text-sm text-blue-600" placeholder="https://...">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Primary Color</label>
+                        <input type="color" id="settingsActionColor" class="w-full h-10 rounded border cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Button Size</label>
+                        <select id="settingsActionSize" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                            <option value="sm">Small</option><option value="md" selected>Medium</option><option value="lg">Large</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Floating Config (⚙️)</label>
+                    <select id="settingsFloatingBtn" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                        <option value="hidden">Hidden (Move to Analytics Tab)</option>
+                        <option value="xs">Extra Small</option><option value="sm">Small</option>
+                        <option value="md" selected>Medium</option><option value="lg">Large</option><option value="xl">Massive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border shadow-sm">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider">Subjects & Colors</h3>
+                </div>
+                <div id="settingsSubjectList" class="space-y-2 mb-2 max-h-48 overflow-y-auto pr-2"></div>
+                <p class="text-[10px] text-gray-400 font-bold italic">* Add new subjects via the "Add Block" modal.</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Pomodoro Defaults</h3>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Study (Mins)</label>
+                        <input type="number" id="settingsPStudy" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Break (Mins)</label>
+                        <input type="number" id="settingsPBreak" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Audio Environment</h3>
+                <div class="flex items-center gap-3 mb-4">
+                    <input type="checkbox" id="settingsAudioEnabled" class="w-5 h-5 accent-blue-600 rounded">
+                    <label class="text-sm font-bold text-gray-800">Enable Background Audio</label>
                 </div>
                 
                 <div class="mb-4">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Focus Soundtrack</label>
-                    <select id="settingsAudioSource" class="w-full p-2 border rounded text-xs font-bold bg-white text-gray-700">
-                        <option value="zen">Ambient Zen (Local)</option>
-                        <option value="lofi">Lofi Girl (YouTube)</option>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Volume Controller</label>
+                    <div class="flex items-center gap-3">
+                        <i class="fa fa-volume-down text-gray-400"></i>
+                        <input type="range" id="settingsAudioVolume" min="0" max="100" class="flex-1 accent-blue-600">
+                        <i class="fa fa-volume-up text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Focus Audio Source</label>
+                    <select id="settingsAudioSource" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                        <option value="none">None</option><option value="yt_rain">YT: Lofi Rain (jfKfPfyJRdk)</option>
+                        <option value="yt_cafe">YT: Cafe Vibes (BOAJDgqUeg0)</option><option value="yt_brown">YT: Brown Noise (RqzGzwTY-6w)</option>
+                        <option value="local_white">Local: White Noise</option><option value="local_nature">Local: Nature Stream</option>
                     </select>
                 </div>
 
                 <div class="mb-4">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Break Soundtrack</label>
-                    <select id="settingsAudioBreakSource" class="w-full p-2 border rounded text-xs font-bold bg-white text-gray-700">
-                        <option value="upbeat">Upbeat Gaming (YouTube)</option>
-                        <option value="silent">No Music (Silent Break)</option>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Break Audio Source</label>
+                    <select id="settingsAudioBreakSource" class="w-full p-2 border rounded font-bold text-sm bg-gray-50">
+                        <option value="none">None</option><option value="yt_rain">YT: Lofi Rain</option>
+                        <option value="yt_cafe">YT: Cafe Vibes</option><option value="yt_jazz">YT: Relaxing Jazz (kgx4WGK0oNU)</option>
+                        <option value="local_nature">Local: Nature Stream</option>
                     </select>
                 </div>
 
-                <div class="mb-4 border-t pt-4">
-                    <h4 class="text-xs font-bold text-gray-800 mb-1"><i class="fa-solid fa-cloud-arrow-up mr-1 text-blue-500"></i> My Audio Library</h4>
-                    <label class="block w-full border-2 border-dashed border-gray-300 hover:border-blue-500 bg-white text-center py-2 rounded cursor-pointer transition-colors mb-2">
-                        <span class="text-[10px] font-bold text-gray-600"><i class="fa-solid fa-plus mr-1"></i> Upload MP3</span>
-                        <input type="file" id="customAudioUpload" accept="audio/*" class="hidden">
-                    </label>
-                    <div id="customAudioList" class="flex flex-col gap-2 max-h-32 overflow-y-auto hide-scrollbar"></div>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Volume</label>
-                    <input type="range" id="settingsAudioVolume" min="0" max="100" class="w-full accent-blue-600">
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-2">Upload Custom Local Audio</label>
+                    <input type="file" id="customAudioUpload" accept="audio/*" class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                    <div id="customAudioList" class="mt-3 space-y-1"></div>
                 </div>
             </div>
-            
-            <div class="bg-blue-50 p-4 border border-blue-100 rounded-xl shadow-sm"><h4 class="font-black text-blue-700 border-b border-blue-200 pb-2 mb-4 text-sm uppercase tracking-wider">💾 Backup & Sync</h4><div class="flex flex-col gap-2"><button id="settingsExportBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded font-bold transition-colors shadow-sm">⬇️ Download Backup File</button><div class="relative w-full"><input type="file" id="settingsImportFile" accept=".json" class="hidden"><button id="settingsImportProxyBtn" class="w-full bg-white border-2 border-blue-600 text-blue-700 hover:bg-blue-50 p-2 rounded font-bold transition-colors shadow-sm">📂 Restore from File...</button></div></div></div>
-            <div class="bg-white p-4 border rounded-xl shadow-sm"><h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">🎨 Interface Sizes</h4><label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Standard Button Size</label><select id="settingsActionSize" class="w-full p-2 border rounded mb-3 bg-gray-50"><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option></select><label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Floating Badges (⚙️, +)</label><select id="settingsFloatingBtn" class="w-full p-2 border rounded mb-3 bg-gray-50"><option value="xs">Extra Tiny</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="hidden">Hidden (Move to Analytics)</option></select></div>
-            <div class="bg-white p-4 border rounded-xl shadow-sm"><h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">🎨 Colors & Themes</h4><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Background Mode</label><select id="settingsBgMode" class="w-full p-2 border rounded mb-3 bg-gray-50"><option value="color">Solid Color</option><option value="image">Custom Photo</option></select><div id="settingsBgColorDiv"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Background Color</label><input type="color" id="settingsBgColor" class="w-full h-10 border rounded cursor-pointer mb-3"></div><div id="settingsBgImageDiv" class="hidden"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Upload Photo</label><input type="file" accept="image/*" id="settingsBgImage" class="w-full p-2 border rounded text-xs mb-3 bg-gray-50"></div><label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Tab Buttons Color</label><input type="color" id="settingsTabColor" class="w-full h-10 border rounded cursor-pointer mb-3"><label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Action Button Color</label><input type="color" id="settingsActionColor" class="w-full h-10 border rounded cursor-pointer mb-3"><label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Banner Background</label><input type="color" id="settingsBannerBgColor" class="w-full h-10 border rounded cursor-pointer mb-3"><label class="block text-xs font-bold text-gray-500 uppercase mt-2 mb-1">Banner Text</label><input type="color" id="settingsBannerTextColor" class="w-full h-10 border rounded cursor-pointer mb-3"></div>
-            <div class="bg-white p-4 border rounded-xl shadow-sm"><h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">📚 Subjects</h4><div id="settingsSubjectList" class="flex flex-col gap-3 mb-4"></div><button id="settingsSaveSubjectsBtn" class="custom-action-btn w-full rounded font-bold shadow-sm">Save Subject Changes</button></div>
-            <div class="bg-white p-4 border rounded-xl shadow-sm"><h4 class="font-black text-gray-700 border-b pb-2 mb-4 text-sm uppercase tracking-wider">⏱️ Pomodoro</h4><div class="flex gap-4"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">Study (Mins)</label><input type="number" id="settingsPStudy" class="w-full p-2 border rounded text-center font-bold bg-gray-50"></div><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">Break (Mins)</label><input type="number" id="settingsPBreak" class="w-full p-2 border rounded text-center font-bold bg-gray-50"></div></div></div>
-            <button id="saveSettingsBtn" class="w-full bg-gray-800 text-white font-bold py-3 rounded-xl mt-4">Save All Settings</button>
+
+            <div class="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">Global Exam Banner</h3>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Banner Bg</label>
+                        <input type="color" id="settingsBannerBg" class="w-full h-10 rounded border cursor-pointer" value="#dc2626">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Banner Text</label>
+                        <input type="color" id="settingsBannerText" class="w-full h-10 rounded border cursor-pointer" value="#ffffff">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="p-6 border-t bg-white">
+            <button id="saveAllSettingsBtn" class="w-full custom-action-btn font-black rounded-xl py-4 shadow-xl transition-transform active:scale-95 text-lg flex items-center justify-center gap-2">
+                <i class="fa fa-save"></i> Save All Settings
+            </button>
         </div>
     </div>
 
-    <div id="marathonSetupModal" class="hidden fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-[450px] flex flex-col relative border-t-8 border-red-600">
-            <button id="closeMarathonModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
-            <h3 class="text-2xl font-black text-red-600 mb-2 uppercase tracking-wide">🚨 Marathon Mode</h3>
-            <p class="text-xs font-bold text-gray-500 mb-4 leading-tight">A strict, locked-in exam endurance simulator. Leaving this tab during an exam phase will result in a strike. 3 strikes voids the exam.</p>
-            <div class="flex gap-4 mb-4"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Start Time</label><input type="time" id="marathonStartTime" class="w-full p-2 border rounded-lg bg-gray-50 font-bold text-red-600" value="08:30"></div><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase mb-1"># of Phases</label><input type="number" id="marathonPhaseCount" class="w-full p-2 border rounded-lg bg-gray-50 font-bold text-gray-700" value="2" min="1" max="10"></div></div>
-            <div id="marathonPhaseList" class="flex flex-col gap-3 mb-6 max-h-[250px] overflow-y-auto pr-2 hide-scrollbar"></div>
-            <button id="saveMarathonBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-lg shadow-xl uppercase tracking-wider transition-all hover:scale-105">Commit & Lock In</button>
+    <div id="pushBackModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
+            <h2 class="text-xl font-black text-gray-800 mb-2">Push Back Schedule</h2>
+            <p class="text-sm font-bold text-gray-500 mb-6 border-b pb-4">Shift remaining blocks later.</p>
+            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Minutes to push back</label>
+            <input type="number" id="pushBackMins" class="w-full p-3 border rounded-xl font-bold text-lg text-gray-800 mb-6 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none" value="15">
+            <div class="flex justify-end gap-3">
+                <button id="cancelPushBackBtn" class="px-5 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition-colors">Cancel</button>
+                <button id="confirmPushBackBtn" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-md transition-colors">Confirm Push</button>
+            </div>
         </div>
     </div>
-
-    <div id="loginModal" class="hidden fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4"><div class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-[400px] flex flex-col relative"><button id="closeLoginModal" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button><h3 class="text-2xl font-black text-blue-600 mb-2">☁️ Cloud Sync</h3><p class="text-sm font-bold text-gray-500 mb-6">Create an account to automatically sync your planner across all your devices.</p><div id="authForms"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label><input type="email" id="authEmail" class="w-full p-2 border rounded-lg mb-4 bg-gray-50 font-bold" placeholder="you@example.com"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label><input type="password" id="authPassword" class="w-full p-2 border rounded-lg mb-6 bg-gray-50 font-bold" placeholder="••••••••"><div class="flex gap-2 mb-4"><button id="emailLoginBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition-colors">Log In</button><button id="emailSignupBtn" class="flex-1 bg-white border-2 border-blue-600 text-blue-700 hover:bg-blue-50 font-bold py-2 rounded-lg transition-colors">Sign Up</button></div><div class="relative flex py-2 items-center mb-4"><div class="flex-grow border-t border-gray-300"></div><span class="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold uppercase">Or continue with</span><div class="flex-grow border-t border-gray-300"></div></div><button id="googleLoginBtn" class="w-full bg-white border border-gray-300 shadow-sm hover:bg-gray-50 text-gray-700 font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"><img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5"> Google</button></div><div id="authUserDisplay" class="hidden text-center text-sm font-bold text-gray-700 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100"></div><button id="logoutBtn" class="hidden w-full bg-red-100 text-red-600 hover:bg-red-200 font-bold py-2 rounded-lg transition-colors">Log Out & Disconnect</button></div></div>
-    
-    <div id="addBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4"><div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-[450px]"><h3 class="text-xl font-bold mb-4">Add Study Block</h3><label class="block text-sm font-bold text-gray-700 mb-1">Subject</label><select id="newBlockSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select><div id="newBlockCustomSubjectDiv" class="hidden gap-4 mb-3 border p-3 rounded bg-gray-50"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">New Subject Name</label><input type="text" id="newBlockCustomName" class="w-full p-2 border rounded font-bold text-gray-700" placeholder="e.g. Art"></div><div class="w-20"><label class="block text-xs font-bold text-gray-500 uppercase">Color</label><input type="color" id="newBlockCustomColor" class="w-full h-10 border rounded cursor-pointer" value="#ff0000"></div></div><label class="block text-sm font-bold text-gray-700 mb-1">Specific Topic (Optional)</label><input type="text" id="newBlockTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Chapter 4 Review"><div class="flex gap-4 mb-4"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">Start Date</label><input type="date" id="newBlockStartDate" class="w-full p-2 border rounded font-bold text-gray-700 text-sm"></div><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">Start Time</label><input type="time" id="newBlockStart" class="w-full p-2 border rounded font-bold text-gray-700 text-sm"></div></div><div class="flex gap-4 mb-6"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">End Date</label><input type="date" id="newBlockEndDate" class="w-full p-2 border rounded font-bold text-gray-700 text-sm"></div><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">End Time</label><input type="time" id="newBlockEnd" class="w-full p-2 border rounded font-bold text-gray-700 text-sm"></div></div><div class="flex justify-end gap-2"><button id="cancelAddBlock" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button><button id="saveNewBlock" class="custom-action-btn rounded font-bold shadow-md">Save Block</button></div></div></div>
-
-    <div id="editBlockModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4"><div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-[500px]"><div class="flex justify-between items-center mb-4 border-b pb-2"><h3 class="text-xl font-bold">Edit Study Block</h3><span id="editBlockStatus" class="px-2 py-1 text-[10px] font-black uppercase rounded bg-gray-200 text-gray-600">Status</span></div><div class="flex gap-4 mb-3"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Subject</label><input type="text" id="editBlockSubject" class="w-full p-2 border rounded font-bold text-gray-500 bg-gray-100" disabled></div><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Topic</label><input type="text" id="editBlockTitle" class="w-full p-2 border rounded font-bold text-gray-700"></div></div><div class="bg-blue-50 border border-blue-100 p-3 rounded-lg mb-3"><h4 class="text-[10px] font-black text-blue-500 uppercase mb-2">Scheduled Times</h4><div class="flex gap-2 mb-2"><input type="date" id="editBlockStartDate" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700"><input type="time" id="editBlockStart" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700"></div><div class="flex gap-2"><input type="date" id="editBlockEndDate" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700"><input type="time" id="editBlockEnd" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700"></div></div><div class="bg-green-50 border border-green-100 p-3 rounded-lg mb-4"><h4 class="text-[10px] font-black text-green-600 uppercase mb-2">Real Logged Times</h4><div class="flex gap-2 mb-2"><input type="date" id="editBlockRealStartDate" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700 bg-white"><input type="time" id="editBlockRealStart" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700 bg-white"></div><div class="flex gap-2"><input type="date" id="editBlockRealEndDate" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700 bg-white"><input type="time" id="editBlockRealEnd" class="flex-1 p-2 border rounded text-xs md:text-sm font-bold text-gray-700 bg-white"></div><p id="editBlockRealWarning" class="text-[9px] text-gray-500 mt-1 font-bold hidden">*Real times can only be manually edited if the block is Completed.</p></div><label class="block text-xs font-bold text-gray-500 uppercase mb-1"<div class="mb-2 bg-gray-50 p-3 rounded-lg border">
-    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Estimated Study (Mins)</label>
-    <input type="number" id="editBlockStudyMins" class="w-full p-2 border rounded text-sm font-bold text-gray-700 bg-white" placeholder="e.g. 45">
-    <p id="editBlockRealWarning" class="text-[9px] text-red-500 mt-1 font-bold hidden"></p>
-</div>>Remarks</label><textarea id="editBlockRemarks" class="w-full p-2 border rounded mb-4 text-sm resize-none h-16" placeholder="Add notes or reflections about this session..."></textarea><div class="flex flex-col md:flex-row justify-between items-center mt-2 border-t pt-4 gap-2 md:gap-0"><button id="deleteEditBlock" class="w-full md:w-auto px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded font-bold transition-colors">🗑️ Delete Block</button><div class="flex gap-2 w-full md:w-auto"><button id="cancelEditBlock" class="flex-1 md:flex-none px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button><button id="saveEditBlock" class="flex-1 md:flex-none custom-action-btn rounded font-bold shadow-md">Save Changes</button></div></div></div></div>
-
-    <div id="pushBackModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4"><div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-[400px]"><h3 class="text-xl font-black mb-2 text-orange-600">➡️ Push Back Remaining Time</h3><p id="pushBackDesc" class="text-xs text-gray-500 font-bold mb-4">Your current progress will be saved. When do you want to schedule the remaining time?</p><div class="mb-4"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Remaining Duration (Mins)</label><input type="number" id="pushBackDuration" class="w-full p-2 border rounded font-bold text-lg bg-orange-50 text-orange-800"></div><div class="flex gap-4 mb-6"><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">New Date</label><input type="date" id="pushBackDate" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></div><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">New Time</label><input type="time" id="pushBackTime" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></div></div><div class="flex justify-end gap-2"><button id="cancelPushBackBtn" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button><button id="savePushBackBtn" class="bg-orange-500 hover:bg-orange-600 text-white rounded font-bold shadow-md px-4 py-2">Split & Schedule</button></div></div></div>
-
-    <div id="addExamModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4"><div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-[400px]"><h3 class="text-xl font-bold mb-4 text-red-600">🚨 Add Exam</h3><label class="block text-sm font-bold text-gray-700 mb-1">Subject</label><select id="newExamSubject" class="w-full p-2 border rounded mb-3 font-bold text-gray-700"></select><div id="newExamCustomSubjectDiv" class="hidden gap-4 mb-3 border p-3 rounded bg-gray-50"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">New Subject Name</label><input type="text" id="newExamCustomName" class="w-full p-2 border rounded font-bold text-gray-700"></div><div class="w-20"><label class="block text-xs font-bold text-gray-500 uppercase">Color</label><input type="color" id="newExamCustomColor" class="w-full h-10 border rounded cursor-pointer" value="#ff0000"></div></div><label class="block text-sm font-bold text-gray-700 mb-1">Exam Title (Optional)</label><input type="text" id="newExamTitle" class="w-full p-2 border rounded mb-4" placeholder="e.g. Final Paper 1"><div class="flex gap-4 mb-4"><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">Date</label><input type="date" id="newExamDate" class="w-full p-2 border rounded font-bold text-gray-700 text-sm"></div><div class="flex-1"><label class="block text-xs font-bold text-gray-500 uppercase">Time</label><input type="time" id="newExamTime" class="w-full p-2 border rounded font-bold text-gray-700 text-sm" value="09:00"></div></div><div class="flex items-center gap-2 bg-purple-50 border border-purple-200 p-3 rounded-lg mb-6"><input type="checkbox" id="newExamEbbinghaus" class="w-5 h-5 accent-purple-600" checked><label class="text-xs font-bold text-purple-800 leading-tight">Generate Spaced Repetition (Ebbinghaus) Ghost Blocks leading up to exam.</label></div><div class="flex justify-end gap-2"><button id="cancelAddExam" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button><button id="saveNewExam" class="custom-action-btn rounded font-bold shadow-md">Save Exam</button></div></div></div>
-
-    <div id="bulkScheduleModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[10010] flex items-center justify-center pointer-events-auto px-4"><div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-[500px]"><h3 class="text-xl font-black mb-2 text-purple-700">🪄 Smart Auto-Fill</h3><p class="text-xs text-gray-500 font-bold mb-4">Floods empty gaps in your schedule with Ghost Blocks.</p><div class="flex gap-4 mb-3"><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">From Date</label><input type="date" id="bulkStartDate" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></div><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">To Date</label><input type="date" id="bulkEndDate" class="w-full p-2 border rounded font-bold text-sm bg-gray-50"></div></div><div class="flex gap-4 mb-4"><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily Start</label><input type="time" id="bulkStartTime" class="w-full p-2 border rounded font-bold text-sm" value="09:00"></div><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Daily End</label><input type="time" id="bulkEndTime" class="w-full p-2 border rounded font-bold text-sm" value="18:00"></div></div><div class="flex gap-4 mb-4 bg-gray-50 p-3 rounded-lg border"><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Study (Mins)</label><input type="number" id="bulkStudy" class="w-full p-2 border rounded font-bold text-sm" value="50"></div><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Break (Mins)</label><input type="number" id="bulkBreak" class="w-full p-2 border rounded font-bold text-sm" value="10"></div></div><div class="flex items-center gap-2 mb-2"><input type="checkbox" id="bulkHasLunch" class="w-4 h-4 accent-purple-600" checked><label class="text-xs font-bold text-gray-700">Protect Lunch Break</label></div><div class="flex gap-4 mb-6" id="bulkLunchDiv"><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Lunch Time</label><input type="time" id="bulkLunchTime" class="w-full p-2 border rounded font-bold text-sm" value="12:00"></div><div class="flex-1"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Duration (Mins)</label><input type="number" id="bulkLunchDuration" class="w-full p-2 border rounded font-bold text-sm" value="60"></div></div><div class="flex justify-end gap-2"><button id="cancelBulkBtn" class="px-4 py-2 text-gray-600 bg-gray-200 rounded hover:bg-gray-300 font-bold">Cancel</button><button id="saveBulkBtn" class="bg-purple-600 hover:bg-purple-700 text-white rounded font-bold shadow-md px-4 py-2">Generate Blocks</button></div></div></div>
 
     <script type="module" src="js/App.js"></script>
 </body>
