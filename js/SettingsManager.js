@@ -75,6 +75,38 @@ class SettingsManager {
             this.sourceSelect.value = id;
             alert("Custom audio uploaded successfully!");
         });
+        // 🚨 BIND THE SUPPORT TICKET BUTTON
+        document.getElementById('sendSupportTicketBtn')?.addEventListener('click', async () => {
+            const msgInput = document.getElementById('supportTicketMsg');
+            const msg = msgInput.value.trim();
+            const btn = document.getElementById('sendSupportTicketBtn');
+            
+            if (!msg) {
+                alert("Please describe your issue first!");
+                return;
+            }
+
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
+            btn.disabled = true;
+
+            try {
+                // Dynamically import the function to avoid circular dependency issues
+                const { submitSupportTicket } = await import('./State.js');
+                await submitSupportTicket(msg);
+                
+                msgInput.value = '';
+                btn.innerHTML = '<i class="fa fa-check text-green-400"></i> Sent!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            } catch (e) {
+                alert("Failed to send message. Please try again.");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
     }
 
     async refreshCustomAudioDropdowns() {
