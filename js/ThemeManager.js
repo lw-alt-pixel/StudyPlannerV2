@@ -19,8 +19,9 @@ class ThemeManager {
             document.body.style.backgroundColor = theme.bgColor || '#f3f4f6';
         }
 
+        // 🚨 UI THEME FIX: The Tab Buttons now perfectly match your selected Action Color!
         root.style.setProperty('--action-color', theme.actionColor || '#3b82f6');
-        root.style.setProperty('--tab-color', theme.tabColor || '#3b82f6');
+        root.style.setProperty('--tab-color', theme.actionColor || '#3b82f6');
         
         // 🎯 EXTREME ACTION BUTTON SIZES (Overrides Tailwind)
         let padding = '0.5rem 1rem'; let fontSize = '0.875rem';
@@ -30,7 +31,7 @@ class ThemeManager {
         root.style.setProperty('--action-padding', padding);
         root.style.setProperty('--action-font-size', fontSize);
 
-        // 🎯 NEW: SEPARATE FLOATING BUTTON LOGIC
+        // 🎯 SEPARATE FLOATING BUTTON LOGIC
         const fStyle = theme.floatingBtn || 'md';
         const fBtns = [document.getElementById('openAddBlockModal'), document.getElementById('openSettingsBtn')];
         const fallback = document.getElementById('fallbackButtons');
@@ -46,9 +47,13 @@ class ThemeManager {
             if (fStyle === 'xs') { fSize = '2.5rem'; fFont = '1rem'; }
             else if (fStyle === 'sm') { fSize = '3rem'; fFont = '1.25rem'; }
             else if (fStyle === 'lg') { fSize = '5rem'; fFont = '2.25rem'; }
+            else if (fStyle === 'xl') { fSize = '6rem'; fFont = '3rem'; }
             
-            fBtns.forEach(b => { 
-                if(b) { b.style.width = fSize; b.style.height = fSize; b.style.fontSize = fFont; }
+            fBtns.forEach(b => {
+                if(b) {
+                    b.style.width = fSize; b.style.height = fSize; 
+                    b.style.fontSize = fFont;
+                }
             });
         }
     }
