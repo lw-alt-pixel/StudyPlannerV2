@@ -19,11 +19,10 @@ class ThemeManager {
             document.body.style.backgroundColor = theme.bgColor || '#f3f4f6';
         }
 
-        // 🚨 UI THEME FIX: The Tab Buttons now perfectly match your selected Action Color!
+        // 🚨 MASTER COLOR SYNCHRONIZATION
         root.style.setProperty('--action-color', theme.actionColor || '#3b82f6');
         root.style.setProperty('--tab-color', theme.actionColor || '#3b82f6');
         
-        // 🎯 EXTREME ACTION BUTTON SIZES (Overrides Tailwind)
         let padding = '0.5rem 1rem'; let fontSize = '0.875rem';
         if (theme.actionSize === 'sm') { padding = '0.3rem 0.6rem'; fontSize = '0.7rem'; }
         else if (theme.actionSize === 'lg') { padding = '0.8rem 1.6rem'; fontSize = '1.1rem'; }
@@ -31,7 +30,6 @@ class ThemeManager {
         root.style.setProperty('--action-padding', padding);
         root.style.setProperty('--action-font-size', fontSize);
 
-        // 🎯 SEPARATE FLOATING BUTTON LOGIC
         const fStyle = theme.floatingBtn || 'md';
         const fBtns = [document.getElementById('openAddBlockModal'), document.getElementById('openSettingsBtn')];
         const fallback = document.getElementById('fallbackButtons');
