@@ -63,13 +63,22 @@ class CanvasUI {
             this.timeLabels.style.zIndex = '100'; this.timeLabels.style.pointerEvents = 'none';
         }
 
-        if (this.layer && !document.getElementById('drag-selection-box')) {
+        if (!document.getElementById('drag-selection-box')) {
             const box = document.createElement('div');
             box.id = 'drag-selection-box';
             box.className = 'hidden absolute bg-blue-500/30 border-2 border-blue-600 rounded pointer-events-none z-40 backdrop-blur-[1px] transition-none';
-            this.layer.appendChild(box);
+            if(this.layer) this.layer.appendChild(box);
         }
 
+        if (!document.getElementById('block-tooltip')) {
+            const tooltip = document.createElement('div');
+            tooltip.id = 'block-tooltip';
+            tooltip.className = 'fixed z-[9999] pointer-events-none bg-gray-900/95 backdrop-blur-sm text-white rounded-xl shadow-2xl p-4 min-w-[200px] transition-opacity duration-150 opacity-0 border border-gray-700';
+            tooltip.style.top = '0px'; tooltip.style.left = '0px';
+            document.body.appendChild(tooltip);
+        }
+
+        // 🚨 FIX: ALL ghost calls to renderCalendar() have been scrubbed from this init flow!
         this.bindEvents();
 
         if (this.container) {
@@ -80,13 +89,15 @@ class CanvasUI {
         this.renderDailyAgenda();
 
         store.subscribe('blocks', () => {
-            if (this.container) this.renderBlocks();
+            if (this.container && !this.container.classList.contains('hidden')) {
+                this.renderBlocks();
+            }
             this.renderDailyAgenda();
         });
+        
         store.subscribe('activeTab', () => this.renderDailyAgenda());
     }
 
-    // 🚨 FIX 8: ZEN FULLSCREEN LOGIC
     toggleFullscreen(enable) {
         const header = document.getElementById('appHeader');
         const nav = document.getElementById('appNav');
@@ -99,23 +110,17 @@ class CanvasUI {
             header?.classList.add('hidden'); nav?.classList.add('hidden'); banner?.classList.add('hidden');
             scheduleTab?.classList.add('!fixed', '!inset-0', '!z-[9999]');
             
-            // Hide extraneous UI in the controls bar
             document.getElementById('prevDaysBtn')?.classList.add('hidden');
             document.getElementById('nextDaysBtn')?.classList.add('hidden');
             document.getElementById('fullscreenCanvasBtn')?.classList.add('hidden');
             
-            // Hide the Add/Canvas/Calendar toggle cluster
             const addToggleCluster = controlsBar?.querySelector('.items-center');
             if (addToggleCluster) addToggleCluster.classList.add('hidden');
 
             controlsBar?.classList.add('!bg-transparent', '!border-none', '!shadow-none', 'pointer-events-none');
-            
-            // Make surviving buttons clickable again
             document.getElementById('centerTodayBtn')?.classList.add('pointer-events-auto', 'bg-white', 'shadow-md');
             
             exitBtn?.classList.remove('hidden');
-            
-            // Auto snap to 15min zoom
             this.setZoom(2);
         } else {
             header?.classList.remove('hidden'); nav?.classList.remove('hidden'); banner?.classList.remove('hidden');
@@ -149,11 +154,15 @@ class CanvasUI {
         document.getElementById('prevDaysBtn')?.addEventListener('click', () => { this.panX += this.dayWidth * 3; this.updateTransform(); });
         document.getElementById('nextDaysBtn')?.addEventListener('click', () => { this.panX -= this.dayWidth * 3; this.updateTransform(); });
         
+        // 🚨 FIX: View Canvas button logic cleanly isolated!
         document.getElementById('viewCanvasBtn')?.addEventListener('click', () => {
             this.container?.classList.remove('hidden'); this.container?.classList.add('block');
             document.getElementById('calendar-container')?.classList.add('hidden'); document.getElementById('calendar-container')?.classList.remove('flex');
             document.getElementById('canvasControls')?.classList.remove('hidden'); document.getElementById('canvasControls')?.classList.add('flex');
             document.getElementById('calendarControls')?.classList.add('hidden'); document.getElementById('calendarControls')?.classList.remove('flex');
+            
+            const vcBtn = document.getElementById('viewCanvasBtn'); if (vcBtn) vcBtn.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
+            const vcalBtn = document.getElementById('viewCalendarBtn'); if(vcalBtn) vcalBtn.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         });
 
         if (!this.container) return;
@@ -373,10 +382,8 @@ class CanvasUI {
         let blocks = store.state.blocks.filter(b => b.startDate === todayStr && b.status !== 'completed');
         blocks.sort((a,b) => (a.scheduledStart || "").localeCompare(b.scheduledStart || ""));
 
-        // 🚨 FIX 6: Filter out the Up-Next duplicate!
         const banner = document.getElementById('upNextBanner');
         if (banner && !banner.classList.contains('hidden') && blocks.length > 0) {
-            // Find the closest chronological block that is being shown in the banner
             const nextBlock = blocks.find(b => {
                 const bTime = new Date(`${todayStr}T${b.scheduledStart}:00`);
                 const diff = bTime - new Date();
@@ -488,6 +495,7 @@ class CanvasUI {
         if (!this.blocksLayer) return;
         this.blocksLayer.innerHTML = '';
         const blocks = store.state.blocks;
+        const tooltip = document.getElementById('block-tooltip');
         const now = this.getChinaTime();
         
         blocks.forEach(b => {
@@ -536,14 +544,13 @@ class CanvasUI {
                     <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
                 `;
 
-                // 🚨 FIX 5: Canvas Grid Drag-and-Drop Rescheduling Engine!
                 if (b.status !== 'completed' && !isActive) {
                     let isDraggingBlock = false;
                     let dragStartX, dragStartY, initialLeft, initialTop;
 
                     el.addEventListener('pointerdown', (e) => {
                         if (e.target.closest('.action-btn')) return;
-                        e.stopPropagation(); // Stop Canvas Panning!
+                        e.stopPropagation(); 
                         
                         isDraggingBlock = true;
                         dragStartX = e.clientX; dragStartY = e.clientY;
@@ -565,7 +572,6 @@ class CanvasUI {
                         el.releasePointerCapture(e.pointerId);
                         el.classList.remove('z-[100]', 'opacity-80', 'scale-105');
 
-                        // Math to convert drop position back to Date & Time!
                         const finalLeft = parseFloat(el.style.left);
                         const finalTop = parseFloat(el.style.top);
 
@@ -602,7 +608,6 @@ class CanvasUI {
                         timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
                         return;
                     }
-                    // Only open edit modal if we didn't just drag!
                     if (Math.abs(parseFloat(el.style.left) - leftPx) < 5 && Math.abs(parseFloat(el.style.top) - topPx) < 5) {
                         this.openEditModal(b.id);
                     }
