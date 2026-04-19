@@ -136,21 +136,50 @@ export const audioDB = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async (user) => {
+    if (user) {
         currentUser = user;
-        const info = document.getElementById('userInfo');
-        const loginBtn = document.getElementById('openLoginModalBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
+        document.getElementById('loginModal').classList.add('hidden');
         
-        if (user) {
-            info.innerText = `Logged in as: ${user.email}`;
-            loginBtn.classList.add('hidden'); logoutBtn.classList.remove('hidden');
-            store.loadFromFirebase(user.uid);
-        } else {
-            info.innerText = "Local Mode (Not Synced)";
-            loginBtn.classList.remove('hidden'); logoutBtn.classList.add('hidden');
+        // 🚨 1. LISTEN FOR GLOBAL BROADCASTS IN REAL-TIME
+        onSnapshot(doc(db, 'server', 'broadcast'), (docSnap) => {
+            if (docSnap.exists()) {
+                store.update('broadcast', () => docSnap.data());
+            } else {
+                store.update('broadcast', () => null);
+            }
+        });
+
+        try {
+            const docRef = doc(db, 'users', user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if(data.blocks) store.update('blocks', () => data.blocks);
+                if(data.exams) store.update('exams', () => data.exams);
+                if(data.subjects) store.update('subjects', () => data.subjects);
+                if(data.settings) store.update('settings', () => data.settings);
+                if(data.diaries) store.update('diaries', () => data.diaries);
+                if(data.theme) store.update('theme', () => data.theme);
+                if(data.header) store.update('header', () => data.header);
+                
+                // 🚨 2. FETCH USER PROFILE (For the Bouncer!)
+                store.update('userProfile', () => ({
+                    email: user.email,
+                    status: data.status || 'active',
+                    role: data.role || 'user'
+                }));
+            }
+        } catch (e) {
+            console.error("Error fetching user data:", e);
         }
-    });
+    } else {
+        currentUser = null;
+        document.getElementById('loginModal').classList.remove('hidden');
+        document.getElementById('loginModal').classList.add('flex');
+        store.update('userProfile', () => null);
+    }
+});
 
     document.getElementById('openLoginModalBtn')?.addEventListener('click', () => document.getElementById('loginModal').classList.remove('hidden'));
     document.getElementById('cancelLoginBtn')?.addEventListener('click', () => document.getElementById('loginModal').classList.add('hidden'));
@@ -177,3 +206,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('logoutBtn')?.addEventListener('click', () => { signOut(auth); document.getElementById('loginModal').classList.add('hidden'); });
 });
+export const submitSupportTicket = async (message) => {
+    if (!currentUser) throw new Error("Must be logged in.");
+    try {
+        await addDoc(collection(db, 'supportTickets'), {
+            uid: currentUser.uid,
+            email: currentUser.email,
+            message: message,
+            status: 'open',
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error("Ticket Error:", e);
+        throw e;
+    }
+};
