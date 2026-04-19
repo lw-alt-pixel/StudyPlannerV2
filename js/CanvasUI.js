@@ -42,21 +42,18 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
-        // 🚨 1. DOM RE-PARENTING: Yank elements out of HTML traps and enforce correct layering!
         if (this.container) {
             if (this.gridBg) this.container.appendChild(this.gridBg);
             if (this.blocksLayer) this.container.appendChild(this.blocksLayer);
             if (this.layer) this.container.appendChild(this.layer);
-            // Append headers LAST so they sit physically above everything else in the DOM
             if (this.timeLabels) this.container.appendChild(this.timeLabels);
             if (this.daysHeader) this.container.appendChild(this.daysHeader);
         }
 
-        // 🚨 2. STYLE STRIPPING: Nuke the ancient "120px" inline styles causing the 00:00 gap!
         if (this.gridBg) {
             this.gridBg.style.top = '0px';
             this.gridBg.style.marginTop = '0px';
-            this.gridBg.style.backgroundPosition = '0 0'; // Force gradient to start exactly at 00:00
+            this.gridBg.style.backgroundPosition = '0 0'; 
         }
         if (this.blocksLayer) {
             this.blocksLayer.style.top = '0px';
@@ -297,13 +294,18 @@ class CanvasUI {
         const b = store.state.blocks.find(x => x.id === blockId);
         if (!b) return;
 
-        document.getElementById('editBlockSubject').value = b.subject || '';
-        document.getElementById('editBlockTitle').value = b.title || '';
-        document.getElementById('editBlockSchedStartDate').value = b.startDate || b.date || '';
-        document.getElementById('editBlockSchedStart').value = b.scheduledStart || '';
-        document.getElementById('editBlockSchedEndDate').value = b.endDate || b.startDate || b.date || '';
-        document.getElementById('editBlockSchedEnd').value = b.scheduledEnd || '';
-        document.getElementById('editBlockRemarks').value = b.remarks || '';
+        // 🚨 SAFE SETTER: Prevents "Cannot set properties of null" crashes!
+        const safeSet = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+
+        safeSet('editBlockSubject', b.subject || '');
+        safeSet('editBlockTitle', b.title || '');
+        safeSet('editBlockSchedStartDate', b.startDate || b.date || '');
+        
+        const cleanTime = (t) => t ? t.split(':').slice(0, 2).join(':') : "";
+        safeSet('editBlockSchedStart', cleanTime(b.scheduledStart || b.actualStart));
+        safeSet('editBlockSchedEndDate', b.endDate || b.startDate || b.date || '');
+        safeSet('editBlockSchedEnd', cleanTime(b.scheduledEnd || b.actualEnd));
+        safeSet('editBlockRemarks', b.remarks || '');
 
         const studyMins = document.getElementById('editBlockStudyMins');
         if(studyMins) studyMins.value = b.studySeconds ? Math.floor(b.studySeconds / 60) : 0;
@@ -459,15 +461,27 @@ class CanvasUI {
         
         blocks.forEach(b => {
             const bDateStr = b.startDate || b.date;
-            if (!bDateStr || !b.scheduledStart || !b.scheduledEnd) return; 
+            
+            // 🚨 FALLBACK LOGIC: Safely grab Actual Start/End if Scheduled is missing (Spontaneous Blocks)
+            const rawStart = b.scheduledStart || b.actualStart;
+            const rawEnd = b.scheduledEnd || b.actualEnd;
+            if (!bDateStr || !rawStart || !rawEnd) return; 
 
-            const bStart = new Date(`${bDateStr}T${b.scheduledStart}:00`);
-            const bEnd = new Date(`${b.endDate || bDateStr}T${b.scheduledEnd}:00`);
+            // 🚨 TIME CLEANER: Strips "HH:MM:SS" down to pure "HH:MM" to prevent Invalid Date crashes
+            const cleanTime = (t) => t.split(':').slice(0, 2).join(':');
+            const sTime = cleanTime(rawStart);
+            const eTime = cleanTime(rawEnd);
+
+            const bStart = new Date(`${bDateStr}T${sTime}:00`);
+            const bEnd = new Date(`${b.endDate || bDateStr}T${eTime}:00`);
             const diffDays = Math.round((new Date(bDateStr).setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
+            
+            let durationMins = (bEnd - bStart) / 60000;
+            if (durationMins <= 0) durationMins = 5; // Forces a visual box even if duration math is weird
             
             const leftPx = diffDays * this.dayWidth;
             const topPx = ((bStart.getHours() * 60) + bStart.getMinutes()) / 60 * this.pxPerHour * this.zoom;
-            const heightPx = ((bEnd - bStart) / 60000) / 60 * this.pxPerHour * this.zoom;
+            const heightPx = (durationMins / 60) * this.pxPerHour * this.zoom;
 
             const isActive = store.state.timer?.activeBlockId === b.id;
             let opacityClass = 'opacity-95';
@@ -495,7 +509,7 @@ class CanvasUI {
             `;
 
             el.addEventListener('mouseenter', () => {
-                tooltip.innerHTML = `<div class="text-[10px] font-black text-gray-400">${b.subject}</div><div class="text-base font-bold">${b.title || 'Focus'}</div><div class="text-xs text-blue-300">${b.scheduledStart} - ${b.scheduledEnd}</div>`;
+                tooltip.innerHTML = `<div class="text-[10px] font-black text-gray-400">${b.subject}</div><div class="text-base font-bold">${b.title || 'Focus'}</div><div class="text-xs text-blue-300">${sTime} - ${eTime}</div>`;
                 tooltip.style.opacity = '1';
             });
             el.addEventListener('mousemove', (e) => { tooltip.style.transform = `translate(${e.clientX + 15}px, ${e.clientY + 15}px)`; });
@@ -584,7 +598,11 @@ class CanvasUI {
         const container = document.getElementById('slidePanelBlocks');
         const totalEl = document.getElementById('slidePanelTotalTime');
         const blocks = store.state.blocks.filter(b => b.startDate === dateStr || b.date === dateStr);
-        blocks.sort((a, b) => (a.scheduledStart || "00:00").localeCompare(b.scheduledStart || "00:00"));
+        blocks.sort((a, b) => {
+            const aStart = a.scheduledStart || a.actualStart || "00:00";
+            const bStart = b.scheduledStart || b.actualStart || "00:00";
+            return aStart.localeCompare(bStart);
+        });
 
         let totalSecs = 0; container.innerHTML = '';
         if (blocks.length === 0) container.innerHTML = '<div class="text-xs text-gray-400 font-bold text-center italic py-4">No blocks scheduled.</div>';
@@ -593,12 +611,18 @@ class CanvasUI {
                 if (b.status === 'completed' || b.studySeconds > 0) totalSecs += (b.studySeconds || 0);
                 const subColor = store.state.subjects[b.subject] || '#3b82f6';
                 const opacity = b.status === 'completed' ? 'opacity-50' : '';
+                
+                // 🚨 TIME CLEANER FOR AGENDA
+                const cleanTime = (t) => t ? t.split(':').slice(0, 2).join(':') : "??:??";
+                const sTime = cleanTime(b.scheduledStart || b.actualStart);
+                const eTime = cleanTime(b.scheduledEnd || b.actualEnd);
+
                 container.innerHTML += `
                     <div class="agenda-item flex items-center gap-3 p-2 bg-white rounded border shadow-sm cursor-pointer hover:bg-gray-50 transition-colors ${opacity}" data-id="${b.id}">
                         <div class="w-3 h-full rounded-l" style="background-color: ${subColor}"></div>
                         <div class="flex-1">
-                            <div class="text-[10px] font-black text-gray-400">${b.scheduledStart} - ${b.scheduledEnd}</div>
-                            <div class="text-sm font-bold text-gray-800">${b.title || 'Focus'}</div>
+                            <div class="text-[10px] font-black text-gray-400">${sTime} - ${eTime}</div>
+                            <div class="text-sm font-bold text-gray-800">${b.title || b.subject || 'Focus'}</div>
                         </div>
                         ${b.status === 'completed' || b.studySeconds > 0 ? `<div class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">✓ ${Math.floor((b.studySeconds||0)/60)}m</div>` : ''}
                     </div>
