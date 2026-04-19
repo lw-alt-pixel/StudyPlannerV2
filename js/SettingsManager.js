@@ -6,6 +6,7 @@ class SettingsManager {
         this.panel = document.getElementById('settingsPanel');
         this.overlay = document.getElementById('settingsOverlay');
         this.subjectList = document.getElementById('settingsSubjectList');
+        
         this.bgMode = document.getElementById('settingsBgMode');
         this.bgColorDiv = document.getElementById('settingsBgColorDiv');
         this.bgImageDiv = document.getElementById('settingsBgImageDiv');
@@ -17,6 +18,38 @@ class SettingsManager {
         
         this.bindEvents();
         this.populateForms();
+        this.bindStickerTray();
+    }
+
+    bindStickerTray() {
+        const tray = document.querySelectorAll('.sticker-source');
+        const headerZone = document.getElementById('headerStickerZone');
+        
+        tray.forEach(s => {
+            s.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', e.target.innerText);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+
+        if (!headerZone) return;
+
+        headerZone.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        headerZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const emoji = e.dataTransfer.getData('text/plain');
+            if(!emoji) return;
+            
+            // 🚨 PERFECT PERCENTAGE MATH for Cross-Device Compatibility!
+            const rect = headerZone.getBoundingClientRect();
+            const pctX = ((e.clientX - rect.left) / rect.width) * 100;
+            const pctY = ((e.clientY - rect.top) / rect.height) * 100;
+            
+            store.update('header', h => ({
+                ...h,
+                stickers: [...h.stickers, { emoji, x: pctX, y: pctY, id: Date.now().toString() }]
+            }));
+        });
     }
 
     bindEvents() {
@@ -33,178 +66,165 @@ class SettingsManager {
         });
 
         this.bgMode?.addEventListener('change', (e) => {
-            if (e.target.value === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
-            else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
+            if (e.target.value === 'color') { this.bgColorDiv.classList.remove('hidden'); this.bgImageDiv.classList.add('hidden'); }
+            else { this.bgColorDiv.classList.add('hidden'); this.bgImageDiv.classList.remove('hidden'); }
         });
 
-        document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
-            this.saveSubjects();
-            this.saveSettings();
+        // 🚨 THE MASTER SAVE BUTTON
+        document.getElementById('saveAllSettingsBtn')?.addEventListener('click', () => {
+            this.saveAllSettings();
+            alert("All Settings Saved Successfully!");
             closeSettings();
         });
 
-        // 🚨 CUSTOM AUDIO UPLOAD BINDING
         this.customAudioUpload?.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            if (file.size > 20 * 1024 * 1024) return alert("File too large! Keep under 20MB.");
+            if (file.size > 15 * 1024 * 1024) return alert("File must be under 15MB");
             
-            const track = {
-                id: `custom_${Date.now()}`,
-                name: file.name,
-                blob: file
-            };
+            const id = 'custom_' + Date.now();
+            await audioDB.save(id, file);
+            await this.refreshCustomAudioDropdowns();
+            this.sourceSelect.value = id;
+            alert("Custom audio uploaded successfully!");
+        });
+    }
+
+    async refreshCustomAudioDropdowns() {
+        const ids = await audioDB.getAllIds();
+        
+        Array.from(this.sourceSelect.options).forEach(opt => { if(opt.value.startsWith('custom_')) opt.remove(); });
+        Array.from(this.breakSourceSelect.options).forEach(opt => { if(opt.value.startsWith('custom_')) opt.remove(); });
+        this.customAudioList.innerHTML = '';
+
+        ids.forEach(id => {
+            const timeStr = new Date(parseInt(id.split('_')[1])).toLocaleString();
             
-            try {
-                await audioDB.save(track);
-                alert(`${file.name} saved securely to your local library!`);
-                await this.renderCustomAudio();
-            } catch (err) {
-                console.error("Audio Save Error:", err);
-                alert("Failed to save audio. Your browser might be restricting storage.");
-            }
+            const opt1 = new Option(`Custom Audio (${timeStr})`, id);
+            const opt2 = new Option(`Custom Audio (${timeStr})`, id);
+            this.sourceSelect.add(opt1); this.breakSourceSelect.add(opt2);
+
+            const item = document.createElement('div');
+            item.className = 'flex justify-between items-center bg-gray-100 p-2 rounded text-sm mb-1';
+            item.innerHTML = `<span>Audio (${timeStr})</span> <button class="text-red-500 font-bold hover:underline delete-audio" data-id="${id}">Delete</button>`;
+            this.customAudioList.appendChild(item);
+        });
+
+        document.querySelectorAll('.delete-audio').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const idToDelete = e.target.dataset.id;
+                await audioDB.delete(idToDelete);
+                
+                if(store.state.audio.source === idToDelete) store.update('audio', a => ({...a, source: 'none'}));
+                if(store.state.audio.breakSource === idToDelete) store.update('audio', a => ({...a, breakSource: 'none'}));
+                
+                await this.refreshCustomAudioDropdowns();
+                this.populateForms();
+            });
         });
     }
 
     async populateForms() {
-        const theme = store.state.theme;
-        const settings = store.state.settings;
-        const audio = store.state.audio;
-
-        if(this.bgMode) this.bgMode.value = theme.bgType || 'color';
-        const bgColorEl = document.getElementById('settingsBgColor'); if(bgColorEl) bgColorEl.value = theme.bgColor || '#f3f4f6';
-        const bgImgEl = document.getElementById('settingsBgImage'); if(bgImgEl) bgImgEl.value = theme.bgImage || '';
-        const actionColEl = document.getElementById('settingsActionColor'); if(actionColEl) actionColEl.value = theme.actionColor || '#2563eb';
-        
-        const pStudyEl = document.getElementById('settingsPStudy'); if(pStudyEl) pStudyEl.value = settings.pStudy || 25;
-        const pBreakEl = document.getElementById('settingsPBreak'); if(pBreakEl) pBreakEl.value = settings.pBreak || 5;
-
-        const audioEnEl = document.getElementById('settingsAudioEnabled'); if(audioEnEl) audioEnEl.checked = audio.enabled;
-        const audioVolEl = document.getElementById('settingsAudioVolume'); if(audioVolEl) audioVolEl.value = audio.volume || 50;
-
-        if (theme.bgType === 'color') { this.bgColorDiv?.classList.remove('hidden'); this.bgImageDiv?.classList.add('hidden'); } 
-        else { this.bgColorDiv?.classList.add('hidden'); this.bgImageDiv?.classList.remove('hidden'); }
-
-        this.renderSubjectList();
-        
-        // Render Custom Audio Database
-        await this.renderCustomAudio();
-        
-        // Restore Select values after dynamically populating them
-        if(this.sourceSelect) this.sourceSelect.value = audio.source || 'lofi';
-        if(this.breakSourceSelect) this.breakSourceSelect.value = audio.breakSource || 'upbeat';
-    }
-
-    async renderCustomAudio() {
-        if (!this.customAudioList || !this.sourceSelect || !this.breakSourceSelect) return;
-        
-        try {
-            const tracks = await audioDB.getAll();
-            
-            // Render UI List
-            this.customAudioList.innerHTML = '';
-            if (tracks.length === 0) {
-                this.customAudioList.innerHTML = '<div class="text-[10px] text-gray-400 font-bold text-center italic py-2">No custom tracks uploaded yet.</div>';
-            }
-            
-            // Render Dropdowns
-            const injectOptions = (selectEl, optgroupLabel) => {
-                let optgroup = selectEl.querySelector(`optgroup[label="${optgroupLabel}"]`);
-                if (optgroup) optgroup.remove(); // Clear old custom options
-                
-                if (tracks.length > 0) {
-                    optgroup = document.createElement('optgroup');
-                    optgroup.label = optgroupLabel;
-                    tracks.forEach(t => {
-                        const opt = document.createElement('option');
-                        opt.value = t.id;
-                        opt.textContent = `🎵 ${t.name}`;
-                        optgroup.appendChild(opt);
-                    });
-                    selectEl.appendChild(optgroup);
-                }
-            };
-
-            injectOptions(this.sourceSelect, "My Uploaded Tracks");
-            injectOptions(this.breakSourceSelect, "My Uploaded Tracks");
-
-            // Build UI Elements
-            tracks.forEach(t => {
-                const row = document.createElement('div');
-                row.className = "flex justify-between items-center bg-white p-2 rounded border text-xs shadow-sm";
-                row.innerHTML = `
-                    <span class="font-bold text-gray-700 truncate mr-2" title="${t.name}">🎵 ${t.name}</span>
-                    <button class="delete-audio text-red-500 hover:text-red-700 font-black"><i class="fa-solid fa-trash"></i></button>
-                `;
-                
-                row.querySelector('.delete-audio').addEventListener('click', async () => {
-                    if(confirm("Delete this track?")) {
-                        await audioDB.delete(t.id);
-                        await this.renderCustomAudio();
-                    }
-                });
-                
-                this.customAudioList.appendChild(row);
-            });
-
-        } catch (e) {
-            console.error("Error rendering DB audio", e);
-        }
-    }
-
-    renderSubjectList() {
-        if (!this.subjectList) return;
+        const subs = store.state.subjects;
         this.subjectList.innerHTML = '';
-        Object.entries(store.state.subjects).forEach(([subName, subColor]) => {
+        Object.keys(subs).forEach(s => {
             this.subjectList.innerHTML += `
-                <div class="flex gap-2 items-center subject-row" data-oldname="${subName}">
-                    <input type="text" class="subject-name-input flex-1 p-2 border rounded font-bold text-gray-700 text-sm" value="${subName}">
-                    <input type="color" class="subject-color-input w-10 h-10 border rounded cursor-pointer" value="${subColor}">
+                <div class="flex items-center gap-2 mb-2 subject-row">
+                    <input type="text" class="sub-name flex-1 border p-1 rounded font-bold text-sm" value="${s}" data-old="${s}">
+                    <input type="color" class="sub-color w-8 h-8 rounded border" value="${subs[s]}">
+                    <button class="sub-del text-red-500 font-black px-2">&times;</button>
                 </div>
             `;
         });
+
+        document.querySelectorAll('.sub-del').forEach(btn => {
+            btn.addEventListener('click', (e) => e.target.closest('.subject-row').remove());
+        });
+
+        const st = store.state.settings;
+        document.getElementById('settingsPStudy').value = st.pStudy;
+        document.getElementById('settingsPBreak').value = st.pBreak;
+
+        await this.refreshCustomAudioDropdowns();
+
+        const au = store.state.audio;
+        document.getElementById('settingsAudioEnabled').checked = au.enabled;
+        document.getElementById('settingsAudioVolume').value = au.volume;
+        this.sourceSelect.value = au.source;
+        this.breakSourceSelect.value = au.breakSource;
+
+        const th = store.state.theme;
+        this.bgMode.value = th.bgType || 'color';
+        document.getElementById('settingsBgColor').value = th.bgColor || '#f3f4f6';
+        document.getElementById('settingsBgImage').value = th.bgImage || '';
+        document.getElementById('settingsActionColor').value = th.actionColor || '#3b82f6';
+        
+        document.getElementById('settingsActionSize').value = th.actionSize || 'md';
+        document.getElementById('settingsFloatingBtn').value = th.floatingBtn || 'md';
+        document.getElementById('settingsBannerBg').value = th.bannerBgColor || '#dc2626';
+        document.getElementById('settingsBannerText').value = th.bannerTextColor || '#ffffff';
+
+        // 🚨 POPULATE HEADER SETTINGS
+        const hd = store.state.header;
+        document.getElementById('settingsAppTitle').value = hd.title || 'Study Planner Pro';
+        document.getElementById('settingsHeaderBg').value = hd.bgColor || '#ffffff';
+        document.getElementById('settingsHeaderTextColor').value = hd.textColor || '#1f2937';
+
+        this.bgMode.dispatchEvent(new Event('change'));
     }
 
-    saveSubjects() {
-        const newSubjectsDict = {}; const renames = []; 
+    saveAllSettings() {
+        // 1. Save Subjects
+        const renames = []; const newSubs = {};
         document.querySelectorAll('.subject-row').forEach(row => {
-            const oldName = row.dataset.oldname;
-            const newName = row.querySelector('.subject-name-input').value.trim() || oldName;
-            const newColor = row.querySelector('.subject-color-input').value;
-            newSubjectsDict[newName] = newColor;
+            const oldName = row.querySelector('.sub-name').dataset.old;
+            const newName = row.querySelector('.sub-name').value.trim();
+            const color = row.querySelector('.sub-color').value;
+            if (!newName) return;
+            newSubs[newName] = color;
             if (oldName !== newName) renames.push({ old: oldName, new: newName });
         });
-        store.update('subjects', () => newSubjectsDict);
+        store.update('subjects', () => newSubs);
         if (renames.length > 0) {
             store.update('blocks', blocks => blocks.map(b => { const match = renames.find(r => r.old === b.subject); return match ? { ...b, subject: match.new } : b; }));
             store.update('exams', exams => exams.map(e => { const match = renames.find(r => r.old === e.subject); return match ? { ...e, subject: match.new } : e; }));
         }
-    }
 
-    saveSettings() {
-        const newTheme = {
-            ...store.state.theme,
+        // 2. Save Theme
+        store.update('theme', t => ({
+            ...t,
             bgType: this.bgMode.value,
             bgColor: document.getElementById('settingsBgColor').value,
             bgImage: document.getElementById('settingsBgImage').value,
-            actionColor: document.getElementById('settingsActionColor').value
-        };
-        store.update('theme', () => newTheme);
+            actionColor: document.getElementById('settingsActionColor').value,
+            actionSize: document.getElementById('settingsActionSize').value,
+            floatingBtn: document.getElementById('settingsFloatingBtn').value,
+            bannerBgColor: document.getElementById('settingsBannerBg').value,
+            bannerTextColor: document.getElementById('settingsBannerText').value
+        }));
 
-        const newSettings = {
-            ...store.state.settings,
+        // 3. Save Timer Setup
+        store.update('settings', s => ({
+            ...s,
             pStudy: parseInt(document.getElementById('settingsPStudy').value) || 25,
             pBreak: parseInt(document.getElementById('settingsPBreak').value) || 5
-        };
-        store.update('settings', () => newSettings);
+        }));
 
-        const newAudio = {
+        // 4. Save Audio
+        store.update('audio', a => ({
             enabled: document.getElementById('settingsAudioEnabled').checked,
             volume: parseInt(document.getElementById('settingsAudioVolume').value) || 50,
             source: document.getElementById('settingsAudioSource').value,
             breakSource: document.getElementById('settingsAudioBreakSource').value
-        };
-        store.update('audio', () => newAudio);
+        }));
+
+        // 5. Save Header & Branding
+        store.update('header', h => ({
+            ...h,
+            title: document.getElementById('settingsAppTitle').value || 'Study Planner Pro',
+            bgColor: document.getElementById('settingsHeaderBg').value || '#ffffff',
+            textColor: document.getElementById('settingsHeaderTextColor').value || '#1f2937'
+        }));
     }
 }
 export const settingsManager = new SettingsManager();
