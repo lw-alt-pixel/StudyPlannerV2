@@ -20,10 +20,10 @@
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* 🚨 Z-INDEX FIX: Grid and Blocks sit beneath the Headers! */
+/* 🚨 MASTER LAYER FIX: Grid explicitly locked below the new 40px Header Zone! */
 #canvas-grid {
     position: absolute;
-    top: 0;
+    top: 40px; 
     left: -36000px; 
     width: 72000px; 
     height: calc(24 * 60px * var(--zoom));
