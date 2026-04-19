@@ -30,6 +30,7 @@ class CanvasUI {
     init() {
         this.container = document.getElementById('canvas-container');
         this.layer = document.getElementById('canvas-layer');
+        this.gridBg = document.getElementById('canvas-grid');
         this.blocksLayer = document.getElementById('blocks-layer');
         this.timeLabels = document.getElementById('canvas-times');
         this.daysHeader = document.getElementById('canvas-days');
@@ -37,12 +38,23 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
+        // 🚨 Z-INDEX FIX: Ensure headers stay on top of the moving grid!
+        if (this.daysHeader) this.daysHeader.style.zIndex = '50';
+        if (this.timeLabels) this.timeLabels.style.zIndex = '40';
+
         if (!document.getElementById('block-tooltip')) {
             const tooltip = document.createElement('div');
             tooltip.id = 'block-tooltip';
             tooltip.className = 'fixed z-[9999] pointer-events-none bg-gray-900/95 backdrop-blur-sm text-white rounded-xl shadow-2xl p-4 min-w-[200px] transition-opacity duration-150 opacity-0 border border-gray-700';
             tooltip.style.top = '0px'; tooltip.style.left = '0px';
             document.body.appendChild(tooltip);
+        }
+
+        if (this.layer && !document.getElementById('drag-selection-box')) {
+            const box = document.createElement('div');
+            box.id = 'drag-selection-box';
+            box.className = 'hidden absolute bg-blue-500/30 border-2 border-blue-600 rounded pointer-events-none z-40 backdrop-blur-[1px] transition-none';
+            this.layer.appendChild(box);
         }
 
         this.bindEvents();
@@ -62,7 +74,6 @@ class CanvasUI {
     }
 
     bindEvents() {
-        // 🚨 FULLY RESTORED: All Top Bar & Navigation Buttons
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => this.setZoom(this.zoom * 1.5));
         document.getElementById('canvasZoomOut')?.addEventListener('click', () => this.setZoom(this.zoom / 1.5));
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => this.setZoom(1));
@@ -79,8 +90,6 @@ class CanvasUI {
             this.calendarContainer.classList.add('hidden'); this.calendarContainer.classList.remove('flex');
             document.getElementById('canvasControls').classList.remove('hidden'); document.getElementById('canvasControls').classList.add('flex');
             document.getElementById('calendarControls').classList.add('hidden'); document.getElementById('calendarControls').classList.remove('flex');
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         });
         
         document.getElementById('viewCalendarBtn')?.addEventListener('click', () => {
@@ -88,16 +97,13 @@ class CanvasUI {
             this.calendarContainer.classList.remove('hidden'); this.calendarContainer.classList.add('flex');
             document.getElementById('canvasControls').classList.add('hidden'); document.getElementById('canvasControls').classList.remove('flex');
             document.getElementById('calendarControls').classList.remove('hidden'); document.getElementById('calendarControls').classList.add('flex');
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
             this.renderCalendar();
         });
-        
+
         if (!this.container) return;
 
         this.container.addEventListener('pointerdown', (e) => {
             this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-            
             if (this.activePointers.size === 2) {
                 const pts = Array.from(this.activePointers.values());
                 this.initialPinchDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -128,7 +134,6 @@ class CanvasUI {
 
         window.addEventListener('pointermove', (e) => {
             if (this.activePointers.has(e.pointerId)) this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
             if (this.activePointers.size === 2) {
                 const pts = Array.from(this.activePointers.values());
                 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -138,8 +143,10 @@ class CanvasUI {
             }
 
             if (this.isSelecting) {
-                const layerRect = this.layer.getBoundingClientRect();
-                const canvasY = e.clientY - layerRect.top;
+                // 🚨 MATH FIX: Subtract panY so selection perfectly follows the mouse
+                const containerRect = this.container.getBoundingClientRect();
+                const canvasY = e.clientY - containerRect.top - this.panY;
+                
                 const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
                 let currentMin = Math.round(rawMin / this.currentZoomTier) * this.currentZoomTier;
                 
@@ -185,9 +192,13 @@ class CanvasUI {
         this.container.style.cursor = 'crosshair';
         if (this.longPressTimer) clearTimeout(this.longPressTimer);
 
-        const layerRect = this.layer.getBoundingClientRect();
-        this.selectColIndex = Math.floor((e.clientX - layerRect.left) / this.dayWidth); 
-        const rawMin = ((e.clientY - layerRect.top) / (this.pxPerHour * this.zoom)) * 60;
+        // 🚨 MATH FIX: Subtract panX and panY for surgical precision
+        const containerRect = this.container.getBoundingClientRect();
+        const canvasX = e.clientX - containerRect.left - this.panX;
+        const canvasY = e.clientY - containerRect.top - this.panY;
+        
+        this.selectColIndex = Math.floor(canvasX / this.dayWidth); 
+        const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
         this.selectStartMin = Math.floor(rawMin / this.currentZoomTier) * this.currentZoomTier;
         
         const box = document.getElementById('drag-selection-box');
@@ -221,9 +232,11 @@ class CanvasUI {
             
             const duration = Date.now() - this.pointerDownTime;
             if (!this.hasDragged && duration < 500 && !e.target.closest('.ypt-block')) {
-                const layerRect = this.layer.getBoundingClientRect();
-                const canvasX = e.clientX - layerRect.left;
-                const canvasY = e.clientY - layerRect.top;
+                
+                // 🚨 MATH FIX: Compensate for the scrolled container!
+                const containerRect = this.container.getBoundingClientRect();
+                const canvasX = e.clientX - containerRect.left - this.panX;
+                const canvasY = e.clientY - containerRect.top - this.panY;
                 
                 const colIdx = Math.floor(canvasX / this.dayWidth);
                 const rawMins = (canvasY / (this.pxPerHour * this.zoom)) * 60;
@@ -331,8 +344,15 @@ class CanvasUI {
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
         this.root.style.setProperty('--zoom', this.zoom);
 
+        // 🚨 MASTER SYNC: The Axes move independently to stay glued to the screen edges
         if (this.daysHeader) this.daysHeader.style.transform = `translateX(${this.panX}px)`;
         if (this.timeLabels) this.timeLabels.style.transform = `translateY(${this.panY}px)`;
+
+        // 🚨 MASTER SYNC: The Background Grid, Study Blocks, and Drag Box translate TOGETHER flawlessly!
+        const transformStr = `translate(${this.panX}px, ${this.panY}px)`;
+        if (this.gridBg) this.gridBg.style.transform = transformStr;
+        if (this.blocksLayer) this.blocksLayer.style.transform = transformStr;
+        if (this.layer) this.layer.style.transform = transformStr;
 
         if (this.currentZoomTier === 15) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)');
@@ -346,7 +366,6 @@ class CanvasUI {
         }
     }
 
-    // 🚨 FULLY RESTORED: Axis rendering
     renderHeaders() {
         if (!this.daysHeader || !this.timeLabels) return;
         this.daysHeader.innerHTML = ''; this.timeLabels.innerHTML = '';
@@ -356,7 +375,9 @@ class CanvasUI {
             const isToday = i === 0;
             const leftPx = i * this.dayWidth;
             const bgClass = isToday ? 'bg-blue-100 text-blue-700 rounded shadow-sm px-2 py-1' : 'text-gray-600';
-            this.daysHeader.innerHTML += `<div class="absolute text-center" style="left: ${leftPx}px; width: ${this.dayWidth}px; bottom: 4px;"><span class="inline-block ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
+            
+            // 🚨 LAYOUT FIX: Forced top:8px so it never gets lost off-screen!
+            this.daysHeader.innerHTML += `<div class="absolute text-center z-50 pointer-events-auto" style="left: ${leftPx}px; width: ${this.dayWidth}px; top: 8px;"><span class="inline-block ${bgClass} shadow-sm border border-gray-200/50 bg-white/90 backdrop-blur-sm">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
         }
 
         for (let h = 0; h <= 24; h++) {
@@ -376,13 +397,13 @@ class CanvasUI {
                 }
 
                 if (visibility.includes('block')) {
-                    this.timeLabels.innerHTML += `<div class="absolute w-full text-center ${fontClass} ${visibility} -translate-y-1/2" style="top: ${topPx}px;">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
+                    // 🚨 LAYOUT FIX: Locked to the right edge of the 60px time column
+                    this.timeLabels.innerHTML += `<div class="absolute right-2 text-right ${fontClass} ${visibility} -translate-y-1/2" style="top: ${topPx}px; width: 50px;">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
                 }
             }
         }
     }
 
-    // 🚨 FULLY RESTORED: Block Renderer with Play Button and Tooltips
     renderBlocks() {
         if (!this.blocksLayer) return;
         this.blocksLayer.innerHTML = '';
@@ -449,7 +470,6 @@ class CanvasUI {
         });
     }
 
-    // 🚨 FULLY RESTORED: Calendar Rendering 
     renderCalendar() {
         if (!this.calendarGrid || !this.calendarDisplay) return;
         const year = this.currentMonth.getFullYear();
@@ -497,7 +517,6 @@ class CanvasUI {
         if (b) this.openSlidePanelForDate(b.startDate || b.date);
     }
 
-    // 🚨 FULLY RESTORED: Slide Panel Logic
     openSlidePanelForDate(dateStr) {
         this.currentSlideDate = dateStr;
         const panel = document.getElementById('daySlidePanel');
