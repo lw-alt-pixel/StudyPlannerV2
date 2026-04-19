@@ -13,6 +13,11 @@ class CanvasUI {
         
         this.currentZoomTier = 60; 
         this.pxPerHour = 60; this.dayWidth = 180;
+        
+        // 🚨 The L-Shape Safe Zone Offsets
+        this.offsetX = 60; 
+        this.offsetY = 50; 
+        
         this.root = document.documentElement;
         
         this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
@@ -38,9 +43,14 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
-        // Force High Z-Index so Date headers NEVER get hidden again
-        if (this.daysHeader) this.daysHeader.style.zIndex = '50';
-        if (this.timeLabels) this.timeLabels.style.zIndex = '40';
+        // 🚨 Z-INDEX FIX: Force headers above the frosted glass!
+        if (this.daysHeader) {
+            this.daysHeader.style.zIndex = '100';
+            this.daysHeader.style.height = '50px'; // Force height to prevent clipping
+        }
+        if (this.timeLabels) {
+            this.timeLabels.style.zIndex = '100';
+        }
 
         if (!document.getElementById('block-tooltip')) {
             const tooltip = document.createElement('div');
@@ -146,9 +156,8 @@ class CanvasUI {
             }
 
             if (this.isSelecting) {
-                // 🚨 MATH FIX: Subtract 40px to account for the new Header Zone!
                 const containerRect = this.container.getBoundingClientRect();
-                const canvasY = e.clientY - containerRect.top - 40 - this.panY;
+                const canvasY = e.clientY - containerRect.top - this.panY - this.offsetY;
                 
                 const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
                 let currentMin = Math.round(rawMin / this.currentZoomTier) * this.currentZoomTier;
@@ -195,10 +204,9 @@ class CanvasUI {
         this.container.style.cursor = 'crosshair';
         if (this.longPressTimer) clearTimeout(this.longPressTimer);
 
-        // 🚨 MATH FIX: Subtract 40px Header Zone and Pan offset
         const containerRect = this.container.getBoundingClientRect();
-        const canvasX = e.clientX - containerRect.left - this.panX;
-        const canvasY = e.clientY - containerRect.top - 40 - this.panY; 
+        const canvasX = e.clientX - containerRect.left - this.panX - this.offsetX;
+        const canvasY = e.clientY - containerRect.top - this.panY - this.offsetY;
         
         this.selectColIndex = Math.floor(canvasX / this.dayWidth); 
         const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
@@ -236,17 +244,14 @@ class CanvasUI {
             const duration = Date.now() - this.pointerDownTime;
             if (!this.hasDragged && duration < 500 && !e.target.closest('.ypt-block')) {
                 
-                // 🚨 MATH FIX: Compensate for the 40px Header Zone to fix the "01:00 vs 00:00" bug!
                 const containerRect = this.container.getBoundingClientRect();
-                const canvasX = e.clientX - containerRect.left - this.panX;
-                const canvasY = e.clientY - containerRect.top - 40 - this.panY; 
+                const canvasX = e.clientX - containerRect.left - this.panX - this.offsetX;
+                const canvasY = e.clientY - containerRect.top - this.panY - this.offsetY;
                 
+                if (canvasX < 0 || canvasY < 0) return; // Prevent clicks inside the sticky header zone!
+
                 const colIdx = Math.floor(canvasX / this.dayWidth);
                 const rawMins = (canvasY / (this.pxPerHour * this.zoom)) * 60;
-                
-                // Prevent negative minutes if user somehow clicks directly in the header
-                if (rawMins < 0) return; 
-
                 const snappedMins = Math.floor(rawMins / this.currentZoomTier) * this.currentZoomTier;
 
                 this.openAddBlockModal(colIdx, snappedMins, snappedMins + this.currentZoomTier);
@@ -317,12 +322,11 @@ class CanvasUI {
         if (!mouseY) mouseY = this.container ? this.container.clientHeight / 2 : 0;
 
         const containerRect = this.container ? this.container.getBoundingClientRect() : { top: 0 };
-        // 🚨 MATH FIX: Accurate scaling anchor using the 40px offset
-        const yInGrid = mouseY - containerRect.top - 40 - this.panY;
-        const timeAtCursor = yInGrid / (this.pxPerHour * this.zoom);
+        const yInContainer = mouseY - containerRect.top - this.offsetY;
+        const timeAtCursor = (yInContainer - this.panY) / (this.pxPerHour * this.zoom);
 
         this.zoom = newZoom;
-        this.panY = (mouseY - containerRect.top - 40) - (timeAtCursor * (this.pxPerHour * this.zoom));
+        this.panY = yInContainer - (timeAtCursor * (this.pxPerHour * this.zoom));
 
         if (this.zoom >= 2) this.currentZoomTier = 15;
         else if (this.zoom >= 1) this.currentZoomTier = 30;
@@ -334,7 +338,7 @@ class CanvasUI {
     clampPan() {
         if (!this.container) return;
         const totalHeight = 24 * this.pxPerHour * this.zoom;
-        const viewportHeight = this.container.clientHeight - 40; // Visible area minus header
+        const viewportHeight = this.container.clientHeight - this.offsetY; 
 
         if (this.panY > 0) this.panY = 0; 
 
@@ -352,22 +356,13 @@ class CanvasUI {
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
         this.root.style.setProperty('--zoom', this.zoom);
 
-        // 🚨 LAYOUT FIX: Days header strictly stays at top:0px, leaving room for dates.
-        if (this.daysHeader) {
-            this.daysHeader.style.transform = `translateX(${this.panX}px)`;
-            this.daysHeader.style.top = '0px'; 
-        }
+        if (this.daysHeader) this.daysHeader.style.transform = `translateX(${this.panX + this.offsetX}px)`;
+        if (this.timeLabels) this.timeLabels.style.transform = `translateY(${this.panY + this.offsetY}px)`;
 
-        // 🚨 LAYOUT FIX: Everything else is physically pushed down 40px to create the Header Zone
-        if (this.timeLabels) {
-            this.timeLabels.style.transform = `translateY(${this.panY}px)`;
-            this.timeLabels.style.top = '40px'; 
-        }
-        
-        const transformStr = `translate(${this.panX}px, ${this.panY}px)`;
-        if (this.gridBg) { this.gridBg.style.transform = transformStr; this.gridBg.style.top = '40px'; }
-        if (this.blocksLayer) { this.blocksLayer.style.transform = transformStr; this.blocksLayer.style.top = '40px'; }
-        if (this.layer) { this.layer.style.transform = transformStr; this.layer.style.top = '40px'; }
+        const transformStr = `translate(${this.panX + this.offsetX}px, ${this.panY + this.offsetY}px)`;
+        if (this.gridBg) this.gridBg.style.transform = transformStr;
+        if (this.blocksLayer) this.blocksLayer.style.transform = transformStr;
+        if (this.layer) this.layer.style.transform = transformStr;
 
         if (this.currentZoomTier === 15) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)');
@@ -388,11 +383,14 @@ class CanvasUI {
         for (let i = -100; i <= 100; i++) {
             const d = new Date(this.baseDate.getTime() + (i * 86400000));
             const isToday = i === 0;
-            const leftPx = i * this.dayWidth;
-            const bgClass = isToday ? 'bg-blue-100 text-blue-700 rounded shadow-sm px-2 py-1' : 'text-gray-600';
+            const bgClass = isToday ? 'bg-blue-100 text-blue-700 rounded shadow-sm px-2 py-1' : 'text-gray-600 bg-white/95 shadow-sm border border-gray-200/50 rounded-full px-3 py-1 backdrop-blur-md';
             
-            // Beautiful Date Header pushed to top: 8px inside its dedicated zone
-            this.daysHeader.innerHTML += `<div class="absolute text-center z-50 pointer-events-auto" style="left: ${leftPx}px; width: ${this.dayWidth}px; top: 8px;"><span class="inline-block ${bgClass} shadow-sm border border-gray-200/50 bg-white/90 backdrop-blur-sm">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
+            const leftPx = i * this.dayWidth;
+            this.daysHeader.innerHTML += `
+                <div class="absolute flex items-center justify-center pointer-events-auto" style="left: ${leftPx}px; width: ${this.dayWidth}px; top: 0px; height: ${this.offsetY}px;">
+                    <span class="inline-block text-xs font-bold ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span>
+                </div>
+            `;
         }
 
         for (let h = 0; h <= 24; h++) {
@@ -412,7 +410,7 @@ class CanvasUI {
                 }
 
                 if (visibility.includes('block')) {
-                    this.timeLabels.innerHTML += `<div class="absolute right-2 text-right ${fontClass} ${visibility} -translate-y-1/2" style="top: ${topPx}px; width: 50px;">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
+                    this.timeLabels.innerHTML += `<div class="absolute right-2 text-right ${fontClass} ${visibility} -translate-y-1/2" style="top: ${topPx}px; width: ${this.offsetX - 8}px;">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
                 }
             }
         }
