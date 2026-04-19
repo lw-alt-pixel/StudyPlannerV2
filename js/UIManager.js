@@ -18,7 +18,7 @@ class UIManager {
     renderTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => { 
             el.classList.add('hidden'); 
-            el.classList.remove('block', 'flex'); 
+            el.classList.remove('flex', 'flex-col'); 
         });
         
         const activeContent = document.getElementById(tabId);
@@ -43,11 +43,11 @@ class UIManager {
         const main = document.getElementById('appMain');
         
         if (tabId === 'schedule') {
-            // Lock body so Canvas drag panning doesn't bounce the whole browser window!
+            // Lock body so Canvas drag panning works flawlessly
             body.classList.add('h-[100dvh]', 'overflow-hidden');
             main.classList.add('min-h-0');
         } else {
-            // Unlock body so you can scroll the entire webpage naturally!
+            // Unlock body so Focus, Exam, and Analytics tabs scroll the whole webpage naturally!
             body.classList.remove('h-[100dvh]', 'overflow-hidden');
             main.classList.remove('min-h-0');
         }
