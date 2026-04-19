@@ -13,7 +13,7 @@ class CanvasUI {
         this.initialPinchDistance = null; this.initialPinchZoom = null; this.pinchCenterY = null;
         this.hasPinched = false;
         
-        this.currentZoomTier = 60; // Dynamic interval: 60, 30, or 15
+        this.currentZoomTier = 60; 
         this.pxPerHour = 60; this.dayWidth = 180;
         this.root = document.documentElement;
         
@@ -21,7 +21,6 @@ class CanvasUI {
         this.currentMonth = new Date(this.baseDate); this.currentMonth.setDate(1); 
         this.currentSlideDate = null;
         
-        // 🚨 PRECISION MULTI-SELECT VARIABLES
         this.isSelecting = false;
         this.selectStartX = 0; this.selectStartMin = 0; this.selectColIndex = 0;
         this.longPressTimer = null;
@@ -43,7 +42,6 @@ class CanvasUI {
         this.calendarGrid = document.getElementById('calendar-grid');
         this.calendarDisplay = document.getElementById('currentMonthLabel');
 
-        // Dynamically inject the Drag-Select UI Box
         if (this.layer && !document.getElementById('drag-selection-box')) {
             const box = document.createElement('div');
             box.id = 'drag-selection-box';
@@ -67,7 +65,6 @@ class CanvasUI {
     }
 
     bindEvents() {
-        // Top Bar Controls
         document.getElementById('canvasZoomIn')?.addEventListener('click', () => this.setZoom(this.zoom * 1.5));
         document.getElementById('canvasZoomOut')?.addEventListener('click', () => this.setZoom(this.zoom / 1.5));
         document.getElementById('canvasZoomReset')?.addEventListener('click', () => this.setZoom(1));
@@ -109,7 +106,6 @@ class CanvasUI {
 
             if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return;
 
-            // 🚨 Desktop Shift+Drag OR Mobile Long-Press trigger Selection
             if (e.shiftKey) {
                 this.startSelection(e);
                 return;
@@ -121,12 +117,11 @@ class CanvasUI {
             this.container.style.cursor = 'grabbing';
             this.pointerDownTime = Date.now();
 
-            // Mobile Long Press (0.5s) to trigger drag-select
             if (e.pointerType === 'touch') {
                 this.longPressTimer = setTimeout(() => {
                     if (!this.hasDragged && this.isPanning) {
                         this.isPanning = false;
-                        if (navigator.vibrate) navigator.vibrate(50); // Haptic Feedback
+                        if (navigator.vibrate) navigator.vibrate(50);
                         this.startSelection(e);
                     }
                 }, 500);
@@ -148,7 +143,6 @@ class CanvasUI {
                 const layerRect = this.layer.getBoundingClientRect();
                 const canvasY = e.clientY - layerRect.top;
                 
-                // Calculate time using the zoomed pixel ratio
                 const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
                 let currentMin = Math.round(rawMin / this.currentZoomTier) * this.currentZoomTier;
                 
@@ -201,7 +195,6 @@ class CanvasUI {
         
         this.selectColIndex = Math.floor(canvasX / this.dayWidth); 
         
-        // Snap to current zoom tier
         const rawMin = (canvasY / (this.pxPerHour * this.zoom)) * 60;
         this.selectStartMin = Math.floor(rawMin / this.currentZoomTier) * this.currentZoomTier;
         
@@ -235,7 +228,6 @@ class CanvasUI {
             this.container.style.cursor = 'grab';
             
             const duration = Date.now() - this.pointerDownTime;
-            // Normal Click-to-Schedule
             if (!this.hasDragged && duration < 500 && !e.target.closest('.ypt-block')) {
                 const layerRect = this.layer.getBoundingClientRect();
                 const canvasX = e.clientX - layerRect.left;
@@ -269,9 +261,8 @@ class CanvasUI {
         }
     }
 
-    // 🚨 PERFECTED ANCHOR-POINT ZOOM MATH
     setZoom(newZoom, mouseX, mouseY) {
-        if (newZoom < 0.5) newZoom = 0.5; // Prevent breaking the CSS grid
+        if (newZoom < 0.5) newZoom = 0.5; 
         if (newZoom > 4) newZoom = 4;
         
         if (!mouseY) mouseY = this.container.clientHeight / 2;
@@ -279,15 +270,11 @@ class CanvasUI {
         const containerRect = this.container.getBoundingClientRect();
         const yInContainer = mouseY - containerRect.top;
 
-        // Calculate exact unscaled minute currently under the pointer
         const timeAtCursor = (yInContainer - this.panY) / (this.pxPerHour * this.zoom);
 
         this.zoom = newZoom;
-
-        // Re-adjust panY to force the same minute to remain under the pointer!
         this.panY = yInContainer - (timeAtCursor * (this.pxPerHour * this.zoom));
 
-        // Update Dynamic Zoom Tiers for precise snapping and visibility
         if (this.zoom >= 2) this.currentZoomTier = 15;
         else if (this.zoom >= 1) this.currentZoomTier = 30;
         else this.currentZoomTier = 60;
@@ -298,12 +285,10 @@ class CanvasUI {
     }
 
     updateTransform() {
-        // Notice we only translate. The blocks and CSS handles the scaling naturally without distorting fonts!
         this.root.style.setProperty('--pan-x', `${this.panX}px`);
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
         this.root.style.setProperty('--zoom', this.zoom);
 
-        // Control Grid Visibility Dynamically
         if (this.currentZoomTier === 15) {
             this.root.style.setProperty('--grid-30', 'rgba(0,0,0,0.06)');
             this.root.style.setProperty('--grid-15', 'rgba(0,0,0,0.04)');
@@ -322,7 +307,6 @@ class CanvasUI {
         this.updateTransform(); this.renderHeaders(); this.renderBlocks();
     }
 
-    // 🚨 DYNAMIC Y-AXIS LABEL GENERATOR (15m, 30m, 60m)
     renderHeaders() {
         if (!this.daysHeader || !this.timesSidebar) return;
         this.daysHeader.innerHTML = ''; this.timesSidebar.innerHTML = '';
@@ -335,25 +319,18 @@ class CanvasUI {
             this.daysHeader.innerHTML += `<div class="absolute text-center" style="left: ${leftPx}px; width: ${this.dayWidth}px; bottom: 4px;"><span class="inline-block ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
         }
 
-        // Loop every 15 minutes to generate appropriate labels
         for (let h = 0; h < 24; h++) {
             for (let m = 0; m < 60; m += 15) {
                 const topPx = (h + m/60) * this.pxPerHour * this.zoom;
-                
                 let visibility = 'opacity-0 hidden';
                 let fontClass = 'text-[10px] font-bold text-gray-400';
                 
-                // Show standard hour markers
                 if (m === 0) {
                     visibility = 'opacity-100 block';
                     fontClass = 'text-xs font-black text-gray-600';
-                } 
-                // Show 30min markers if zoomed past 1x
-                else if (m === 30 && this.currentZoomTier <= 30) {
+                } else if (m === 30 && this.currentZoomTier <= 30) {
                     visibility = 'opacity-100 block';
-                } 
-                // Show 15/45min markers if zoomed past 2x
-                else if ((m === 15 || m === 45) && this.currentZoomTier === 15) {
+                } else if ((m === 15 || m === 45) && this.currentZoomTier === 15) {
                     visibility = 'opacity-100 block';
                 }
 
@@ -424,7 +401,6 @@ class CanvasUI {
     }
 
     renderCalendar() {
-        // [Existing functioning Calendar logic here - unmodified]
         if (!this.calendarGrid || !this.calendarDisplay) return;
         const year = this.currentMonth.getFullYear();
         const month = this.currentMonth.getMonth();
@@ -458,15 +434,67 @@ class CanvasUI {
             cell.className = `min-h-[80px] p-1 border rounded-lg ${bgClass} flex flex-col cursor-pointer transition-colors shadow-sm`;
             cell.innerHTML = `<div class="text-[10px] font-black ${textClass} mb-1 pl-1">${day}</div><div class="flex-1 flex flex-col gap-0.5">${blocksHtml}</div>`;
             
+            // 🚨 CORRECTED: Now strictly opens the slide panel
             cell.addEventListener('click', () => {
-                document.getElementById('viewCanvasBtn')?.click();
-                const targetDate = new Date(dateStr);
-                const diffDays = Math.round((targetDate.getTime() - this.baseDate.getTime()) / 86400000);
-                this.panX = -(diffDays * this.dayWidth) + (this.container.clientWidth / 2) - (this.dayWidth / 2);
-                this.updateTransform();
+                this.openSlidePanelForDate(dateStr);
             });
             this.calendarGrid.appendChild(cell);
         }
+    }
+
+    openSlidePanel(blockId) {
+        if (!blockId) return;
+        const b = store.state.blocks.find(x => x.id === blockId);
+        if (b) this.openSlidePanelForDate(b.startDate || b.date);
+    }
+
+    openSlidePanelForDate(dateStr) {
+        this.currentSlideDate = dateStr;
+        const panel = document.getElementById('daySlidePanel');
+        const overlay = document.getElementById('diaryOverlay');
+        if (!panel || !overlay) return;
+
+        const dateObj = new Date(dateStr + "T00:00:00");
+        document.getElementById('slidePanelDate').innerText = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+        this.renderSlidePanelBlocks(dateStr);
+        this.renderSlidePanelDiary(dateStr);
+
+        panel.classList.remove('translate-x-full'); overlay.classList.remove('hidden');
+        document.getElementById('closeSlidePanel')?.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
+        overlay.addEventListener('click', () => { panel.classList.add('translate-x-full'); overlay.classList.add('hidden'); }, {once: true});
+    }
+
+    renderSlidePanelBlocks(dateStr) {
+        const container = document.getElementById('slidePanelBlocks');
+        const totalEl = document.getElementById('slidePanelTotalTime');
+        const blocks = store.state.blocks.filter(b => b.startDate === dateStr || b.date === dateStr);
+        blocks.sort((a, b) => (a.scheduledStart || "00:00").localeCompare(b.scheduledStart || "00:00"));
+
+        let totalSecs = 0; container.innerHTML = '';
+        if (blocks.length === 0) container.innerHTML = '<div class="text-xs text-gray-400 font-bold text-center italic py-4">No blocks scheduled.</div>';
+        else {
+            blocks.forEach(b => {
+                if (b.status === 'completed') totalSecs += (b.studySeconds || 0);
+                const subColor = store.state.subjects[b.subject] || '#3b82f6';
+                const opacity = b.status === 'completed' ? 'opacity-50' : '';
+                container.innerHTML += `
+                    <div class="flex items-center gap-3 p-2 bg-white rounded border shadow-sm ${opacity}">
+                        <div class="w-3 h-full rounded-l" style="background-color: ${subColor}"></div>
+                        <div class="flex-1"><div class="text-[10px] font-black text-gray-400">${b.scheduledStart} - ${b.scheduledEnd}</div><div class="text-sm font-bold text-gray-800">${b.title}</div></div>
+                        ${b.status === 'completed' ? `<div class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">✓ ${Math.floor((b.studySeconds||0)/60)}m</div>` : ''}
+                    </div>
+                `;
+            });
+        }
+        totalEl.innerText = `${Math.floor(totalSecs / 3600)}h ${Math.floor((totalSecs % 3600) / 60)}m`;
+    }
+
+    renderSlidePanelDiary(dateStr) {
+        const diaryEl = document.getElementById('slidePanelDiary');
+        if (!diaryEl) return;
+        diaryEl.value = store.state.diaries[dateStr] || '';
+        diaryEl.oninput = (e) => store.update('diaries', d => ({ ...d, [dateStr]: e.target.value }));
     }
 }
 
