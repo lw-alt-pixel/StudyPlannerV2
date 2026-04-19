@@ -19,7 +19,7 @@ class CanvasUI {
         
         this.baseDate = this.getChinaTime(); this.baseDate.setHours(0,0,0,0);
         
-        // 🚨 NEW: Edge Auto-Panning State Variables
+        // Edge Auto-Panning & Phantom State
         this.isSelecting = false;
         this.selectStartAbsMin = 0; 
         this.selectEndAbsMin = 0;
@@ -75,11 +75,19 @@ class CanvasUI {
             this.timeLabels.style.zIndex = '100'; this.timeLabels.style.pointerEvents = 'none';
         }
 
+        // 🚨 OVERNIGHT SELECTION & PHANTOM LAYERS
         if (!document.getElementById('drag-selection-layer')) {
             const layerBox = document.createElement('div');
             layerBox.id = 'drag-selection-layer';
             layerBox.className = 'absolute top-0 left-0 w-full h-full pointer-events-none z-40';
             if(this.layer) this.layer.appendChild(layerBox);
+        }
+        
+        if (!document.getElementById('phantom-layer')) {
+            const pLayer = document.createElement('div');
+            pLayer.id = 'phantom-layer';
+            pLayer.className = 'absolute top-0 left-0 w-full h-full pointer-events-none z-30 opacity-90';
+            if(this.layer) this.layer.appendChild(pLayer);
         }
 
         if (!document.getElementById('block-tooltip')) {
@@ -152,7 +160,7 @@ class CanvasUI {
         this.updateTransform();
     }
 
-    // 🚨 NEW: The engine that acts like a conveyor belt when you hold at the edge!
+    // 🚨 Conveyor Belt Engine
     autoPanLoop() {
         if (!this.isSelecting) {
             this.isAutoPanning = false;
@@ -162,9 +170,6 @@ class CanvasUI {
         if (this.autoPanVector.x !== 0 || this.autoPanVector.y !== 0) {
             this.panX += this.autoPanVector.x;
             this.panY += this.autoPanVector.y;
-            this.updateTransform();
-            
-            // Constantly recalculate the math while panning!
             this.updateSelection(this.lastPointer.x, this.lastPointer.y);
         }
         
@@ -174,17 +179,20 @@ class CanvasUI {
     updateSelection(clientX, clientY) {
         const containerRect = this.container.getBoundingClientRect();
         
-        // This math is unconstrained, allowing it to span into the next day perfectly!
-        const canvasX = clientX - containerRect.left - this.panX - this.offsetX;
+        // 🚨 X is locked, but Y is unconstrained to allow Phantom Bleed!
+        const startCol = Math.floor(this.selectStartAbsMin / 1440);
+        const lockedCanvasX = startCol * this.dayWidth + (this.dayWidth / 2);
         const canvasY = clientY - containerRect.top - this.panY - this.offsetY;
         
-        const rawAbs = this.getAbsoluteMin(canvasX, canvasY);
+        const rawAbs = this.getAbsoluteMin(lockedCanvasX, canvasY);
         let endAbs = Math.round(rawAbs / this.currentZoomTier) * this.currentZoomTier;
         
         if (endAbs <= this.selectStartAbsMin) endAbs = this.selectStartAbsMin + this.currentZoomTier;
         this.selectEndAbsMin = endAbs;
         
+        this.updateTransform(); // Dynamically recalculates the floor so you can keep dragging
         this.renderSelectionBox();
+        this.renderPhantomGrid();
     }
 
     bindEvents() {
@@ -235,6 +243,7 @@ class CanvasUI {
 
             if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return;
             
+            // 🚨 Start Selection & Conveyor Belt
             if (e.shiftKey) { 
                 this.isSelecting = true;
                 this.container.style.cursor = 'crosshair';
@@ -248,7 +257,6 @@ class CanvasUI {
                 this.selectStartAbsMin = Math.floor(rawAbs / this.currentZoomTier) * this.currentZoomTier;
                 this.selectEndAbsMin = this.selectStartAbsMin + this.currentZoomTier;
                 
-                // 🚨 Start the Conveyor Belt Engine!
                 if (!this.isAutoPanning) {
                     this.isAutoPanning = true;
                     this.autoPanLoop();
@@ -273,6 +281,7 @@ class CanvasUI {
                 return;
             }
 
+            // Update Conveyor Belt Vectors
             if (this.isSelecting) {
                 this.lastPointer = { x: e.clientX, y: e.clientY };
                 
@@ -280,7 +289,6 @@ class CanvasUI {
                 const margin = 50; 
                 let dx = 0; let dy = 0;
                 
-                // Set the speed of the conveyor belt based on edge proximity
                 if (e.clientX < rect.left + margin) dx = 15;
                 else if (e.clientX > rect.right - margin) dx = -15;
                 
@@ -288,7 +296,6 @@ class CanvasUI {
                 else if (e.clientY > rect.bottom - margin) dy = -15;
                 
                 this.autoPanVector = { x: dx, y: dy };
-                
                 this.updateSelection(e.clientX, e.clientY);
                 return;
             }
@@ -303,6 +310,54 @@ class CanvasUI {
 
         window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
         window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
+    }
+
+    // 🚨 NEW: THE PHANTOM DIMENSION RENDERER
+    renderPhantomGrid() {
+        const pLayer = document.getElementById('phantom-layer');
+        if (!pLayer) return;
+        
+        if (!this.isSelecting) {
+            pLayer.innerHTML = '';
+            return;
+        }
+
+        const startAbs = Math.min(this.selectStartAbsMin, this.selectEndAbsMin);
+        const endAbs = Math.max(this.selectStartAbsMin, this.selectEndAbsMin);
+        const startCol = Math.floor(startAbs / 1440);
+        const dayEndAbs = (startCol + 1) * 1440;
+
+        if (endAbs <= dayEndAbs) {
+            pLayer.innerHTML = '';
+            return;
+        }
+
+        // We crossed midnight! Build the Phantom Dimension!
+        const leftPx = startCol * this.dayWidth;
+        const topPx = 24 * this.pxPerHour * this.zoom; // Physical bottom of the Canvas
+        const bleedMins = endAbs - dayEndAbs;
+        const hoursToDraw = Math.max(4, Math.ceil(bleedMins / 60) + 1); 
+        
+        let html = '';
+        
+        // Dark purple overlay block to indicate Phantom Space
+        html += `
+            <div class="absolute border-x border-b border-purple-300 border-dashed bg-purple-100/40" 
+                 style="left: ${leftPx}px; top: ${topPx}px; width: ${this.dayWidth}px; height: ${(hoursToDraw * this.pxPerHour * this.zoom)}px;">
+                <div class="text-center text-[10px] font-black text-purple-600 mt-2 tracking-widest uppercase bg-white/70 py-1 rounded mx-2 shadow-sm">Next Day (Phantom)</div>
+            </div>
+        `;
+
+        // Render translucent time labels extending into the abyss
+        for (let h = 0; h <= hoursToDraw; h++) {
+            const y = topPx + (h * this.pxPerHour * this.zoom);
+            html += `<div class="absolute border-t border-purple-300 border-dashed w-full opacity-60" style="left: ${leftPx}px; top: ${y}px; width: ${this.dayWidth}px;"></div>`;
+            if (h > 0) {
+                html += `<div class="absolute text-[10px] font-bold text-purple-500 right-2 -translate-y-1/2 opacity-70" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(h).padStart(2, '0')}:00</div>`;
+            }
+        }
+        
+        pLayer.innerHTML = html;
     }
 
     renderSelectionBox() {
@@ -328,7 +383,7 @@ class CanvasUI {
                 const leftPx = d * this.dayWidth;
                 
                 const box = document.createElement('div');
-                box.className = 'absolute bg-blue-500/30 border-2 border-blue-600 rounded backdrop-blur-[1px] pointer-events-none';
+                box.className = 'absolute bg-blue-500/40 border-2 border-blue-600 rounded backdrop-blur-[1px] pointer-events-none shadow-inner z-50';
                 box.style.left = `${leftPx}px`;
                 box.style.top = `${topPx}px`;
                 box.style.width = `${this.dayWidth - 4}px`;
@@ -345,8 +400,11 @@ class CanvasUI {
             this.isSelecting = false;
             this.autoPanVector = { x: 0, y: 0 };
             this.container.style.cursor = 'grab';
-            const layer = document.getElementById('drag-selection-layer');
-            if (layer) layer.innerHTML = '';
+            
+            const selLayer = document.getElementById('drag-selection-layer');
+            const phanLayer = document.getElementById('phantom-layer');
+            if (selLayer) selLayer.innerHTML = '';
+            if (phanLayer) phanLayer.innerHTML = ''; // Vaporize Phantom Grid!
             
             let startAbs = this.selectStartAbsMin;
             let endAbs = this.selectEndAbsMin;
@@ -356,6 +414,9 @@ class CanvasUI {
             const startMin = startAbs % 1440;
             const endCol = Math.floor(endAbs / 1440);
             const endMin = endAbs % 1440;
+            
+            // Clean up the camera transform now that the Phantom block is gone
+            this.updateTransform();
             
             this.openAddBlockModal(startCol, startMin, endCol, endMin);
             
@@ -458,9 +519,21 @@ class CanvasUI {
         this.updateTransform(); this.renderHeaders(); this.renderBlocks();
     }
 
+    // 🚨 REBUILT: updateTransform dynamically expands the floor to allow Phantom Bleeds!
     updateTransform() {
         if (!this.container) return;
-        const totalHeight = 24 * this.pxPerHour * this.zoom;
+        
+        let extraHeight = 0;
+        if (this.isSelecting) {
+            const startCol = Math.floor(this.selectStartAbsMin / 1440);
+            const dayEndAbs = (startCol + 1) * 1440;
+            if (this.selectEndAbsMin > dayEndAbs) {
+                // Expand the physical boundaries of the canvas to allow the camera to scroll into the Phantom Space!
+                extraHeight = ((this.selectEndAbsMin - dayEndAbs) / 60) * this.pxPerHour * this.zoom + 300; 
+            }
+        }
+        
+        const totalHeight = (24 * this.pxPerHour * this.zoom) + extraHeight;
         const viewportHeight = this.container.clientHeight - this.offsetY; 
 
         if (this.panY > 0) this.panY = 0; 
