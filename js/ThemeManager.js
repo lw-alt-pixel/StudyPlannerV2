@@ -33,7 +33,6 @@ class ThemeManager {
                 el.style.top = `${s.y}%`;
                 el.style.transform = 'translate(-50%, -50%)';
                 
-                // 🚨 APPLY CUSTOM SIZE
                 const fontSize = s.size ? s.size : 3;
                 el.style.fontSize = `${fontSize}rem`;
                 
@@ -57,9 +56,6 @@ class ThemeManager {
                     let newX = ((e.clientX - zoneRect.left) / zoneRect.width) * 100;
                     let newY = ((e.clientY - zoneRect.top) / zoneRect.height) * 100;
                     
-                    newX = Math.max(0, Math.min(100, newX));
-                    newY = Math.max(0, Math.min(100, newY));
-                    
                     el.style.left = `${newX}%`;
                     el.style.top = `${newY}%`;
                 });
@@ -71,6 +67,17 @@ class ThemeManager {
                     el.classList.add('cursor-grab', 'transition-transform', 'hover:scale-110');
                     el.classList.remove('cursor-grabbing');
                     
+                    const zoneRect = zone.getBoundingClientRect();
+                    const dropX = e.clientX;
+                    const dropY = e.clientY;
+
+                    // 🚨 VAPORIZER LOGIC: If dropped outside the header boundaries, delete it!
+                    if (dropY < zoneRect.top - 20 || dropY > zoneRect.bottom + 20 || dropX < zoneRect.left - 20 || dropX > zoneRect.right + 20) {
+                        store.update('header', state => ({ ...state, stickers: state.stickers.filter(x => x.id !== s.id) }));
+                        return;
+                    }
+
+                    // Otherwise, permanently save new coordinates
                     const finalX = parseFloat(el.style.left);
                     const finalY = parseFloat(el.style.top);
                     
