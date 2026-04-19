@@ -98,6 +98,12 @@ class CanvasUI {
             this.layer.appendChild(box);
         }
 
+        // Apply initial color to the active toggle
+        const vcb = document.getElementById('viewCanvasBtn');
+        if (vcb && vcb.classList.contains('text-blue-600')) {
+            vcb.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
+        }
+
         this.bindEvents();
 
         if (this.container) {
@@ -131,7 +137,9 @@ class CanvasUI {
             this.calendarContainer.classList.add('hidden'); this.calendarContainer.classList.remove('flex');
             document.getElementById('canvasControls').classList.remove('hidden'); document.getElementById('canvasControls').classList.add('flex');
             document.getElementById('calendarControls').classList.add('hidden'); document.getElementById('calendarControls').classList.remove('flex');
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
+            
+            // 🚨 COLOR FIX
+            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
             document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         });
         
@@ -140,7 +148,9 @@ class CanvasUI {
             this.calendarContainer.classList.remove('hidden'); this.calendarContainer.classList.add('flex');
             document.getElementById('canvasControls').classList.add('hidden'); document.getElementById('canvasControls').classList.remove('flex');
             document.getElementById('calendarControls').classList.remove('hidden'); document.getElementById('calendarControls').classList.add('flex');
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-blue-600";
+            
+            // 🚨 COLOR FIX
+            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
             document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
             this.renderCalendar();
         });
@@ -294,7 +304,6 @@ class CanvasUI {
         const b = store.state.blocks.find(x => x.id === blockId);
         if (!b) return;
 
-        // 🚨 SAFE SETTER: Prevents "Cannot set properties of null" crashes!
         const safeSet = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
 
         safeSet('editBlockSubject', b.subject || '');
@@ -462,12 +471,10 @@ class CanvasUI {
         blocks.forEach(b => {
             const bDateStr = b.startDate || b.date;
             
-            // 🚨 FALLBACK LOGIC: Safely grab Actual Start/End if Scheduled is missing (Spontaneous Blocks)
             const rawStart = b.scheduledStart || b.actualStart;
             const rawEnd = b.scheduledEnd || b.actualEnd;
             if (!bDateStr || !rawStart || !rawEnd) return; 
 
-            // 🚨 TIME CLEANER: Strips "HH:MM:SS" down to pure "HH:MM" to prevent Invalid Date crashes
             const cleanTime = (t) => t.split(':').slice(0, 2).join(':');
             const sTime = cleanTime(rawStart);
             const eTime = cleanTime(rawEnd);
@@ -477,7 +484,7 @@ class CanvasUI {
             const diffDays = Math.round((new Date(bDateStr).setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
             
             let durationMins = (bEnd - bStart) / 60000;
-            if (durationMins <= 0) durationMins = 5; // Forces a visual box even if duration math is weird
+            if (durationMins <= 0) durationMins = 5; 
             
             const leftPx = diffDays * this.dayWidth;
             const topPx = ((bStart.getHours() * 60) + bStart.getMinutes()) / 60 * this.pxPerHour * this.zoom;
@@ -612,7 +619,6 @@ class CanvasUI {
                 const subColor = store.state.subjects[b.subject] || '#3b82f6';
                 const opacity = b.status === 'completed' ? 'opacity-50' : '';
                 
-                // 🚨 TIME CLEANER FOR AGENDA
                 const cleanTime = (t) => t ? t.split(':').slice(0, 2).join(':') : "??:??";
                 const sTime = cleanTime(b.scheduledStart || b.actualStart);
                 const eTime = cleanTime(b.scheduledEnd || b.actualEnd);
