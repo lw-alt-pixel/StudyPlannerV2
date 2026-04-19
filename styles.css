@@ -20,15 +20,15 @@
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* 🚨 Z-INDEX FIX: Grid and Blocks sit beneath the Headers! */
 #canvas-grid {
     position: absolute;
     top: 0;
-    /* 🚨 This covers 200 days into the past and 200 days into the future */
     left: -36000px; 
     width: 72000px; 
     height: calc(24 * 60px * var(--zoom));
     pointer-events: none;
-    z-index: 0;
+    z-index: 10;
     
     background-image: 
         linear-gradient(to bottom, var(--grid-60) 1px, transparent 1px),
@@ -42,6 +42,9 @@
         var(--day-width) calc(15px * var(--zoom)),
         var(--day-width) 100%;
 }
+
+#blocks-layer { z-index: 20; }
+#canvas-layer { z-index: 30; }
 
 .custom-action-btn {
     background-color: var(--action-color) !important;
@@ -70,7 +73,7 @@
 
 .dragging-widget { transition: none !important; opacity: 0.9; cursor: grabbing !important; z-index: 9000 !important; }
 
-/* 🚨 MIN-HEIGHT Ensures 1-minute blocks are always clickable */
+/* MIN-HEIGHT Ensures 1-minute blocks are always clickable */
 .ypt-block { cursor: pointer; min-height: 8px; }
 .ypt-block.dragging-block { cursor: grabbing !important; z-index: 100 !important; opacity: 0.8; transition: none !important; }
 
