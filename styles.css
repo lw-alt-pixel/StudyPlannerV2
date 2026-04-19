@@ -1,7 +1,7 @@
 /* styles.css */
 :root {
     --pan-x: 10px; 
-    --pan-y: -480px; 
+    --pan-y: 0px; 
     --zoom: 1;
     --px-per-hour: 60px; 
     --day-width: 180px;
@@ -23,18 +23,19 @@
 #canvas-grid {
     position: absolute;
     top: 0;
-    left: -50400px; /* Spans 280 days into the past */
-    width: 100800px; /* Spans 560 days total */
+    /* 🚨 This covers 200 days into the past and 200 days into the future */
+    left: -36000px; 
+    width: 72000px; 
     height: calc(24 * 60px * var(--zoom));
     pointer-events: none;
     z-index: 0;
+    
     background-image: 
         linear-gradient(to bottom, var(--grid-60) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-30) 1px, transparent 1px),
         linear-gradient(to bottom, var(--grid-15) 1px, transparent 1px),
         linear-gradient(to right, var(--grid-60) 1px, transparent 1px);
     
-    /* 🚨 This perfectly scales the background image grid height based on zoom! */
     background-size: 
         var(--day-width) calc(60px * var(--zoom)),
         var(--day-width) calc(30px * var(--zoom)),
