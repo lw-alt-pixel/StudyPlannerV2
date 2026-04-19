@@ -42,7 +42,6 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
-        // 🚨 INJECT DRAGGABLE DAILY AGENDA
         const upNext = document.getElementById('upNextBanner');
         if (upNext && !document.getElementById('dailyAgendaContainer')) {
             const agenda = document.createElement('div');
@@ -145,21 +144,21 @@ class CanvasUI {
         document.getElementById('nextMonthBtn')?.addEventListener('click', () => { this.currentMonth.setMonth(this.currentMonth.getMonth() + 1); this.renderCalendar(); });
 
         document.getElementById('viewCanvasBtn')?.addEventListener('click', () => {
-            this.container.classList.remove('hidden'); this.container.classList.add('block');
-            this.calendarContainer.classList.add('hidden'); this.calendarContainer.classList.remove('flex');
-            document.getElementById('canvasControls').classList.remove('hidden'); document.getElementById('canvasControls').classList.add('flex');
-            document.getElementById('calendarControls').classList.add('hidden'); document.getElementById('calendarControls').classList.remove('flex');
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            this.container?.classList.remove('hidden'); this.container?.classList.add('block');
+            this.calendarContainer?.classList.add('hidden'); this.calendarContainer?.classList.remove('flex');
+            document.getElementById('canvasControls')?.classList.remove('hidden'); document.getElementById('canvasControls')?.classList.add('flex');
+            document.getElementById('calendarControls')?.classList.add('hidden'); document.getElementById('calendarControls')?.classList.remove('flex');
+            const vcBtn = document.getElementById('viewCanvasBtn'); if (vcBtn) vcBtn.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
+            const vcalBtn = document.getElementById('viewCalendarBtn'); if(vcalBtn) vcalBtn.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         });
         
         document.getElementById('viewCalendarBtn')?.addEventListener('click', () => {
-            this.container.classList.add('hidden'); this.container.classList.remove('block');
-            this.calendarContainer.classList.remove('hidden'); this.calendarContainer.classList.add('flex');
-            document.getElementById('canvasControls').classList.add('hidden'); document.getElementById('canvasControls').classList.remove('flex');
-            document.getElementById('calendarControls').classList.remove('hidden'); document.getElementById('calendarControls').classList.add('flex');
-            document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
-            document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
+            this.container?.classList.add('hidden'); this.container?.classList.remove('block');
+            this.calendarContainer?.classList.remove('hidden'); this.calendarContainer?.classList.add('flex');
+            document.getElementById('canvasControls')?.classList.add('hidden'); document.getElementById('canvasControls')?.classList.remove('flex');
+            document.getElementById('calendarControls')?.classList.remove('hidden'); document.getElementById('calendarControls')?.classList.add('flex');
+            const vcalBtn = document.getElementById('viewCalendarBtn'); if (vcalBtn) vcalBtn.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
+            const vcBtn = document.getElementById('viewCanvasBtn'); if (vcBtn) vcBtn.className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
             this.renderCalendar();
         });
 
@@ -282,7 +281,8 @@ class CanvasUI {
             const box = document.getElementById('drag-selection-box');
             if (box) box.classList.add('hidden');
             
-            const durationMins = (parseFloat(box.style.height) / (this.pxPerHour * this.zoom)) * 60;
+            const boxHeight = box ? parseFloat(box.style.height) : 0;
+            const durationMins = (boxHeight / (this.pxPerHour * this.zoom)) * 60;
             const endMin = this.selectStartMin + Math.round(durationMins);
             this.openAddBlockModal(this.selectColIndex, this.selectStartMin, endMin);
             
@@ -341,7 +341,11 @@ class CanvasUI {
 
         const saveBtn = document.getElementById('saveEditBlock');
         if (saveBtn) saveBtn.dataset.id = b.id;
-        document.getElementById('editBlockModal')?.classList.remove('hidden');
+        
+        // 🚨 FAIL-SAFE: Gracefully handle if Modal is missing from DOM!
+        const modal = document.getElementById('editBlockModal');
+        if (modal) modal.classList.remove('hidden');
+        else console.warn("Missing editBlockModal in HTML");
     }
 
     openAddBlockModal(colIdx, startMin, endMin) {
@@ -355,10 +359,13 @@ class CanvasUI {
         const sDateInput = document.getElementById('newBlockStartDate');
         if(sDateInput) {
             sDateInput.value = dateStr;
-            document.getElementById('newBlockEndDate').value = dateStr;
-            document.getElementById('newBlockStart').value = `${sH}:${sM}`;
-            document.getElementById('newBlockEnd').value = `${eH}:${eM}`;
-            document.getElementById('addBlockModal').classList.remove('hidden');
+            const eb = document.getElementById('newBlockEndDate'); if (eb) eb.value = dateStr;
+            const st = document.getElementById('newBlockStart'); if (st) st.value = `${sH}:${sM}`;
+            const ed = document.getElementById('newBlockEnd'); if (ed) ed.value = `${eH}:${eM}`;
+            
+            // 🚨 FAIL-SAFE
+            const modal = document.getElementById('addBlockModal');
+            if(modal) modal.classList.remove('hidden');
         }
     }
 
@@ -429,7 +436,6 @@ class CanvasUI {
         }
     }
 
-    // 🚨 DRAGGABLE WATERFALL AGENDA LOGIC
     renderDailyAgenda() {
         if (!this.dailyAgendaContainer || store.state.activeTab !== 'schedule') return;
         
@@ -459,15 +465,12 @@ class CanvasUI {
                 <div class="text-gray-300 pointer-events-none"><i class="fa fa-grip-lines"></i></div>
             `;
 
-            // Drag Events
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', b.id);
                 e.dataTransfer.effectAllowed = 'move';
                 setTimeout(() => el.classList.add('opacity-50'), 0);
             });
             el.addEventListener('dragend', () => el.classList.remove('opacity-50'));
-
-            // Double click to edit instead of single click, so drag isn't interrupted
             el.addEventListener('dblclick', () => this.openEditModal(b.id));
 
             this.dailyAgendaContainer.appendChild(el);
@@ -503,7 +506,6 @@ class CanvasUI {
         
         if (todayBlocks.length === 0) return;
 
-        // Cascade starts at the time of whatever WAS the first block for today
         let cascadeTimeStr = todayBlocks[0].scheduledStart; 
 
         const updatedBlocks = [...store.state.blocks];
@@ -513,7 +515,6 @@ class CanvasUI {
             if (blockIdx === -1) return;
             const b = updatedBlocks[blockIdx];
 
-            // Math to keep original duration
             const s = new Date(`1970-01-01T${b.scheduledStart}:00`);
             const e = new Date(`1970-01-01T${b.scheduledEnd}:00`);
             const durMins = (e - s) / 60000;
@@ -583,71 +584,78 @@ class CanvasUI {
         const now = this.getChinaTime();
         
         blocks.forEach(b => {
-            const bDateStr = b.startDate || b.date;
-            
-            const rawStart = b.scheduledStart || b.actualStart;
-            const rawEnd = b.scheduledEnd || b.actualEnd;
-            if (!bDateStr || !rawStart || !rawEnd) return; 
+            try {
+                const bDateStr = b.startDate || b.date;
+                
+                const rawStart = b.scheduledStart || b.actualStart;
+                const rawEnd = b.scheduledEnd || b.actualEnd;
+                if (!bDateStr || !rawStart || !rawEnd) return; 
 
-            const cleanTime = (t) => t.split(':').slice(0, 2).join(':');
-            const sTime = cleanTime(rawStart);
-            const eTime = cleanTime(rawEnd);
+                const cleanTime = (t) => t.split(':').slice(0, 2).join(':');
+                const sTime = cleanTime(rawStart);
+                const eTime = cleanTime(rawEnd);
 
-            const bStart = new Date(`${bDateStr}T${sTime}:00`);
-            const bEnd = new Date(`${b.endDate || bDateStr}T${eTime}:00`);
-            const diffDays = Math.round((new Date(bDateStr).setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
-            
-            let durationMins = (bEnd - bStart) / 60000;
-            if (durationMins <= 0) durationMins = 5; 
-            
-            const leftPx = diffDays * this.dayWidth;
-            const topPx = ((bStart.getHours() * 60) + bStart.getMinutes()) / 60 * this.pxPerHour * this.zoom;
-            const heightPx = (durationMins / 60) * this.pxPerHour * this.zoom;
+                const bStart = new Date(`${bDateStr}T${sTime}:00`);
+                const bEnd = new Date(`${b.endDate || bDateStr}T${eTime}:00`);
+                const diffDays = Math.round((new Date(bDateStr).setHours(0,0,0,0) - this.baseDate.getTime()) / 86400000);
+                
+                let durationMins = (bEnd - bStart) / 60000;
+                if (durationMins <= 0) durationMins = 5; 
+                
+                const leftPx = diffDays * this.dayWidth;
+                const topPx = ((bStart.getHours() * 60) + bStart.getMinutes()) / 60 * this.pxPerHour * this.zoom;
+                const heightPx = (durationMins / 60) * this.pxPerHour * this.zoom;
 
-            const isActive = store.state.timer?.activeBlockId === b.id;
-            let opacityClass = 'opacity-95';
-            let borderClass = '';
+                const isActive = store.state.timer?.activeBlockId === b.id;
+                let opacityClass = 'opacity-95';
+                let borderClass = '';
 
-            if (b.status === 'completed') { opacityClass = 'opacity-50'; }
-            else if (isActive) { opacityClass = 'opacity-100'; borderClass = 'ring-4 ring-yellow-400'; }
-            else if (now > bEnd) { opacityClass = 'opacity-70 grayscale'; borderClass = 'border-2 border-red-500 border-dashed'; }
+                if (b.status === 'completed') { opacityClass = 'opacity-50'; }
+                else if (isActive) { opacityClass = 'opacity-100'; borderClass = 'ring-4 ring-yellow-400'; }
+                else if (now > bEnd) { opacityClass = 'opacity-70 grayscale'; borderClass = 'border-2 border-red-500 border-dashed'; }
 
-            const el = document.createElement('div');
-            el.className = `ypt-block absolute rounded p-1 shadow-sm text-white overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${opacityClass} ${borderClass}`;
-            el.style.left = `${leftPx + 2}px`; el.style.top = `${topPx}px`;
-            el.style.width = `${this.dayWidth - 4}px`; el.style.height = `${heightPx}px`;
-            el.style.backgroundColor = store.state.subjects[b.subject] || '#3b82f6';
-            el.dataset.id = b.id;
-            
-            let contentHtml = '';
-            if (heightPx < 30) contentHtml = `<div class="font-bold text-[9px] truncate">${b.subject} - ${b.title || 'Focus'}</div>`;
-            else contentHtml = `<div class="font-bold text-[9px] truncate uppercase">${b.subject}</div><div class="font-bold text-[10px] truncate">${b.title || 'Focus'}</div>`;
+                const el = document.createElement('div');
+                el.className = `ypt-block absolute rounded p-1 shadow-sm text-white overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${opacityClass} ${borderClass}`;
+                el.style.left = `${leftPx + 2}px`; el.style.top = `${topPx}px`;
+                el.style.width = `${this.dayWidth - 4}px`; el.style.height = `${heightPx}px`;
+                el.style.backgroundColor = store.state.subjects[b.subject] || '#3b82f6';
+                el.dataset.id = b.id;
+                
+                let contentHtml = '';
+                if (heightPx < 30) contentHtml = `<div class="font-bold text-[9px] truncate">${b.subject} - ${b.title || 'Focus'}</div>`;
+                else contentHtml = `<div class="font-bold text-[9px] truncate uppercase">${b.subject}</div><div class="font-bold text-[10px] truncate">${b.title || 'Focus'}</div>`;
 
-            el.innerHTML = `
-                <button class="delete-btn absolute top-1 right-1 bg-red-600/80 hover:bg-red-700 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
-                ${(b.status !== 'completed' && !isActive) ? `<button class="run-btn absolute bottom-1 right-1 bg-white text-gray-800 hover:bg-gray-100 rounded px-1.5 py-0.5 text-[9px] font-black z-20 shadow-md action-btn">▶️</button>` : ''}
-                <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
-            `;
+                el.innerHTML = `
+                    <button class="delete-btn absolute top-1 right-1 bg-red-600/80 hover:bg-red-700 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
+                    ${(b.status !== 'completed' && !isActive) ? `<button class="run-btn absolute bottom-1 right-1 bg-white text-gray-800 hover:bg-gray-100 rounded px-1.5 py-0.5 text-[9px] font-black z-20 shadow-md action-btn">▶️</button>` : ''}
+                    <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
+                `;
 
-            el.addEventListener('mouseenter', () => {
-                tooltip.innerHTML = `<div class="text-[10px] font-black text-gray-400">${b.subject}</div><div class="text-base font-bold">${b.title || 'Focus'}</div><div class="text-xs text-blue-300">${sTime} - ${eTime}</div>`;
-                tooltip.style.opacity = '1';
-            });
-            el.addEventListener('mousemove', (e) => { tooltip.style.transform = `translate(${e.clientX + 15}px, ${e.clientY + 15}px)`; });
-            el.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
-            
-            el.addEventListener('click', (e) => {
-                e.stopPropagation(); tooltip.style.opacity = '0';
-                if (e.target.closest('.delete-btn')) { if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); return; }
-                if (e.target.closest('.run-btn')) {
-                    store.update('timer', t => ({ ...t, activeBlockId: b.id, spontaneousSubject: b.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
-                    timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
-                    return;
-                }
-                this.openEditModal(b.id);
-            });
+                // 🚨 FAIL-SAFE: Protect against missing tooltips!
+                el.addEventListener('mouseenter', () => {
+                    if(tooltip) {
+                        tooltip.innerHTML = `<div class="text-[10px] font-black text-gray-400">${b.subject}</div><div class="text-base font-bold">${b.title || 'Focus'}</div><div class="text-xs text-blue-300">${sTime} - ${eTime}</div>`;
+                        tooltip.style.opacity = '1';
+                    }
+                });
+                el.addEventListener('mousemove', (e) => { if(tooltip) tooltip.style.transform = `translate(${e.clientX + 15}px, ${e.clientY + 15}px)`; });
+                el.addEventListener('mouseleave', () => { if(tooltip) tooltip.style.opacity = '0'; });
+                
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation(); if(tooltip) tooltip.style.opacity = '0';
+                    if (e.target.closest('.delete-btn')) { if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); return; }
+                    if (e.target.closest('.run-btn')) {
+                        store.update('timer', t => ({ ...t, activeBlockId: b.id, spontaneousSubject: b.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
+                        timerEngine.start(); document.querySelector('.tab-btn[data-tab="focus"]')?.click();
+                        return;
+                    }
+                    this.openEditModal(b.id);
+                });
 
-            this.blocksLayer.appendChild(el);
+                this.blocksLayer.appendChild(el);
+            } catch (err) {
+                console.warn("Failed to render a block, but app is safe.", err);
+            }
         });
     }
 
@@ -700,12 +708,18 @@ class CanvasUI {
 
     openSlidePanelForDate(dateStr) {
         this.currentSlideDate = dateStr;
+        
+        // 🚨 FAIL-SAFE: Gracefully abort if Slide Panel is missing!
         const panel = document.getElementById('daySlidePanel');
         const overlay = document.getElementById('diaryOverlay');
-        if (!panel || !overlay) return;
+        if (!panel || !overlay) {
+            console.warn("Slide panel missing from DOM.");
+            return;
+        }
 
         const dateObj = new Date(dateStr + "T00:00:00");
-        document.getElementById('slidePanelDate').innerText = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const titleEl = document.getElementById('slidePanelDate');
+        if(titleEl) titleEl.innerText = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
         this.renderSlidePanelBlocks(dateStr);
         this.renderSlidePanelDiary(dateStr);
@@ -718,6 +732,8 @@ class CanvasUI {
     renderSlidePanelBlocks(dateStr) {
         const container = document.getElementById('slidePanelBlocks');
         const totalEl = document.getElementById('slidePanelTotalTime');
+        if (!container) return;
+
         const blocks = store.state.blocks.filter(b => b.startDate === dateStr || b.date === dateStr);
         blocks.sort((a, b) => {
             const aStart = a.scheduledStart || a.actualStart || "00:00";
