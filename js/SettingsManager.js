@@ -24,14 +24,17 @@ class SettingsManager {
     bindEmojiSpawner() {
         document.getElementById('spawnEmojiBtn')?.addEventListener('click', () => {
             const input = document.getElementById('customEmojiInput');
+            const sizeInput = document.getElementById('customEmojiSize');
             if (!input) return;
             const emoji = input.value.trim();
             if (!emoji) return;
             
-            // Spawn directly in the exact center of the header!
+            // 🚨 ADD SIZE CONTROL TO THE STICKER DATA
+            const size = sizeInput ? parseFloat(sizeInput.value) : 3;
+            
             store.update('header', h => ({
                 ...h,
-                stickers: [...(h.stickers || []), { emoji, x: 50, y: 50, id: Date.now().toString() }]
+                stickers: [...(h.stickers || []), { emoji, x: 50, y: 50, size: size, id: Date.now().toString() }]
             }));
             input.value = ''; 
         });
