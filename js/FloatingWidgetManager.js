@@ -1,22 +1,19 @@
 // js/FloatingWidgetManager.js
 class FloatingWidgetManager {
     init() {
-        this.makeDraggable('openAddBlockModal');
+        // We only make the Settings button draggable now!
         this.makeDraggable('openSettingsBtn');
         
-        // Primary Floating Click Bindings
+        // Primary Floating Click Binding
         document.getElementById('openSettingsBtn')?.addEventListener('click', () => {
             document.getElementById('settingsPanel')?.classList.remove('translate-x-full');
             document.getElementById('settingsOverlay')?.classList.remove('hidden');
         });
 
-        // Fallback Button Bindings (Analytics Tab)
+        // Fallback Button Binding (Analytics Tab)
         document.getElementById('fallbackSettingsBtn')?.addEventListener('click', () => {
             document.getElementById('settingsPanel')?.classList.remove('translate-x-full');
             document.getElementById('settingsOverlay')?.classList.remove('hidden');
-        });
-        document.getElementById('fallbackAddBlockBtn')?.addEventListener('click', () => {
-            document.getElementById('addBlockModal')?.classList.remove('hidden');
         });
     }
 
@@ -34,9 +31,9 @@ class FloatingWidgetManager {
             const rect = el.getBoundingClientRect();
             initialLeft = rect.left; initialTop = rect.top;
             
-            el.style.transition = 'none'; 
-            el.classList.add('dragging-widget');
             el.setPointerCapture(e.pointerId);
+            el.style.transition = 'none';
+            el.classList.add('dragging-widget');
         });
 
         el.addEventListener('pointermove', (e) => {
@@ -57,7 +54,7 @@ class FloatingWidgetManager {
             
             const rect = el.getBoundingClientRect();
             
-            // 🎯 NEW: ASSISTIVETOUCH EDGE-SNAPPING PHYSICS
+            // 🎯 ASSISTIVETOUCH EDGE-SNAPPING PHYSICS
             const isLeftHalf = (rect.left + rect.width / 2) < (window.innerWidth / 2);
             const snapX = isLeftHalf ? 20 : window.innerWidth - rect.width - 20;
             
@@ -67,9 +64,12 @@ class FloatingWidgetManager {
             el.style.transition = 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
             el.style.left = `${snapX}px`;
             el.style.top = `${snapY}px`;
-        });
 
-        el.addEventListener('click', (e) => { if (hasMoved) { e.preventDefault(); e.stopPropagation(); } });
+            if (hasMoved) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+        });
     }
 }
 export const floatingWidgetManager = new FloatingWidgetManager();
