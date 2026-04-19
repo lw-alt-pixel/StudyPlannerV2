@@ -43,13 +43,24 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
-        // 🚨 Z-INDEX FIX: Force headers above the frosted glass!
+        // 🚨 THE MASTER LAYER FIX: Forcing absolute position activates the z-index over the frosted glass!
         if (this.daysHeader) {
+            this.daysHeader.style.position = 'absolute';
+            this.daysHeader.style.top = '0px';
+            this.daysHeader.style.left = '0px';
+            this.daysHeader.style.width = '100%';
+            this.daysHeader.style.height = '50px'; 
             this.daysHeader.style.zIndex = '100';
-            this.daysHeader.style.height = '50px'; // Force height to prevent clipping
+            this.daysHeader.style.pointerEvents = 'none'; // Lets you click "through" the empty space
         }
         if (this.timeLabels) {
+            this.timeLabels.style.position = 'absolute';
+            this.timeLabels.style.top = '0px';
+            this.timeLabels.style.left = '0px';
+            this.timeLabels.style.width = '60px';
+            this.timeLabels.style.height = '100%';
             this.timeLabels.style.zIndex = '100';
+            this.timeLabels.style.pointerEvents = 'none';
         }
 
         if (!document.getElementById('block-tooltip')) {
@@ -248,7 +259,7 @@ class CanvasUI {
                 const canvasX = e.clientX - containerRect.left - this.panX - this.offsetX;
                 const canvasY = e.clientY - containerRect.top - this.panY - this.offsetY;
                 
-                if (canvasX < 0 || canvasY < 0) return; // Prevent clicks inside the sticky header zone!
+                if (canvasX < 0 || canvasY < 0) return;
 
                 const colIdx = Math.floor(canvasX / this.dayWidth);
                 const rawMins = (canvasY / (this.pxPerHour * this.zoom)) * 60;
@@ -386,6 +397,7 @@ class CanvasUI {
             const bgClass = isToday ? 'bg-blue-100 text-blue-700 rounded shadow-sm px-2 py-1' : 'text-gray-600 bg-white/95 shadow-sm border border-gray-200/50 rounded-full px-3 py-1 backdrop-blur-md';
             
             const leftPx = i * this.dayWidth;
+            // Children explicitly have pointer-events-auto so you can still interact with them if needed!
             this.daysHeader.innerHTML += `
                 <div class="absolute flex items-center justify-center pointer-events-auto" style="left: ${leftPx}px; width: ${this.dayWidth}px; top: 0px; height: ${this.offsetY}px;">
                     <span class="inline-block text-xs font-bold ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span>
