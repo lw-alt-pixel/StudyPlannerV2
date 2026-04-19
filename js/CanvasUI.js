@@ -42,6 +42,16 @@ class CanvasUI {
         this.calendarDisplay = document.getElementById('currentMonthLabel');
         this.calendarContainer = document.getElementById('calendar-container');
 
+        // 🚨 INJECT DRAGGABLE DAILY AGENDA
+        const upNext = document.getElementById('upNextBanner');
+        if (upNext && !document.getElementById('dailyAgendaContainer')) {
+            const agenda = document.createElement('div');
+            agenda.id = 'dailyAgendaContainer';
+            agenda.className = 'mx-4 mb-4 space-y-2 z-40 relative';
+            upNext.parentNode.insertBefore(agenda, upNext.nextSibling);
+            this.dailyAgendaContainer = agenda;
+        }
+
         if (this.container) {
             if (this.gridBg) this.container.appendChild(this.gridBg);
             if (this.blocksLayer) this.container.appendChild(this.blocksLayer);
@@ -98,7 +108,6 @@ class CanvasUI {
             this.layer.appendChild(box);
         }
 
-        // Apply initial color to the active toggle
         const vcb = document.getElementById('viewCanvasBtn');
         if (vcb && vcb.classList.contains('text-blue-600')) {
             vcb.className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
@@ -112,12 +121,15 @@ class CanvasUI {
             this.renderBlocks();
         }
         if (this.calendarGrid) this.renderCalendar();
+        this.renderDailyAgenda();
 
         store.subscribe('blocks', () => {
             if (this.container) this.renderBlocks();
             if (this.calendarGrid) this.renderCalendar();
             if (this.currentSlideDate) this.renderSlidePanelBlocks(this.currentSlideDate);
+            this.renderDailyAgenda();
         });
+        store.subscribe('activeTab', () => this.renderDailyAgenda());
     }
 
     bindEvents() {
@@ -137,8 +149,6 @@ class CanvasUI {
             this.calendarContainer.classList.add('hidden'); this.calendarContainer.classList.remove('flex');
             document.getElementById('canvasControls').classList.remove('hidden'); document.getElementById('canvasControls').classList.add('flex');
             document.getElementById('calendarControls').classList.add('hidden'); document.getElementById('calendarControls').classList.remove('flex');
-            
-            // 🚨 COLOR FIX
             document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
             document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
         });
@@ -148,8 +158,6 @@ class CanvasUI {
             this.calendarContainer.classList.remove('hidden'); this.calendarContainer.classList.add('flex');
             document.getElementById('canvasControls').classList.add('hidden'); document.getElementById('canvasControls').classList.remove('flex');
             document.getElementById('calendarControls').classList.remove('hidden'); document.getElementById('calendarControls').classList.add('flex');
-            
-            // 🚨 COLOR FIX
             document.getElementById('viewCalendarBtn').className = "px-4 py-1 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
             document.getElementById('viewCanvasBtn').className = "px-4 py-1 rounded text-gray-500 font-bold text-sm transition-all hover:text-gray-700";
             this.renderCalendar();
@@ -419,6 +427,112 @@ class CanvasUI {
             this.root.style.setProperty('--grid-30', 'transparent');
             this.root.style.setProperty('--grid-15', 'transparent');
         }
+    }
+
+    // 🚨 DRAGGABLE WATERFALL AGENDA LOGIC
+    renderDailyAgenda() {
+        if (!this.dailyAgendaContainer || store.state.activeTab !== 'schedule') return;
+        
+        const now = this.getChinaTime();
+        const todayStr = this.formatDate(now);
+        
+        let blocks = store.state.blocks.filter(b => b.startDate === todayStr && b.status !== 'completed');
+        blocks.sort((a,b) => (a.scheduledStart || "").localeCompare(b.scheduledStart || ""));
+
+        this.dailyAgendaContainer.innerHTML = '';
+
+        blocks.forEach(b => {
+            const subColor = store.state.subjects[b.subject] || '#3b82f6';
+            const cleanTime = (t) => t ? t.split(':').slice(0, 2).join(':') : "??:??";
+            
+            const el = document.createElement('div');
+            el.className = "agenda-item flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow";
+            el.draggable = true;
+            el.dataset.id = b.id;
+            
+            el.innerHTML = `
+                <div class="w-1.5 h-full rounded-full" style="background-color: ${subColor}"></div>
+                <div class="flex-1 pointer-events-none">
+                    <div class="text-[10px] font-black text-gray-400 mb-0.5">${cleanTime(b.scheduledStart)} - ${cleanTime(b.scheduledEnd)}</div>
+                    <div class="text-sm font-bold text-gray-800">${b.title || b.subject || 'Focus'}</div>
+                </div>
+                <div class="text-gray-300 pointer-events-none"><i class="fa fa-grip-lines"></i></div>
+            `;
+
+            // Drag Events
+            el.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', b.id);
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => el.classList.add('opacity-50'), 0);
+            });
+            el.addEventListener('dragend', () => el.classList.remove('opacity-50'));
+
+            // Double click to edit instead of single click, so drag isn't interrupted
+            el.addEventListener('dblclick', () => this.openEditModal(b.id));
+
+            this.dailyAgendaContainer.appendChild(el);
+        });
+
+        this.dailyAgendaContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const dragging = document.querySelector('.opacity-50');
+            if(!dragging) return;
+            
+            const siblings = [...this.dailyAgendaContainer.querySelectorAll('.agenda-item:not(.opacity-50)')];
+            const nextSibling = siblings.find(sib => {
+                return e.clientY <= sib.getBoundingClientRect().top + sib.offsetHeight / 2;
+            });
+            
+            if(nextSibling) this.dailyAgendaContainer.insertBefore(dragging, nextSibling);
+            else this.dailyAgendaContainer.appendChild(dragging);
+        });
+
+        this.dailyAgendaContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.recalculateWaterfall();
+        });
+    }
+
+    recalculateWaterfall() {
+        const itemEls = [...this.dailyAgendaContainer.querySelectorAll('.agenda-item')];
+        const newOrderIds = itemEls.map(el => el.dataset.id);
+        
+        const todayStr = this.formatDate(this.getChinaTime());
+        const todayBlocks = store.state.blocks.filter(b => b.startDate === todayStr && b.status !== 'completed');
+        todayBlocks.sort((a,b) => (a.scheduledStart || "").localeCompare(b.scheduledStart || ""));
+        
+        if (todayBlocks.length === 0) return;
+
+        // Cascade starts at the time of whatever WAS the first block for today
+        let cascadeTimeStr = todayBlocks[0].scheduledStart; 
+
+        const updatedBlocks = [...store.state.blocks];
+
+        newOrderIds.forEach(id => {
+            const blockIdx = updatedBlocks.findIndex(b => b.id === id);
+            if (blockIdx === -1) return;
+            const b = updatedBlocks[blockIdx];
+
+            // Math to keep original duration
+            const s = new Date(`1970-01-01T${b.scheduledStart}:00`);
+            const e = new Date(`1970-01-01T${b.scheduledEnd}:00`);
+            const durMins = (e - s) / 60000;
+
+            const newS = new Date(`1970-01-01T${cascadeTimeStr}:00`);
+            const newE = new Date(newS.getTime() + durMins * 60000);
+
+            const formatT = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            
+            updatedBlocks[blockIdx] = {
+                ...b,
+                scheduledStart: formatT(newS),
+                scheduledEnd: formatT(newE)
+            };
+
+            cascadeTimeStr = updatedBlocks[blockIdx].scheduledEnd;
+        });
+
+        store.update('blocks', () => updatedBlocks);
     }
 
     renderHeaders() {
