@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     floatingWidgetManager.init();
     audioEngine.init(); 
     marathonEngine.init();
+    adminUI.init();
     // 🚨 GLOBAL ADMIN & SECURITY BOUNCER
     store.subscribe('userProfile', (profile) => {
         if (!profile) return;
