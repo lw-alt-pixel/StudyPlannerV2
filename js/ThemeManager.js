@@ -4,7 +4,42 @@ import { store } from './State.js';
 class ThemeManager {
     init() {
         store.subscribe('theme', (themeState) => this.applyTheme(themeState));
+        store.subscribe('header', (headerState) => this.applyHeader(headerState));
+        
         this.applyTheme(store.state.theme);
+        this.applyHeader(store.state.header);
+    }
+
+    applyHeader(header) {
+        const headerEl = document.getElementById('appHeader');
+        const titleEl = document.getElementById('appTitle');
+        const zone = document.getElementById('headerStickerZone');
+        
+        if (headerEl) headerEl.style.backgroundColor = header.bgColor || '#ffffff';
+        if (titleEl) {
+            titleEl.style.color = header.textColor || '#1f2937';
+            titleEl.innerText = header.title || 'Study Planner Pro';
+        }
+
+        // 🚨 RENDER STICKERS FROM PERCENTAGES
+        if (zone) {
+            zone.innerHTML = '';
+            const stickers = header.stickers || [];
+            stickers.forEach(s => {
+                const el = document.createElement('div');
+                el.innerText = s.emoji;
+                // Add pointer-events-auto so you can double click to delete them!
+                el.className = 'absolute text-2xl md:text-3xl cursor-pointer hover:scale-125 transition-transform pointer-events-auto select-none';
+                el.style.left = `${s.x}%`;
+                el.style.top = `${s.y}%`;
+                el.style.transform = 'translate(-50%, -50%)';
+                
+                el.ondblclick = () => {
+                    store.update('header', state => ({ ...state, stickers: state.stickers.filter(x => x.id !== s.id) }));
+                };
+                zone.appendChild(el);
+            });
+        }
     }
 
     applyTheme(theme) {
@@ -19,7 +54,6 @@ class ThemeManager {
             document.body.style.backgroundColor = theme.bgColor || '#f3f4f6';
         }
 
-        // 🚨 MASTER COLOR SYNCHRONIZATION
         root.style.setProperty('--action-color', theme.actionColor || '#3b82f6');
         root.style.setProperty('--tab-color', theme.actionColor || '#3b82f6');
         
@@ -30,6 +64,7 @@ class ThemeManager {
         root.style.setProperty('--action-padding', padding);
         root.style.setProperty('--action-font-size', fontSize);
 
+        // 🚨 DYNAMIC FLOATING BUTTON SIZING
         const fStyle = theme.floatingBtn || 'md';
         const fBtns = [document.getElementById('openAddBlockModal'), document.getElementById('openSettingsBtn')];
         const fallback = document.getElementById('fallbackButtons');
@@ -41,7 +76,7 @@ class ThemeManager {
             fBtns.forEach(b => { if(b) b.classList.remove('hidden'); });
             if(fallback) { fallback.classList.add('hidden'); fallback.classList.remove('flex'); }
             
-            let fSize = '4rem'; let fFont = '1.875rem'; // Default md
+            let fSize = '4rem'; let fFont = '1.875rem'; 
             if (fStyle === 'xs') { fSize = '2.5rem'; fFont = '1rem'; }
             else if (fStyle === 'sm') { fSize = '3rem'; fFont = '1.25rem'; }
             else if (fStyle === 'lg') { fSize = '5rem'; fFont = '2.25rem'; }
