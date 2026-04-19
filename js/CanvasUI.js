@@ -42,7 +42,6 @@ class CanvasUI {
         this.calendarGrid = document.getElementById('calendar-grid');
         this.calendarDisplay = document.getElementById('currentMonthLabel');
 
-        // 🚨 SANITIZE LEGACY HTML OFFSETS
         if (this.blocksLayer) { this.blocksLayer.style.left = '0px'; this.blocksLayer.style.width = '100%'; }
         if (this.daysHeader) { this.daysHeader.style.left = '0px'; this.daysHeader.style.width = '100%'; }
         if (this.timeLabels) { this.timeLabels.style.top = '0px'; this.timeLabels.style.height = '100%'; }
@@ -52,6 +51,15 @@ class CanvasUI {
             box.id = 'drag-selection-box';
             box.className = 'hidden absolute bg-blue-500/30 border-2 border-blue-600 rounded pointer-events-none z-40 backdrop-blur-[1px] transition-none';
             this.layer.appendChild(box);
+        }
+
+        // 🚨 DYNAMICALLY INJECT THE SMART HOVER TOOLTIP
+        if (!document.getElementById('block-tooltip')) {
+            const tooltip = document.createElement('div');
+            tooltip.id = 'block-tooltip';
+            tooltip.className = 'fixed z-[9999] pointer-events-none bg-gray-900/95 backdrop-blur-sm text-white rounded-xl shadow-2xl p-4 min-w-[200px] transition-opacity duration-150 opacity-0 border border-gray-700';
+            tooltip.style.top = '0px'; tooltip.style.left = '0px';
+            document.body.appendChild(tooltip);
         }
 
         this.bindEvents();
@@ -293,24 +301,23 @@ class CanvasUI {
         this.renderBlocks();
     }
 
-    // 🚨 CLAMP PAN LOGIC - Prevents scrolling into empty space
     clampPan() {
         if (!this.container) return;
         const totalHeight = 24 * this.pxPerHour * this.zoom;
         const viewportHeight = this.container.clientHeight;
 
-        if (this.panY > 0) this.panY = 0; // Lock Top (00:00)
+        if (this.panY > 0) this.panY = 0; 
 
         const minPanY = -(totalHeight - viewportHeight);
         if (totalHeight > viewportHeight) {
-            if (this.panY < minPanY) this.panY = minPanY; // Lock Bottom (24:00)
+            if (this.panY < minPanY) this.panY = minPanY; 
         } else {
             this.panY = 0;
         }
     }
 
     updateTransform() {
-        this.clampPan(); // Apply boundaries before rendering
+        this.clampPan(); 
 
         this.root.style.setProperty('--pan-x', `${this.panX}px`);
         this.root.style.setProperty('--pan-y', `${this.panY}px`);
@@ -335,7 +342,6 @@ class CanvasUI {
         if (!this.daysHeader || !this.timeLabels) return;
         this.daysHeader.innerHTML = ''; this.timeLabels.innerHTML = '';
         
-        // Render X-Axis (Days)
         for (let i = -100; i <= 100; i++) {
             const d = new Date(this.baseDate.getTime() + (i * 86400000));
             const isToday = i === 0;
@@ -344,10 +350,9 @@ class CanvasUI {
             this.daysHeader.innerHTML += `<div class="absolute text-center" style="left: ${leftPx}px; width: ${this.dayWidth}px; bottom: 4px;"><span class="inline-block ${bgClass}">${d.toLocaleDateString('en-US', {weekday:'short', month:'numeric', day:'numeric'})}</span></div>`;
         }
 
-        // Render Y-Axis (Times) dynamically
         for (let h = 0; h <= 24; h++) {
             for (let m = 0; m < 60; m += 15) {
-                if (h === 24 && m > 0) continue; // Don't draw past 24:00
+                if (h === 24 && m > 0) continue; 
 
                 const topPx = (h + m/60) * this.pxPerHour * this.zoom;
                 let visibility = 'opacity-0 hidden';
@@ -363,7 +368,6 @@ class CanvasUI {
                 }
 
                 if (visibility.includes('block')) {
-                    // Note: -translate-y-1/2 centers the text perfectly on the line!
                     this.timeLabels.innerHTML += `<div class="absolute w-full text-center ${fontClass} ${visibility} -translate-y-1/2" style="top: ${topPx}px;">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
                 }
             }
@@ -375,6 +379,7 @@ class CanvasUI {
         this.blocksLayer.innerHTML = '';
         const blocks = store.state.blocks;
         const now = this.getChinaTime();
+        const tooltip = document.getElementById('block-tooltip');
         
         blocks.forEach(b => {
             if (!b.startDate || !b.scheduledStart) return;
@@ -413,16 +418,65 @@ class CanvasUI {
 
             el.innerHTML = `
                 <button class="delete-btn absolute top-1 right-1 bg-red-600/80 text-white rounded px-1.5 py-0.5 text-[8px] font-black z-20 action-btn hidden md:block">X</button>
-                <button class="edit-btn absolute top-1 right-6 bg-gray-800/60 text-white rounded px-1 text-[9px] font-bold z-20 action-btn hidden md:block">✎</button>
                 <div class="pointer-events-none z-10 flex flex-col h-full">${contentHtml}</div>
             `;
 
-            el.addEventListener('click', (e) => {
-                if (e.target.closest('.delete-btn')) { e.stopPropagation(); if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); return; }
-                if (e.target.closest('.edit-btn')) {
-                    e.stopPropagation(); document.getElementById('saveEditBlock').dataset.id = b.id;
-                    document.getElementById('editBlockModal')?.classList.remove('hidden'); return;
+            // 🚨 THE SMART HOVER LOGIC
+            el.addEventListener('mouseenter', () => {
+                if (this.isPanning || this.isSelecting || this.isDraggingBlock) return;
+                
+                tooltip.innerHTML = `
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-3 h-3 rounded-full" style="background-color: ${subColor}"></div>
+                        <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider">${b.subject || 'General'}</div>
+                    </div>
+                    <div class="text-base font-bold text-white leading-tight mb-3 pr-4">${b.title || 'Untitled Block'}</div>
+                    <div class="flex flex-col gap-1">
+                        <div class="text-xs font-mono text-blue-300 bg-gray-800 rounded px-2 py-1 inline-block w-max">
+                            <i class="fa-regular fa-clock mr-1"></i> ${b.scheduledStart} - ${b.scheduledEnd}
+                        </div>
+                        ${b.status === 'completed' ? `<div class="text-[10px] font-bold text-green-400 mt-1">✓ Completed</div>` : `<div class="text-[10px] font-bold text-gray-500 mt-1">Click block to edit</div>`}
+                    </div>
+                `;
+                tooltip.style.opacity = '1';
+            });
+
+            el.addEventListener('mousemove', (e) => {
+                if (tooltip.style.opacity !== '0') {
+                    let x = e.clientX + 15;
+                    let y = e.clientY + 15;
+                    
+                    // Prevent tooltip from flying off the edge of the screen
+                    const rect = tooltip.getBoundingClientRect();
+                    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 10;
+                    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 10;
+
+                    tooltip.style.transform = `translate(${x}px, ${y}px)`;
                 }
+            });
+
+            el.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+
+            // 🚨 WHOLE-BLOCK CLICK TO EDIT LOGIC
+            el.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                tooltip.style.opacity = '0'; // Hide tooltip instantly when clicked
+
+                if (e.target.closest('.delete-btn')) { 
+                    if (confirm(`Delete block?`)) store.update('blocks', old => old.filter(x => x.id !== b.id)); 
+                    return; 
+                }
+                
+                // Clicking ANYWHERE else on the block opens the Edit Modal!
+                document.getElementById('editBlockSubject').value = b.subject;
+                document.getElementById('editBlockTitle').value = b.title;
+                document.getElementById('editBlockSchedStartDate').value = b.startDate;
+                document.getElementById('editBlockSchedStart').value = b.scheduledStart;
+                document.getElementById('editBlockSchedEndDate').value = b.endDate;
+                document.getElementById('editBlockSchedEnd').value = b.scheduledEnd;
+                document.getElementById('editBlockRemarks').value = b.remarks || '';
+                document.getElementById('saveEditBlock').dataset.id = b.id;
+                document.getElementById('editBlockModal')?.classList.remove('hidden'); 
             });
 
             this.blocksLayer.appendChild(el);
