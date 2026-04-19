@@ -18,37 +18,22 @@ class SettingsManager {
         
         this.bindEvents();
         this.populateForms();
-        this.bindStickerTray();
+        this.bindEmojiSpawner();
     }
 
-    bindStickerTray() {
-        const tray = document.querySelectorAll('.sticker-source');
-        const headerZone = document.getElementById('headerStickerZone');
-        
-        tray.forEach(s => {
-            s.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', e.target.innerText);
-                e.dataTransfer.effectAllowed = 'copy';
-            });
-        });
-
-        if (!headerZone) return;
-
-        headerZone.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-        headerZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const emoji = e.dataTransfer.getData('text/plain');
-            if(!emoji) return;
+    bindEmojiSpawner() {
+        document.getElementById('spawnEmojiBtn')?.addEventListener('click', () => {
+            const input = document.getElementById('customEmojiInput');
+            if (!input) return;
+            const emoji = input.value.trim();
+            if (!emoji) return;
             
-            // 🚨 PERFECT PERCENTAGE MATH for Cross-Device Compatibility!
-            const rect = headerZone.getBoundingClientRect();
-            const pctX = ((e.clientX - rect.left) / rect.width) * 100;
-            const pctY = ((e.clientY - rect.top) / rect.height) * 100;
-            
+            // Spawn directly in the exact center of the header!
             store.update('header', h => ({
                 ...h,
-                stickers: [...h.stickers, { emoji, x: pctX, y: pctY, id: Date.now().toString() }]
+                stickers: [...(h.stickers || []), { emoji, x: 50, y: 50, id: Date.now().toString() }]
             }));
+            input.value = ''; 
         });
     }
 
@@ -70,7 +55,6 @@ class SettingsManager {
             else { this.bgColorDiv.classList.add('hidden'); this.bgImageDiv.classList.remove('hidden'); }
         });
 
-        // 🚨 THE MASTER SAVE BUTTON
         document.getElementById('saveAllSettingsBtn')?.addEventListener('click', () => {
             this.saveAllSettings();
             alert("All Settings Saved Successfully!");
@@ -164,7 +148,6 @@ class SettingsManager {
         document.getElementById('settingsBannerBg').value = th.bannerBgColor || '#dc2626';
         document.getElementById('settingsBannerText').value = th.bannerTextColor || '#ffffff';
 
-        // 🚨 POPULATE HEADER SETTINGS
         const hd = store.state.header;
         document.getElementById('settingsAppTitle').value = hd.title || 'Study Planner Pro';
         document.getElementById('settingsHeaderBg').value = hd.bgColor || '#ffffff';
@@ -174,7 +157,6 @@ class SettingsManager {
     }
 
     saveAllSettings() {
-        // 1. Save Subjects
         const renames = []; const newSubs = {};
         document.querySelectorAll('.subject-row').forEach(row => {
             const oldName = row.querySelector('.sub-name').dataset.old;
@@ -190,7 +172,6 @@ class SettingsManager {
             store.update('exams', exams => exams.map(e => { const match = renames.find(r => r.old === e.subject); return match ? { ...e, subject: match.new } : e; }));
         }
 
-        // 2. Save Theme
         store.update('theme', t => ({
             ...t,
             bgType: this.bgMode.value,
@@ -203,14 +184,12 @@ class SettingsManager {
             bannerTextColor: document.getElementById('settingsBannerText').value
         }));
 
-        // 3. Save Timer Setup
         store.update('settings', s => ({
             ...s,
             pStudy: parseInt(document.getElementById('settingsPStudy').value) || 25,
             pBreak: parseInt(document.getElementById('settingsPBreak').value) || 5
         }));
 
-        // 4. Save Audio
         store.update('audio', a => ({
             enabled: document.getElementById('settingsAudioEnabled').checked,
             volume: parseInt(document.getElementById('settingsAudioVolume').value) || 50,
@@ -218,7 +197,6 @@ class SettingsManager {
             breakSource: document.getElementById('settingsAudioBreakSource').value
         }));
 
-        // 5. Save Header & Branding
         store.update('header', h => ({
             ...h,
             title: document.getElementById('settingsAppTitle').value || 'Study Planner Pro',
