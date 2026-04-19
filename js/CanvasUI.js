@@ -12,6 +12,7 @@ class CanvasUI {
         
         this.currentZoomTier = 60; 
         this.pxPerHour = 60; this.dayWidth = 180;
+        this.phantomPxPerHour = 180; // 🚨 NEW: Fixed, massive scale for the Phantom Grid!
         
         this.offsetX = 60; 
         this.offsetY = 50; 
@@ -21,6 +22,7 @@ class CanvasUI {
         
         // Edge Auto-Panning & Phantom State
         this.isSelecting = false;
+        this.selectStartCol = 0;
         this.selectStartAbsMin = 0; 
         this.selectEndAbsMin = 0;
         this.autoPanVector = { x: 0, y: 0 };
@@ -31,10 +33,29 @@ class CanvasUI {
     getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
     formatDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
-    getAbsoluteMin(canvasX, canvasY) {
-        let col = Math.floor(canvasX / this.dayWidth);
-        let m = (canvasY / (this.pxPerHour * this.zoom)) * 60;
-        return col * 1440 + m;
+    // 🚨 NEW NON-LINEAR TIMELINE MATH
+    getMinsFromY(y) {
+        const mainH = 24 * this.pxPerHour * this.zoom;
+        if (y <= mainH) return (y / (this.pxPerHour * this.zoom)) * 60;
+        
+        // If we crossed 24:00, use the massive Phantom Scale!
+        let excessMins = ((y - mainH) / this.phantomPxPerHour) * 60;
+        return Math.min(1440 + excessMins, 1440 + 300); // Hard cap at 5:00 AM (1440 + 300 mins)
+    }
+
+    getYFromMins(mins) {
+        const mainH = 24 * this.pxPerHour * this.zoom;
+        if (mins <= 1440) return (mins / 60) * this.pxPerHour * this.zoom;
+        
+        // Convert excess minutes into the massive Phantom Scale!
+        return mainH + ((mins - 1440) / 60) * this.phantomPxPerHour;
+    }
+
+    getSnappedLocal(m) {
+        // Normal Canvas: Snap to current zoom tier
+        if (m < 1440) return Math.round(m / this.currentZoomTier) * this.currentZoomTier;
+        // Phantom Grid: Always perfectly snap to 15 minutes!
+        return 1440 + Math.round((m - 1440) / 15) * 15;
     }
 
     init() {
@@ -75,7 +96,6 @@ class CanvasUI {
             this.timeLabels.style.zIndex = '100'; this.timeLabels.style.pointerEvents = 'none';
         }
 
-        // 🚨 OVERNIGHT SELECTION & PHANTOM LAYERS
         if (!document.getElementById('drag-selection-layer')) {
             const layerBox = document.createElement('div');
             layerBox.id = 'drag-selection-layer';
@@ -160,7 +180,6 @@ class CanvasUI {
         this.updateTransform();
     }
 
-    // 🚨 Conveyor Belt Engine
     autoPanLoop() {
         if (!this.isSelecting) {
             this.isAutoPanning = false;
@@ -179,18 +198,16 @@ class CanvasUI {
     updateSelection(clientX, clientY) {
         const containerRect = this.container.getBoundingClientRect();
         
-        // 🚨 X is locked, but Y is unconstrained to allow Phantom Bleed!
-        const startCol = Math.floor(this.selectStartAbsMin / 1440);
-        const lockedCanvasX = startCol * this.dayWidth + (this.dayWidth / 2);
+        // Lock X to starting column so we don't accidentally slide sideways while dragging down!
         const canvasY = clientY - containerRect.top - this.panY - this.offsetY;
         
-        const rawAbs = this.getAbsoluteMin(lockedCanvasX, canvasY);
-        let endAbs = Math.round(rawAbs / this.currentZoomTier) * this.currentZoomTier;
+        let localMins = this.getMinsFromY(canvasY);
+        let endAbs = this.selectStartCol * 1440 + this.getSnappedLocal(localMins);
         
-        if (endAbs <= this.selectStartAbsMin) endAbs = this.selectStartAbsMin + this.currentZoomTier;
+        if (endAbs <= this.selectStartAbsMin) endAbs = this.selectStartAbsMin + (localMins > 1440 ? 15 : this.currentZoomTier);
         this.selectEndAbsMin = endAbs;
         
-        this.updateTransform(); // Dynamically recalculates the floor so you can keep dragging
+        this.updateTransform(); 
         this.renderSelectionBox();
         this.renderPhantomGrid();
     }
@@ -243,7 +260,6 @@ class CanvasUI {
 
             if (e.target.closest('.ypt-block') || e.target.closest('.action-btn')) return;
             
-            // 🚨 Start Selection & Conveyor Belt
             if (e.shiftKey) { 
                 this.isSelecting = true;
                 this.container.style.cursor = 'crosshair';
@@ -253,8 +269,10 @@ class CanvasUI {
                 const canvasX = e.clientX - containerRect.left - this.panX - this.offsetX;
                 const canvasY = e.clientY - containerRect.top - this.panY - this.offsetY;
                 
-                const rawAbs = this.getAbsoluteMin(canvasX, canvasY);
-                this.selectStartAbsMin = Math.floor(rawAbs / this.currentZoomTier) * this.currentZoomTier;
+                this.selectStartCol = Math.floor(canvasX / this.dayWidth);
+                const localMins = this.getMinsFromY(canvasY);
+                
+                this.selectStartAbsMin = this.selectStartCol * 1440 + this.getSnappedLocal(localMins);
                 this.selectEndAbsMin = this.selectStartAbsMin + this.currentZoomTier;
                 
                 if (!this.isAutoPanning) {
@@ -281,7 +299,6 @@ class CanvasUI {
                 return;
             }
 
-            // Update Conveyor Belt Vectors
             if (this.isSelecting) {
                 this.lastPointer = { x: e.clientX, y: e.clientY };
                 
@@ -289,11 +306,12 @@ class CanvasUI {
                 const margin = 50; 
                 let dx = 0; let dy = 0;
                 
-                if (e.clientX < rect.left + margin) dx = 15;
-                else if (e.clientX > rect.right - margin) dx = -15;
+                // 🚨 FIX: Speed Limiter! Reduced from 15 down to 6 for smooth, easy control!
+                if (e.clientX < rect.left + margin) dx = 6;
+                else if (e.clientX > rect.right - margin) dx = -6;
                 
-                if (e.clientY < rect.top + this.offsetY + margin) dy = 15;
-                else if (e.clientY > rect.bottom - margin) dy = -15;
+                if (e.clientY < rect.top + this.offsetY + margin) dy = 6;
+                else if (e.clientY > rect.bottom - margin) dy = -6;
                 
                 this.autoPanVector = { x: dx, y: dy };
                 this.updateSelection(e.clientX, e.clientY);
@@ -312,7 +330,6 @@ class CanvasUI {
         window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
     }
 
-    // 🚨 NEW: THE PHANTOM DIMENSION RENDERER
     renderPhantomGrid() {
         const pLayer = document.getElementById('phantom-layer');
         if (!pLayer) return;
@@ -322,38 +339,41 @@ class CanvasUI {
             return;
         }
 
-        const startAbs = Math.min(this.selectStartAbsMin, this.selectEndAbsMin);
-        const endAbs = Math.max(this.selectStartAbsMin, this.selectEndAbsMin);
-        const startCol = Math.floor(startAbs / 1440);
-        const dayEndAbs = (startCol + 1) * 1440;
-
-        if (endAbs <= dayEndAbs) {
+        const localEndMin = Math.max(this.selectStartAbsMin, this.selectEndAbsMin) - (this.selectStartCol * 1440);
+        if (localEndMin <= 1440) {
             pLayer.innerHTML = '';
             return;
         }
 
         // We crossed midnight! Build the Phantom Dimension!
-        const leftPx = startCol * this.dayWidth;
-        const topPx = 24 * this.pxPerHour * this.zoom; // Physical bottom of the Canvas
-        const bleedMins = endAbs - dayEndAbs;
-        const hoursToDraw = Math.max(4, Math.ceil(bleedMins / 60) + 1); 
+        const leftPx = this.selectStartCol * this.dayWidth;
+        const topPx = this.getYFromMins(1440); // 24:00 mark
+        const heightPx = this.getYFromMins(1740) - topPx; // Up to 05:00 cap
         
         let html = '';
         
-        // Dark purple overlay block to indicate Phantom Space
         html += `
             <div class="absolute border-x border-b border-purple-300 border-dashed bg-purple-100/40" 
-                 style="left: ${leftPx}px; top: ${topPx}px; width: ${this.dayWidth}px; height: ${(hoursToDraw * this.pxPerHour * this.zoom)}px;">
+                 style="left: ${leftPx}px; top: ${topPx}px; width: ${this.dayWidth}px; height: ${heightPx}px;">
                 <div class="text-center text-[10px] font-black text-purple-600 mt-2 tracking-widest uppercase bg-white/70 py-1 rounded mx-2 shadow-sm">Next Day (Phantom)</div>
             </div>
         `;
 
-        // Render translucent time labels extending into the abyss
-        for (let h = 0; h <= hoursToDraw; h++) {
-            const y = topPx + (h * this.pxPerHour * this.zoom);
-            html += `<div class="absolute border-t border-purple-300 border-dashed w-full opacity-60" style="left: ${leftPx}px; top: ${y}px; width: ${this.dayWidth}px;"></div>`;
-            if (h > 0) {
-                html += `<div class="absolute text-[10px] font-bold text-purple-500 right-2 -translate-y-1/2 opacity-70" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(h).padStart(2, '0')}:00</div>`;
+        // 🚨 FIX: Massive 15-minute grids explicitly drawn up to 5 hours!
+        for (let m = 0; m <= 300; m += 15) {
+            const y = this.getYFromMins(1440 + m);
+            const isHour = m % 60 === 0;
+            const opacity = isHour ? 'opacity-60' : 'opacity-20';
+            
+            html += `<div class="absolute border-t border-purple-300 border-dashed w-full ${opacity}" style="left: ${leftPx}px; top: ${y}px; width: ${this.dayWidth}px;"></div>`;
+            
+            if (isHour) {
+                let hr = m / 60;
+                html += `<div class="absolute text-[10px] font-bold text-purple-500 right-2 -translate-y-1/2 opacity-70" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(hr).padStart(2, '0')}:00</div>`;
+            } else {
+                 let hr = Math.floor(m / 60);
+                 let min = m % 60;
+                 html += `<div class="absolute text-[8px] font-medium text-purple-400 right-2 -translate-y-1/2 opacity-50" style="left: ${leftPx - 45}px; top: ${y}px; width: 40px; text-align: right;">${String(hr).padStart(2, '0')}:${min}</div>`;
             }
         }
         
@@ -368,29 +388,21 @@ class CanvasUI {
         const startAbs = Math.min(this.selectStartAbsMin, this.selectEndAbsMin);
         const endAbs = Math.max(this.selectStartAbsMin, this.selectEndAbsMin);
         
-        const startDay = Math.floor(startAbs / 1440);
-        const endDay = Math.floor((endAbs - 1) / 1440); 
+        const col = this.selectStartCol;
+        const localStartMin = startAbs - (col * 1440);
+        const localEndMin = endAbs - (col * 1440);
         
-        for (let d = startDay; d <= endDay; d++) {
-            const dayStartMin = Math.max(startAbs, d * 1440);
-            const dayEndMin = Math.min(endAbs, (d + 1) * 1440);
-            const duration = dayEndMin - dayStartMin;
-            
-            if (duration > 0) {
-                const localStartMin = dayStartMin % 1440;
-                const topPx = (localStartMin / 60) * this.pxPerHour * this.zoom;
-                const heightPx = (duration / 60) * this.pxPerHour * this.zoom;
-                const leftPx = d * this.dayWidth;
-                
-                const box = document.createElement('div');
-                box.className = 'absolute bg-blue-500/40 border-2 border-blue-600 rounded backdrop-blur-[1px] pointer-events-none shadow-inner z-50';
-                box.style.left = `${leftPx}px`;
-                box.style.top = `${topPx}px`;
-                box.style.width = `${this.dayWidth - 4}px`;
-                box.style.height = `${heightPx}px`;
-                layer.appendChild(box);
-            }
-        }
+        const topPx = this.getYFromMins(localStartMin);
+        const heightPx = this.getYFromMins(localEndMin) - topPx;
+        const leftPx = col * this.dayWidth;
+        
+        const box = document.createElement('div');
+        box.className = 'absolute bg-blue-500/40 border-2 border-blue-600 rounded backdrop-blur-[1px] pointer-events-none shadow-inner z-50';
+        box.style.left = `${leftPx}px`;
+        box.style.top = `${topPx}px`;
+        box.style.width = `${this.dayWidth - 4}px`;
+        box.style.height = `${heightPx}px`;
+        layer.appendChild(box);
     }
 
     handlePointerUp(e) {
@@ -404,21 +416,30 @@ class CanvasUI {
             const selLayer = document.getElementById('drag-selection-layer');
             const phanLayer = document.getElementById('phantom-layer');
             if (selLayer) selLayer.innerHTML = '';
-            if (phanLayer) phanLayer.innerHTML = ''; // Vaporize Phantom Grid!
+            if (phanLayer) phanLayer.innerHTML = ''; 
             
             let startAbs = this.selectStartAbsMin;
             let endAbs = this.selectEndAbsMin;
             if (startAbs > endAbs) { let t = startAbs; startAbs = endAbs; endAbs = t; }
 
-            const startCol = Math.floor(startAbs / 1440);
-            const startMin = startAbs % 1440;
-            const endCol = Math.floor(endAbs / 1440);
-            const endMin = endAbs % 1440;
+            let sCol = this.selectStartCol;
+            let sMin = startAbs - (sCol * 1440);
             
-            // Clean up the camera transform now that the Phantom block is gone
+            let eCol = this.selectStartCol;
+            let eMin = endAbs - (sCol * 1440);
+            
+            // Convert phantom time properly!
+            if (eMin > 1440) { 
+                eCol += Math.floor(eMin / 1440); 
+                eMin %= 1440; 
+            } else if (eMin === 1440) {
+                // If ending exactly at 24:00, map it cleanly to next day 00:00
+                eCol += 1;
+                eMin = 0;
+            }
+            
             this.updateTransform();
-            
-            this.openAddBlockModal(startCol, startMin, endCol, endMin);
+            this.openAddBlockModal(sCol, sMin, eCol, eMin);
             
         } else if (this.isPanning) {
             this.isPanning = false;
@@ -430,16 +451,15 @@ class CanvasUI {
                 
                 if (canvasX < 0 || canvasY < 0) return;
 
-                const rawAbs = this.getAbsoluteMin(canvasX, canvasY);
-                const snappedAbs = Math.floor(rawAbs / this.currentZoomTier) * this.currentZoomTier;
+                const startCol = Math.floor(canvasX / this.dayWidth);
+                const localMins = this.getMinsFromY(canvasY);
+                const snappedLocal = this.getSnappedLocal(localMins);
 
-                const startCol = Math.floor(snappedAbs / 1440);
-                const startMin = snappedAbs % 1440;
-                const endAbs = snappedAbs + this.currentZoomTier;
-                const endCol = Math.floor(endAbs / 1440);
-                const endMin = endAbs % 1440;
+                let eCol = startCol;
+                let eMin = snappedLocal + this.currentZoomTier;
+                if (eMin > 1440) { eCol += 1; eMin %= 1440; }
 
-                this.openAddBlockModal(startCol, startMin, endCol, endMin);
+                this.openAddBlockModal(startCol, snappedLocal, eCol, eMin);
             }
         }
     }
@@ -519,21 +539,18 @@ class CanvasUI {
         this.updateTransform(); this.renderHeaders(); this.renderBlocks();
     }
 
-    // 🚨 REBUILT: updateTransform dynamically expands the floor to allow Phantom Bleeds!
     updateTransform() {
         if (!this.container) return;
         
         let extraHeight = 0;
         if (this.isSelecting) {
-            const startCol = Math.floor(this.selectStartAbsMin / 1440);
-            const dayEndAbs = (startCol + 1) * 1440;
-            if (this.selectEndAbsMin > dayEndAbs) {
-                // Expand the physical boundaries of the canvas to allow the camera to scroll into the Phantom Space!
-                extraHeight = ((this.selectEndAbsMin - dayEndAbs) / 60) * this.pxPerHour * this.zoom + 300; 
+            const localEndMin = this.selectEndAbsMin - (this.selectStartCol * 1440);
+            if (localEndMin > 1440) {
+                extraHeight = this.getYFromMins(1740) - this.getYFromMins(1440) + 100; 
             }
         }
         
-        const totalHeight = (24 * this.pxPerHour * this.zoom) + extraHeight;
+        const totalHeight = this.getYFromMins(1440) + extraHeight;
         const viewportHeight = this.container.clientHeight - this.offsetY; 
 
         if (this.panY > 0) this.panY = 0; 
