@@ -18,8 +18,12 @@ class BlockManager {
         this.editModal = document.getElementById('editBlockModal');
         this.editBlockId = null;
 
-        // NEW MODALS
-        this.bulkModal = document.getElementById('bulkScheduleModal');
+        // NEW: Sub-Tab Modals for Add Block
+        this.tabSingle = document.getElementById('tabSingleBlock');
+        this.tabBulk = document.getElementById('tabBulkBlock');
+        this.singleForm = document.getElementById('singleBlockForm');
+        this.bulkForm = document.getElementById('bulkBlockForm');
+
         this.pushBackModal = document.getElementById('pushBackModal');
         this.activePushBackId = null;
         this.lastBulkBatchId = null;
@@ -33,14 +37,36 @@ class BlockManager {
         if (!this.subjectInput) return; 
         const subs = store.state.subjects;
         this.subjectInput.innerHTML = '';
+        const bulkSub = document.getElementById('bulkTargetSubject');
+        if (bulkSub) bulkSub.innerHTML = '';
+        
         Object.keys(subs).forEach(s => {
             this.subjectInput.innerHTML += `<option value="${s}">${s}</option>`;
+            if(bulkSub) bulkSub.innerHTML += `<option value="${s}">${s}</option>`;
         });
         this.subjectInput.innerHTML += `<option value="custom">+ Add Custom Subject</option>`;
     }
 
     bindEvents() {
-        // --- ADD BLOCK LOGIC ---
+        // 🚨 SUB-TAB LOGIC
+        this.tabSingle?.addEventListener('click', () => {
+            this.tabSingle.className = "px-3 py-1 rounded bg-white shadow-sm font-black text-xs text-blue-600 transition-colors";
+            this.tabBulk.className = "px-3 py-1 rounded font-bold text-xs text-gray-500 hover:text-gray-800 transition-colors";
+            this.singleForm?.classList.remove('hidden');
+            this.bulkForm?.classList.add('hidden');
+        });
+        
+        this.tabBulk?.addEventListener('click', () => {
+            this.tabBulk.className = "px-3 py-1 rounded bg-white shadow-sm font-black text-xs text-blue-600 transition-colors";
+            this.tabSingle.className = "px-3 py-1 rounded font-bold text-xs text-gray-500 hover:text-gray-800 transition-colors";
+            this.bulkForm?.classList.remove('hidden');
+            this.singleForm?.classList.add('hidden');
+        });
+
+        // 🚨 CANCEL CLOSES THE ENTIRE UNIFIED MODAL
+        document.getElementById('cancelAddBlock')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
+        document.getElementById('cancelBulkSchedule')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
+
         this.subjectInput?.addEventListener('change', (e) => {
             if (e.target.value === 'custom') {
                 this.customSubjectDiv.classList.remove('hidden'); this.customSubjectDiv.classList.add('flex');
@@ -49,218 +75,145 @@ class BlockManager {
             }
         });
 
-        document.getElementById('openAddBlockModalHeader')?.addEventListener('click', () => this.modal?.classList.remove('hidden'));
-        document.getElementById('openAddBlockModal')?.addEventListener('click', () => this.modal?.classList.remove('hidden'));
-        document.getElementById('fallbackAddBlockBtn')?.addEventListener('click', () => this.modal?.classList.remove('hidden'));
-        document.getElementById('cancelAddBlock')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
+        document.getElementById('saveNewBlock')?.addEventListener('click', () => this.saveBlock());
+        document.getElementById('cancelEditBlock')?.addEventListener('click', () => { this.editModal?.classList.add('hidden'); this.editBlockId = null; });
+        document.getElementById('saveEditBlock')?.addEventListener('click', (e) => this.saveEditBlock(e.target.dataset.id));
+        
+        document.getElementById('saveBulkSchedule')?.addEventListener('click', () => this.generateBulkBlocks());
+        document.getElementById('undoBulkBtn')?.addEventListener('click', () => this.undoLastBulk());
 
-        document.getElementById('saveNewBlock')?.addEventListener('click', () => {
-            const subject = this.subjectInput.value;
-            const title = document.getElementById('newBlockTitle').value || 'Study Session';
-            const sD = document.getElementById('newBlockStartDate').value;
-            const sT = document.getElementById('newBlockStart').value;
-            const eD = document.getElementById('newBlockEndDate').value;
-            const eT = document.getElementById('newBlockEnd').value;
-            
-            let finalSub = subject;
-            if(subject === 'custom') {
-                finalSub = document.getElementById('newBlockCustomName').value || 'Custom';
-                const color = document.getElementById('newBlockCustomColor').value;
-                store.update('subjects', s => ({...s, [finalSub]: color}));
-            }
-
-            const newBlock = {
-                id: Date.now().toString(),
-                subject: finalSub, title: title,
-                startDate: sD, scheduledStart: sT,
-                endDate: eD, scheduledEnd: eT,
-                status: 'pending', studySeconds: 0, breakSeconds: 0, remarks: ''
-            };
-
-            store.update('blocks', b => [...b, newBlock]);
-            this.modal?.classList.add('hidden');
-        });
-
-        // --- EDIT BLOCK LOGIC (The Analytics Override Engine) ---
-        document.getElementById('saveEditBlock')?.addEventListener('click', (e) => {
-            const id = e.target.dataset.id;
-            if (!id) return;
-
-            const title = document.getElementById('editBlockTitle')?.value;
-            const schedStartD = document.getElementById('editBlockSchedStartDate')?.value;
-            const schedStartT = document.getElementById('editBlockSchedStart')?.value;
-            const schedEndD = document.getElementById('editBlockSchedEndDate')?.value;
-            const schedEndT = document.getElementById('editBlockSchedEnd')?.value;
-            
-            const studyMins = parseInt(document.getElementById('editBlockStudyMins')?.value);
-            const remarks = document.getElementById('editBlockRemarks')?.value;
-
-            store.update('blocks', blocks => blocks.map(b => {
-                if (b.id === id) {
-                    const t = store.state.timer;
-                    const isActiveAndRunning = (t.activeBlockId === b.id && t.isRunning);
-                    
-                    let newStudySeconds = b.studySeconds;
-                    let newStatus = b.status;
-
-                    // 🚨 COLLISION PROTECTION: Only update Analytics if Timer is NOT running
-                    if (!isActiveAndRunning && !isNaN(studyMins)) {
-                        newStudySeconds = studyMins * 60;
-                        if (newStudySeconds > 0 && b.status !== 'completed') {
-                            newStatus = 'completed'; // Auto-complete if they added logged time
-                        }
-                    }
-
-                    return {
-                        ...b,
-                        title: title !== undefined ? title : b.title,
-                        startDate: schedStartD || b.startDate,
-                        endDate: schedEndD || b.endDate,
-                        scheduledStart: schedStartT || b.scheduledStart,
-                        scheduledEnd: schedEndT || b.scheduledEnd,
-                        studySeconds: newStudySeconds,
-                        remarks: remarks !== undefined ? remarks : b.remarks,
-                        status: newStatus
-                    };
-                }
-                return b;
-            }));
-
-            this.editModal?.classList.add('hidden');
-        });
-
-        document.getElementById('cancelEditBlock')?.addEventListener('click', () => {
-            this.editModal?.classList.add('hidden');
-        });
-
-        document.getElementById('deleteEditBlock')?.addEventListener('click', () => {
-            const btn = document.getElementById('saveEditBlock');
-            if (btn && btn.dataset.id) {
-                if (confirm("Are you sure you want to delete this block?")) {
-                    store.update('blocks', blocks => blocks.filter(b => b.id !== btn.dataset.id));
-                    this.editModal?.classList.add('hidden');
-                }
-            }
-        });
-
-        // --- BULK SCHEDULE LOGIC ---
-        document.getElementById('openBulkModalBtn')?.addEventListener('click', () => {
-            this.bulkModal?.classList.remove('hidden');
-        });
-        document.getElementById('cancelBulkBtn')?.addEventListener('click', () => {
-            this.bulkModal?.classList.add('hidden');
-        });
-        document.getElementById('generateBulkBtn')?.addEventListener('click', () => {
-            this.generateBulkSchedule();
-        });
-        document.getElementById('undoBulkBtn')?.addEventListener('click', () => {
-            this.undoBulkSchedule();
-        });
-
-        // --- PUSH BACK LOGIC ---
-        document.getElementById('cancelPushBackBtn')?.addEventListener('click', () => {
-            this.pushBackModal?.classList.add('hidden');
-            this.activePushBackId = null;
-        });
-        document.getElementById('confirmPushBackBtn')?.addEventListener('click', () => {
-            this.pushBackBlocks();
-        });
+        document.getElementById('cancelPushBackBtn')?.addEventListener('click', () => this.pushBackModal?.classList.add('hidden'));
+        document.getElementById('confirmPushBackBtn')?.addEventListener('click', () => this.confirmPushBack());
     }
 
-    generateBulkSchedule() {
-        const subject = document.getElementById('bulkSubject')?.value || 'General';
-        const title = document.getElementById('bulkTitle')?.value || 'Study Session';
-        const date = document.getElementById('bulkDate')?.value;
-        const startT = document.getElementById('bulkStartTime')?.value;
-        const endT = document.getElementById('bulkEndTime')?.value;
-        
-        const studyMins = parseInt(document.getElementById('bulkStudy')?.value) || 50;
-        const breakMins = parseInt(document.getElementById('bulkBreak')?.value) || 10;
-        
-        const hasLunch = document.getElementById('bulkHasLunch')?.checked;
-        const lunchTime = document.getElementById('bulkLunchTime')?.value || '12:00';
-        const lunchDuration = parseInt(document.getElementById('bulkLunchDuration')?.value) || 60;
-
-        if (!date || !startT || !endT) return alert("Please fill all required bulk fields.");
-
-        const startObj = new Date(`${date}T${startT}:00`);
-        const endObj = new Date(`${date}T${endT}:00`);
-        
-        let lunchStartObj = null;
-        let lunchEndObj = null;
-        if (hasLunch) {
-            lunchStartObj = new Date(`${date}T${lunchTime}:00`);
-            lunchEndObj = new Date(lunchStartObj.getTime() + lunchDuration * 60000);
+    saveBlock() {
+        const title = this.titleInput.value;
+        let subject = this.subjectInput.value;
+        if(subject === 'custom') {
+            subject = this.customNameInput.value || 'Custom';
+            const color = this.customColorInput.value;
+            store.update('subjects', s => ({...s, [subject]: color}));
         }
 
-        let current = new Date(startObj);
-        const batchId = Date.now().toString();
-        const newGhostBlocks = [];
-        let generated = 0;
+        const date = this.startDateInput.value;
+        const start = this.startInput.value;
+        const end = this.endInput.value;
 
-        while (current < endObj) {
-            // Check lunch collision
-            if (hasLunch && current >= lunchStartObj && current < lunchEndObj) {
-                current = new Date(lunchEndObj);
-                continue;
-            }
+        if (!subject || !date || !start || !end) return alert("Please fill all required fields!");
 
-            let blockEnd = new Date(current.getTime() + studyMins * 60000);
-            
-            if (hasLunch && current < lunchStartObj && blockEnd > lunchStartObj) {
-                blockEnd = new Date(lunchStartObj);
-            }
+        const newBlock = {
+            id: 'block_' + Date.now(),
+            subject, title, startDate: date, endDate: this.endDateInput.value || date,
+            scheduledStart: start, scheduledEnd: end,
+            status: 'pending', studySeconds: 0, breakSeconds: 0, remarks: ''
+        };
 
-            if (blockEnd > endObj) {
-                blockEnd = endObj;
-            }
+        store.update('blocks', blocks => [...blocks, newBlock]);
+        this.modal.classList.add('hidden');
+        this.titleInput.value = '';
+    }
 
-            const durationMins = (blockEnd - current) / 60000;
-            if (durationMins >= 5) {
-                newGhostBlocks.push({
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    saveEditBlock(id) {
+        const t = store.state.timer;
+        const b = store.state.blocks.find(x => x.id === id);
+        if (!b) return;
+
+        const updated = {
+            title: document.getElementById('editBlockTitle').value,
+            startDate: document.getElementById('editBlockSchedStartDate').value,
+            scheduledStart: document.getElementById('editBlockSchedStart').value,
+            endDate: document.getElementById('editBlockSchedEndDate').value,
+            scheduledEnd: document.getElementById('editBlockSchedEnd').value,
+            remarks: document.getElementById('editBlockRemarks').value
+        };
+
+        const studyInput = document.getElementById('editBlockStudyMins');
+        if (studyInput && !studyInput.disabled && studyInput.value !== "") {
+            updated.studySeconds = parseInt(studyInput.value) * 60;
+            if (updated.studySeconds > 0) updated.status = 'completed';
+        }
+
+        if (t.activeBlockId === id && t.isRunning) {
+            store.update('timer', state => ({ ...state, spontaneousSubject: b.subject }));
+        }
+
+        store.update('blocks', blocks => blocks.map(x => x.id === id ? { ...x, ...updated } : x));
+        this.editModal.classList.add('hidden');
+    }
+
+    generateBulkBlocks() {
+        const subject = document.getElementById('bulkTargetSubject').value;
+        const startDate = document.getElementById('bulkStartDate').value;
+        const endDate = document.getElementById('bulkEndDate').value;
+        const startTime = document.getElementById('bulkStartTime').value;
+        const endTime = document.getElementById('bulkEndTime').value;
+        const intervalMins = parseInt(document.getElementById('bulkInterval').value);
+
+        if (!subject || !startDate || !endDate || !startTime || !endTime || !intervalMins) {
+            return alert("Please fill out all bulk schedule fields.");
+        }
+
+        const startDt = new Date(`${startDate}T00:00:00`);
+        const endDt = new Date(`${endDate}T00:00:00`);
+        if (endDt < startDt) return alert("End date must be after start date.");
+
+        const batchId = 'batch_' + Date.now();
+        const newBlocks = [];
+        const formatT = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+
+        for (let d = new Date(startDt); d <= endDt; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            let currentStart = new Date(`${dateStr}T${startTime}:00`);
+            const dailyEnd = new Date(`${dateStr}T${endTime}:00`);
+
+            while (currentStart < dailyEnd) {
+                const blockEnd = new Date(currentStart.getTime() + intervalMins * 60000);
+                if (blockEnd > dailyEnd) break; 
+
+                newBlocks.push({
+                    id: 'block_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    batchId: batchId,
                     subject: subject,
-                    title: title,
-                    startDate: current.toISOString().split('T')[0],
-                    scheduledStart: current.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), 
-                    endDate: blockEnd.toISOString().split('T')[0], 
-                    scheduledEnd: blockEnd.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-                    actualStart: null, actualEnd: null, status: 'pending', studySeconds: 0, breakSeconds: 0, remarks: '',
-                    batchId: batchId // Used for UNDO
+                    title: 'Routine Focus',
+                    startDate: dateStr,
+                    endDate: dateStr,
+                    scheduledStart: formatT(currentStart),
+                    scheduledEnd: formatT(blockEnd),
+                    status: 'pending', studySeconds: 0, breakSeconds: 0, remarks: ''
                 });
-                generated++;
+
+                currentStart = blockEnd;
             }
-
-            // Move pointer forward (Study + Break)
-            current = new Date(current.getTime() + (studyMins + breakMins) * 60000);
         }
 
-        if (generated > 0) {
-            this.lastBulkBatchId = batchId;
-            store.update('blocks', old => [...old, ...newGhostBlocks]);
-            document.getElementById('undoBulkBtn')?.classList.remove('hidden');
-            alert(`Successfully generated ${generated} ghost blocks!`);
-        } else {
-            alert("Could not find any empty slots in that time range!");
-        }
-        this.bulkModal?.classList.add('hidden');
+        if (newBlocks.length === 0) return alert("No blocks could be generated with those settings.");
+
+        store.update('blocks', old => [...old, ...newBlocks]);
+        this.lastBulkBatchId = batchId;
+        document.getElementById('undoBulkBtn').classList.remove('hidden');
+        alert(`Successfully generated ${newBlocks.length} blocks!`);
+        this.modal?.classList.add('hidden');
     }
 
-    undoBulkSchedule() {
+    undoLastBulk() {
         if (!this.lastBulkBatchId) return;
-        if (confirm("Remove the last bulk-generated blocks?")) {
-            store.update('blocks', b => b.filter(x => x.batchId !== this.lastBulkBatchId));
-            this.lastBulkBatchId = null;
-            document.getElementById('undoBulkBtn')?.classList.add('hidden');
-        }
+        if (!confirm("Delete all blocks generated in the last bulk operation?")) return;
+
+        store.update('blocks', blocks => blocks.filter(b => b.batchId !== this.lastBulkBatchId));
+        this.lastBulkBatchId = null;
+        document.getElementById('undoBulkBtn').classList.add('hidden');
+        alert("Bulk operation undone.");
     }
 
-    pushBackBlocks() {
-        const mins = parseInt(document.getElementById('pushBackMins')?.value);
-        if (!mins || isNaN(mins) || !this.activePushBackId) return;
+    confirmPushBack() {
+        const mins = parseInt(document.getElementById('pushBackMins').value);
+        if(!mins || mins <= 0) return alert("Enter a valid number of minutes.");
 
-        const targetBlock = store.state.blocks.find(b => b.id === this.activePushBackId);
-        if (!targetBlock) return;
+        const t = store.state.timer;
+        if(!t.activeBlockId) return alert("No active block to push back from.");
+
+        const targetBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
+        if(!targetBlock || !targetBlock.startDate) return;
 
         const pushDateStr = targetBlock.startDate;
         const pushStart = new Date(`${targetBlock.startDate}T${targetBlock.scheduledStart}:00`);
