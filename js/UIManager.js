@@ -16,20 +16,17 @@ class UIManager {
     }
 
     renderTab(tabId) {
-        // Forcefully hide all tabs and safely remove the 'flex' display class
         document.querySelectorAll('.tab-content').forEach(el => { 
             el.classList.add('hidden'); 
-            el.classList.remove('flex'); 
+            el.classList.remove('block', 'flex'); 
         });
         
-        // Forcefully render the active tab while preserving its strict flex-1 flex-col height chain
         const activeContent = document.getElementById(tabId);
         if (activeContent) { 
             activeContent.classList.remove('hidden'); 
-            activeContent.classList.add('flex'); 
+            activeContent.classList.add('flex', 'flex-col'); 
         }
 
-        // Update Nav Button Colors
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active-tab', 'text-white', 'shadow');
             btn.classList.add('text-gray-500', 'hover:bg-gray-200');
@@ -39,6 +36,20 @@ class UIManager {
         if (activeBtn) {
             activeBtn.classList.remove('text-gray-500', 'hover:bg-gray-200');
             activeBtn.classList.add('active-tab', 'text-white', 'shadow');
+        }
+
+        // 🚨 HYBRID GLOBAL SCROLL LOGIC
+        const body = document.getElementById('appBody');
+        const main = document.getElementById('appMain');
+        
+        if (tabId === 'schedule') {
+            // Lock body so Canvas drag panning doesn't bounce the whole browser window!
+            body.classList.add('h-[100dvh]', 'overflow-hidden');
+            main.classList.add('min-h-0');
+        } else {
+            // Unlock body so you can scroll the entire webpage naturally!
+            body.classList.remove('h-[100dvh]', 'overflow-hidden');
+            main.classList.remove('min-h-0');
         }
     }
 }
