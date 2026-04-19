@@ -21,7 +21,6 @@ class ThemeManager {
             titleEl.innerText = header.title || 'Study Planner Pro';
         }
 
-        // 🚨 CUSTOM DRAG ENGINE FOR STICKERS
         if (zone) {
             zone.innerHTML = '';
             const stickers = header.stickers || [];
@@ -29,17 +28,19 @@ class ThemeManager {
             stickers.forEach(s => {
                 const el = document.createElement('div');
                 el.innerText = s.emoji;
-                el.className = 'absolute text-2xl md:text-4xl cursor-grab hover:scale-110 transition-transform pointer-events-auto select-none';
+                el.className = 'absolute cursor-grab hover:scale-110 transition-transform pointer-events-auto select-none';
                 el.style.left = `${s.x}%`;
                 el.style.top = `${s.y}%`;
                 el.style.transform = 'translate(-50%, -50%)';
                 
-                // Double click to delete
+                // 🚨 APPLY CUSTOM SIZE
+                const fontSize = s.size ? s.size : 3;
+                el.style.fontSize = `${fontSize}rem`;
+                
                 el.ondblclick = () => {
                     store.update('header', state => ({ ...state, stickers: state.stickers.filter(x => x.id !== s.id) }));
                 };
 
-                // Pointer Events for custom Freeform Dragging
                 let isDragging = false;
 
                 el.addEventListener('pointerdown', (e) => {
@@ -53,11 +54,9 @@ class ThemeManager {
                     if (!isDragging) return;
                     const zoneRect = zone.getBoundingClientRect();
                     
-                    // Convert raw mouse coordinates to perfect percentages!
                     let newX = ((e.clientX - zoneRect.left) / zoneRect.width) * 100;
                     let newY = ((e.clientY - zoneRect.top) / zoneRect.height) * 100;
                     
-                    // Clamp to edges so they don't get lost
                     newX = Math.max(0, Math.min(100, newX));
                     newY = Math.max(0, Math.min(100, newY));
                     
@@ -72,7 +71,6 @@ class ThemeManager {
                     el.classList.add('cursor-grab', 'transition-transform', 'hover:scale-110');
                     el.classList.remove('cursor-grabbing');
                     
-                    // Save final exact position to the database
                     const finalX = parseFloat(el.style.left);
                     const finalY = parseFloat(el.style.top);
                     
