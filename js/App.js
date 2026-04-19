@@ -27,7 +27,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     settingsManager.init(); 
     floatingWidgetManager.init();
     audioEngine.init(); 
-    marathonEngine.init(); 
+    marathonEngine.init();
+    // 🚨 GLOBAL ADMIN & SECURITY BOUNCER
+    store.subscribe('userProfile', (profile) => {
+        if (!profile) return;
+
+        // 1. Check for Ban Hammer
+        if (profile.status === 'suspended') {
+            document.getElementById('bannedOverlay')?.classList.remove('hidden');
+            document.getElementById('bannedOverlay')?.classList.add('flex');
+            // Disable interactions
+            document.body.style.pointerEvents = 'none';
+            document.getElementById('bannedOverlay').style.pointerEvents = 'auto';
+            return;
+        } else {
+            document.getElementById('bannedOverlay')?.classList.add('hidden');
+            document.getElementById('bannedOverlay')?.classList.remove('flex');
+            document.body.style.pointerEvents = 'auto';
+        }
+
+        // 2. Check for God Mode (Admin)
+        // REPLACE WITH YOUR ACTUAL EMAIL!
+        const adminEmail = "your.email@gmail.com"; 
+        
+        if (profile.email === adminEmail) {
+            document.getElementById('openAdminDashboardBtn')?.classList.remove('hidden');
+        } else {
+            document.getElementById('openAdminDashboardBtn')?.classList.add('hidden');
+        }
+    });
 
     // 🚨 FIX 3: Universal "Click Outside to Close Modal" Listener
     document.addEventListener('click', (e) => {
