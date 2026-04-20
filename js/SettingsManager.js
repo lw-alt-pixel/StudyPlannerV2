@@ -19,6 +19,9 @@ class SettingsManager {
         this.bindEvents();
         this.populateForms();
         this.bindEmojiSpawner();
+
+        // 🚨 Listen for User Tickets to render the History Inbox
+        store.subscribe('userTickets', (tickets) => this.renderTicketHistory(tickets));
     }
 
     bindEmojiSpawner() {
@@ -29,215 +32,229 @@ class SettingsManager {
             const emoji = input.value.trim();
             if (!emoji) return;
             
-            // 🚨 ADD SIZE CONTROL TO THE STICKER DATA
             const size = sizeInput ? parseFloat(sizeInput.value) : 3;
             
-            store.update('header', h => ({
-                ...h,
-                stickers: [...(h.stickers || []), { emoji, x: 50, y: 50, size: size, id: Date.now().toString() }]
-            }));
-            input.value = ''; 
+            store.update('header', h => {
+                const stickers = h.stickers || [];
+                stickers.push({ emoji, x: 50, y: 50, id: Date.now(), size });
+                return { ...h, stickers };
+            });
+            input.value = '';
         });
     }
 
     bindEvents() {
-        const closeSettings = () => {
+        document.getElementById('closeSettingsPanel')?.addEventListener('click', () => {
             this.panel?.classList.add('translate-x-full');
             this.overlay?.classList.add('hidden');
-        };
-        document.getElementById('closeSettingsPanel')?.addEventListener('click', closeSettings);
-        this.overlay?.addEventListener('click', closeSettings);
-
-        document.getElementById('fallbackSettingsBtn')?.addEventListener('click', () => {
-            this.panel?.classList.remove('translate-x-full');
-            this.overlay?.classList.remove('hidden');
         });
 
         this.bgMode?.addEventListener('change', (e) => {
-            if (e.target.value === 'color') { this.bgColorDiv.classList.remove('hidden'); this.bgImageDiv.classList.add('hidden'); }
-            else { this.bgColorDiv.classList.add('hidden'); this.bgImageDiv.classList.remove('hidden'); }
-        });
-
-        document.getElementById('saveAllSettingsBtn')?.addEventListener('click', () => {
-            this.saveAllSettings();
-            alert("All Settings Saved Successfully!");
-            closeSettings();
+            if (e.target.value === 'color') {
+                this.bgColorDiv.classList.remove('hidden'); this.bgColorDiv.classList.add('flex');
+                this.bgImageDiv.classList.add('hidden');
+            } else {
+                this.bgColorDiv.classList.add('hidden'); this.bgColorDiv.classList.remove('flex');
+                this.bgImageDiv.classList.remove('hidden');
+            }
         });
 
         this.customAudioUpload?.addEventListener('change', async (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-            if (file.size > 15 * 1024 * 1024) return alert("File must be under 15MB");
-            
-            const id = 'custom_' + Date.now();
-            await audioDB.save(id, file);
-            await this.refreshCustomAudioDropdowns();
-            this.sourceSelect.value = id;
-            alert("Custom audio uploaded successfully!");
+            if (!file || !audioDB) return;
+            try {
+                const id = 'local_' + Date.now();
+                await audioDB.save(id, file, file.name);
+                await this.refreshCustomAudioDropdowns();
+                e.target.value = '';
+            } catch (err) { console.error("Audio save failed", err); }
         });
-        // 🚨 BIND THE SUPPORT TICKET BUTTON
+
+        // 🚨 SEND TICKET EVENT
         document.getElementById('sendSupportTicketBtn')?.addEventListener('click', async () => {
             const msgInput = document.getElementById('supportTicketMsg');
             const msg = msgInput.value.trim();
             const btn = document.getElementById('sendSupportTicketBtn');
             
-            if (!msg) {
-                alert("Please describe your issue first!");
-                return;
-            }
+            if (!msg) { alert("Please describe your issue first!"); return; }
 
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
             btn.disabled = true;
 
             try {
-                // Dynamically import the function to avoid circular dependency issues
                 const { submitSupportTicket } = await import('./State.js');
                 await submitSupportTicket(msg);
                 
                 msgInput.value = '';
                 btn.innerHTML = '<i class="fa fa-check text-green-400"></i> Sent!';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 3000);
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 3000);
             } catch (e) {
                 alert("Failed to send message. Please try again.");
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                btn.innerHTML = originalText; btn.disabled = false;
             }
+        });
+
+        // 🚨 THE MASTER SAVE BUTTON (Now saves Display Name properly)
+        document.getElementById('saveAllSettingsBtn')?.addEventListener('click', () => {
+            store.update('theme', t => ({
+                ...t,
+                bgMode: this.bgMode.value,
+                bgColor: document.getElementById('settingsBgColor').value,
+                bgImage: document.getElementById('settingsBgImage').value,
+                actionColor: document.getElementById('settingsActionColor').value,
+                actionSize: document.getElementById('settingsActionSize').value,
+                floatingBtn: document.getElementById('settingsFloatingBtn').value,
+                bannerBgColor: document.getElementById('settingsBannerBg').value,
+                bannerTextColor: document.getElementById('settingsBannerText').value
+            }));
+
+            store.update('settings', s => ({
+                ...s,
+                pStudy: parseInt(document.getElementById('settingsPStudy').value) || 25,
+                pBreak: parseInt(document.getElementById('settingsPBreak').value) || 5
+            }));
+
+            store.update('audio', a => ({
+                enabled: document.getElementById('settingsAudioEnabled').checked,
+                volume: parseInt(document.getElementById('settingsAudioVolume').value) || 50,
+                source: this.sourceSelect.value,
+                breakSource: this.breakSourceSelect.value
+            }));
+
+            store.update('header', h => ({
+                ...h,
+                title: document.getElementById('settingsAppTitle').value || 'Study Planner Pro',
+                bgColor: document.getElementById('settingsHeaderBg').value || '#ffffff',
+                textColor: document.getElementById('settingsHeaderTextColor').value || '#1f2937'
+            }));
+
+            // 🚨 SAVE DISPLAY NAME
+            const newDisplayName = document.getElementById('settingsDisplayName')?.value.trim();
+            if (newDisplayName !== undefined) {
+                store.update('userProfile', p => p ? { ...p, displayName: newDisplayName } : p);
+            }
+
+            alert("Settings Saved!");
+            document.getElementById('closeSettingsPanel')?.click();
         });
     }
 
     async refreshCustomAudioDropdowns() {
+        if (!audioDB) return;
         const ids = await audioDB.getAllIds();
         
-        Array.from(this.sourceSelect.options).forEach(opt => { if(opt.value.startsWith('custom_')) opt.remove(); });
-        Array.from(this.breakSourceSelect.options).forEach(opt => { if(opt.value.startsWith('custom_')) opt.remove(); });
-        this.customAudioList.innerHTML = '';
+        document.querySelectorAll('.custom-local-audio').forEach(el => el.remove());
 
-        ids.forEach(id => {
-            const timeStr = new Date(parseInt(id.split('_')[1])).toLocaleString();
-            
-            const opt1 = new Option(`Custom Audio (${timeStr})`, id);
-            const opt2 = new Option(`Custom Audio (${timeStr})`, id);
-            this.sourceSelect.add(opt1); this.breakSourceSelect.add(opt2);
-
-            const item = document.createElement('div');
-            item.className = 'flex justify-between items-center bg-gray-100 p-2 rounded text-sm mb-1';
-            item.innerHTML = `<span>Audio (${timeStr})</span> <button class="text-red-500 font-bold hover:underline delete-audio" data-id="${id}">Delete</button>`;
-            this.customAudioList.appendChild(item);
-        });
-
-        document.querySelectorAll('.delete-audio').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const idToDelete = e.target.dataset.id;
-                await audioDB.delete(idToDelete);
-                
-                if(store.state.audio.source === idToDelete) store.update('audio', a => ({...a, source: 'none'}));
-                if(store.state.audio.breakSource === idToDelete) store.update('audio', a => ({...a, breakSource: 'none'}));
-                
-                await this.refreshCustomAudioDropdowns();
-                this.populateForms();
+        const addOptions = (selectEl) => {
+            ids.forEach(id => {
+                const opt = document.createElement('option');
+                opt.value = id; opt.className = 'custom-local-audio';
+                opt.text = `Local: Custom Audio (${id.substr(6,4)})`;
+                selectEl.appendChild(opt);
             });
+        };
+
+        addOptions(this.sourceSelect); addOptions(this.breakSourceSelect);
+        this.renderCustomAudioList(ids);
+    }
+
+    async renderCustomAudioList(ids) {
+        if (!this.customAudioList) return;
+        this.customAudioList.innerHTML = '';
+        ids.forEach(id => {
+            const div = document.createElement('div');
+            div.className = "flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200";
+            div.innerHTML = `<span class="text-xs font-bold text-gray-600 truncate">Track ${id.substr(6,4)}</span>
+                             <button class="text-red-500 hover:text-red-700 font-bold px-2 py-1"><i class="fa fa-trash"></i></button>`;
+            div.querySelector('button').onclick = async () => {
+                await audioDB.delete(id); await this.refreshCustomAudioDropdowns();
+            };
+            this.customAudioList.appendChild(div);
+        });
+    }
+
+    // 🚨 RENDERS THE TICKETS IN THE SETTINGS PANEL
+    renderTicketHistory(tickets) {
+        const container = document.getElementById('userSupportHistoryList');
+        if (!container) return;
+        
+        if (!tickets || tickets.length === 0) {
+            container.innerHTML = '<div class="text-xs text-gray-400 font-bold text-center mt-4">No previous tickets.</div>';
+            return;
+        }
+
+        // Sort dynamically so newest is at the top
+        const sortedTickets = [...tickets].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        container.innerHTML = '';
+        sortedTickets.forEach(t => {
+            const el = document.createElement('div');
+            el.className = 'p-3 bg-gray-50 border border-gray-200 rounded-xl shadow-sm';
+            
+            const dateStr = t.timestamp ? new Date(t.timestamp).toLocaleDateString() : 'Unknown Date';
+            const isAnswered = t.status === 'answered';
+            
+            let adminReplyHtml = '';
+            if (isAnswered) {
+                adminReplyHtml = `
+                    <div class="mt-2 p-2 bg-blue-100/50 border border-blue-200 rounded-lg">
+                        <div class="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1"><i class="fa fa-reply mr-1"></i>Admin Reply:</div>
+                        <div class="text-xs font-bold text-gray-800">${t.adminResponse}</div>
+                    </div>
+                `;
+            }
+
+            el.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest">${dateStr}</span>
+                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${isAnswered ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${t.status}</span>
+                </div>
+                <div class="text-xs font-bold text-gray-600 italic">"${t.message}"</div>
+                ${adminReplyHtml}
+            `;
+            container.appendChild(el);
         });
     }
 
     async populateForms() {
-        const subs = store.state.subjects;
-        this.subjectList.innerHTML = '';
-        Object.keys(subs).forEach(s => {
-            this.subjectList.innerHTML += `
-                <div class="flex items-center gap-2 mb-2 subject-row">
-                    <input type="text" class="sub-name flex-1 border p-1 rounded font-bold text-sm" value="${s}" data-old="${s}">
-                    <input type="color" class="sub-color w-8 h-8 rounded border" value="${subs[s]}">
-                    <button class="sub-del text-red-500 font-black px-2">&times;</button>
-                </div>
-            `;
-        });
+        const t = store.state.theme || {};
+        const h = store.state.header || {};
+        const s = store.state.settings || {};
+        const a = store.state.audio || {};
+        const p = store.state.userProfile || {};
 
-        document.querySelectorAll('.sub-del').forEach(btn => {
-            btn.addEventListener('click', (e) => e.target.closest('.subject-row').remove());
-        });
+        const safeSet = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
 
-        const st = store.state.settings;
-        document.getElementById('settingsPStudy').value = st.pStudy;
-        document.getElementById('settingsPBreak').value = st.pBreak;
+        safeSet('settingsBgMode', t.bgMode || 'color');
+        safeSet('settingsBgColor', t.bgColor || '#f9fafb');
+        safeSet('settingsBgImage', t.bgImage || '');
+        safeSet('settingsActionColor', t.actionColor || '#3b82f6');
+        safeSet('settingsActionSize', t.actionSize || 'md');
+        safeSet('settingsFloatingBtn', t.floatingBtn || 'md');
+        safeSet('settingsBannerBg', t.bannerBgColor || '#dc2626');
+        safeSet('settingsBannerText', t.bannerTextColor || '#ffffff');
+
+        safeSet('settingsPStudy', s.pStudy || 25);
+        safeSet('settingsPBreak', s.pBreak || 5);
+
+        const aEnabled = document.getElementById('settingsAudioEnabled');
+        if (aEnabled) aEnabled.checked = !!a.enabled;
+        safeSet('settingsAudioVolume', a.volume || 50);
+        
+        safeSet('settingsAppTitle', h.title || 'Study Planner Pro');
+        safeSet('settingsHeaderBg', h.bgColor || '#ffffff');
+        safeSet('settingsHeaderTextColor', h.textColor || '#1f2937');
+
+        // 🚨 LOAD DISPLAY NAME
+        safeSet('settingsDisplayName', p.displayName || '');
 
         await this.refreshCustomAudioDropdowns();
-
-        const au = store.state.audio;
-        document.getElementById('settingsAudioEnabled').checked = au.enabled;
-        document.getElementById('settingsAudioVolume').value = au.volume;
-        this.sourceSelect.value = au.source;
-        this.breakSourceSelect.value = au.breakSource;
-
-        const th = store.state.theme;
-        this.bgMode.value = th.bgType || 'color';
-        document.getElementById('settingsBgColor').value = th.bgColor || '#f3f4f6';
-        document.getElementById('settingsBgImage').value = th.bgImage || '';
-        document.getElementById('settingsActionColor').value = th.actionColor || '#3b82f6';
         
-        document.getElementById('settingsActionSize').value = th.actionSize || 'md';
-        document.getElementById('settingsFloatingBtn').value = th.floatingBtn || 'md';
-        document.getElementById('settingsBannerBg').value = th.bannerBgColor || '#dc2626';
-        document.getElementById('settingsBannerText').value = th.bannerTextColor || '#ffffff';
+        if(this.sourceSelect) this.sourceSelect.value = a.source || 'none';
+        if(this.breakSourceSelect) this.breakSourceSelect.value = a.breakSource || 'none';
 
-        const hd = store.state.header;
-        document.getElementById('settingsAppTitle').value = hd.title || 'Study Planner Pro';
-        document.getElementById('settingsHeaderBg').value = hd.bgColor || '#ffffff';
-        document.getElementById('settingsHeaderTextColor').value = hd.textColor || '#1f2937';
-
-        this.bgMode.dispatchEvent(new Event('change'));
-    }
-
-    saveAllSettings() {
-        const renames = []; const newSubs = {};
-        document.querySelectorAll('.subject-row').forEach(row => {
-            const oldName = row.querySelector('.sub-name').dataset.old;
-            const newName = row.querySelector('.sub-name').value.trim();
-            const color = row.querySelector('.sub-color').value;
-            if (!newName) return;
-            newSubs[newName] = color;
-            if (oldName !== newName) renames.push({ old: oldName, new: newName });
-        });
-        store.update('subjects', () => newSubs);
-        if (renames.length > 0) {
-            store.update('blocks', blocks => blocks.map(b => { const match = renames.find(r => r.old === b.subject); return match ? { ...b, subject: match.new } : b; }));
-            store.update('exams', exams => exams.map(e => { const match = renames.find(r => r.old === e.subject); return match ? { ...e, subject: match.new } : e; }));
-        }
-
-        store.update('theme', t => ({
-            ...t,
-            bgType: this.bgMode.value,
-            bgColor: document.getElementById('settingsBgColor').value,
-            bgImage: document.getElementById('settingsBgImage').value,
-            actionColor: document.getElementById('settingsActionColor').value,
-            actionSize: document.getElementById('settingsActionSize').value,
-            floatingBtn: document.getElementById('settingsFloatingBtn').value,
-            bannerBgColor: document.getElementById('settingsBannerBg').value,
-            bannerTextColor: document.getElementById('settingsBannerText').value
-        }));
-
-        store.update('settings', s => ({
-            ...s,
-            pStudy: parseInt(document.getElementById('settingsPStudy').value) || 25,
-            pBreak: parseInt(document.getElementById('settingsPBreak').value) || 5
-        }));
-
-        store.update('audio', a => ({
-            enabled: document.getElementById('settingsAudioEnabled').checked,
-            volume: parseInt(document.getElementById('settingsAudioVolume').value) || 50,
-            source: document.getElementById('settingsAudioSource').value,
-            breakSource: document.getElementById('settingsAudioBreakSource').value
-        }));
-
-        store.update('header', h => ({
-            ...h,
-            title: document.getElementById('settingsAppTitle').value || 'Study Planner Pro',
-            bgColor: document.getElementById('settingsHeaderBg').value || '#ffffff',
-            textColor: document.getElementById('settingsHeaderTextColor').value || '#1f2937'
-        }));
+        if (this.bgMode) this.bgMode.dispatchEvent(new Event('change'));
     }
 }
 export const settingsManager = new SettingsManager();
