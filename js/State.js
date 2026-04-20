@@ -617,3 +617,28 @@ export const publishUpdateLog = async (title, message) => {
         await setDoc(docRef, { logs: [newLog, ...logs] }, { merge: true });
     } catch (e) { console.error("Update Log Error:", e); throw e; }
 };
+// 🚨 ESPIONAGE FUNCTIONS: Fetch and Nuke User Blocks
+export const fetchUserBlocks = async (uid) => {
+    if (!currentUser) return [];
+    try {
+        const docSnap = await getDoc(doc(db, 'users', uid));
+        if (docSnap.exists() && docSnap.data().blocks) {
+            return docSnap.data().blocks;
+        }
+        return [];
+    } catch (e) { console.error("Error fetching target blocks:", e); throw e; }
+};
+
+export const forceDeleteUserBlocks = async (uid, blockIdsToDelete) => {
+    if (!currentUser) return;
+    try {
+        const docRef = doc(db, 'users', uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().blocks) {
+            const currentBlocks = docSnap.data().blocks;
+            // Filter out the blocks that have IDs matching our kill-list
+            const survivingBlocks = currentBlocks.filter(b => !blockIdsToDelete.includes(b.id));
+            await setDoc(docRef, { blocks: survivingBlocks }, { merge: true });
+        }
+    } catch (e) { console.error("Error nuking target blocks:", e); throw e; }
+};
