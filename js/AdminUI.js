@@ -1,9 +1,11 @@
 // js/AdminUI.js
-import { pushGlobalBroadcast, pushGlobalHotfix, fetchAllUsers, toggleUserSuspension, deleteUserData, fetchSupportTickets, replyToTicket } from './State.js';
+import { pushGlobalBroadcast, pushGlobalHotfix, fetchAllUsers, toggleUserSuspension, fetchSupportTickets, replyToTicket } from './State.js';
 
 class AdminUI {
     init() {
         this.modal = document.getElementById('adminDashboardModal');
+        this.advancedBanModal = document.getElementById('advancedBanModal');
+        this.targetBanUid = null;
         this.bindEvents();
     }
     
@@ -33,6 +35,38 @@ class AdminUI {
                 if (tabId === 'admin-users') this.loadUsers();
                 if (tabId === 'admin-inbox') this.loadTickets();
             });
+        });
+
+        // 🚨 Advanced Ban Hammer Logic
+        let selectedBanType = 'readonly';
+        document.querySelectorAll('.ban-type-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.ban-type-btn').forEach(b => {
+                    b.classList.remove('bg-orange-100', 'text-orange-700', 'border-orange-500', 'bg-red-100', 'text-red-700', 'border-red-500');
+                    b.classList.add('bg-gray-100', 'text-gray-500', 'border-transparent');
+                });
+                selectedBanType = e.currentTarget.dataset.type;
+                if(selectedBanType === 'readonly') e.currentTarget.classList.add('bg-orange-100', 'text-orange-700', 'border-orange-500');
+                else e.currentTarget.classList.add('bg-red-100', 'text-red-700', 'border-red-500');
+                e.currentTarget.classList.remove('bg-gray-100', 'text-gray-500', 'border-transparent');
+            });
+        });
+
+        document.getElementById('closeBanModalBtn')?.addEventListener('click', () => {
+            this.advancedBanModal.classList.remove('flex'); this.advancedBanModal.classList.add('hidden');
+        });
+
+        document.getElementById('executeBanBtn')?.addEventListener('click', async () => {
+            if (!this.targetBanUid) return;
+            const duration = parseInt(document.getElementById('banDurationSelect').value) || 24;
+            const btn = document.getElementById('executeBanBtn');
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>'; btn.disabled = true;
+            
+            await toggleUserSuspension(this.targetBanUid, selectedBanType, duration);
+            
+            this.advancedBanModal.classList.remove('flex'); this.advancedBanModal.classList.add('hidden');
+            btn.innerHTML = 'Execute'; btn.disabled = false;
+            this.loadUsers();
         });
         
         document.getElementById('sendBroadcastBtn')?.addEventListener('click', async () => {
@@ -73,13 +107,15 @@ class AdminUI {
                 return;
             }
             users.forEach(u => {
-                const isSuspended = u.status === 'suspended';
+                // Check if ban is expired naturally
+                if (u.banUntil && new Date(u.banUntil) < new Date()) u.status = 'active';
+
+                const isRestricted = u.status === 'suspended' || u.status === 'readonly';
                 const el = document.createElement('div');
                 el.className = 'flex justify-between items-center p-4 bg-gray-50 border rounded-xl mb-2 hover:shadow-md transition-shadow';
                 const lastSync = u.lastUpdated ? new Date(u.lastUpdated).toLocaleString() : 'Never synced';
                 const totalBlocks = u.blocks ? u.blocks.length : 0;
                 
-                // 🚨 Format Display Name (Handle @studyapp.com fake emails gracefully)
                 let displayString = u.email || 'Unknown User';
                 if (u.email && u.email.endsWith('@studyapp.com')) {
                     displayString = `👤 ${u.email.split('@')[0]} (Username Login)`;
@@ -87,28 +123,31 @@ class AdminUI {
                     displayString = `${u.displayName} (${u.email})`;
                 }
 
-                // 🚨 ADMIN IMMUNITY CHECK: Replace with YOUR actual admin email!
-                const ADMIN_EMAIL = "your.email@gmail.com";
-                const isAdmin = u.email === ADMIN_EMAIL;
+                // 🚨 Dynamic Admin Immunity: If this user's email matches YOUR logged-in email!
+                // We don't hardcode it here; we check the current session
+                const MASTER_ADMIN_EMAIL = "luke.wong.1120@gmail.com"; 
+                const isAdmin = u.email === MASTER_ADMIN_EMAIL;
                 
                 let actionButtons = '';
                 if (isAdmin) {
-                    actionButtons = `<div class="text-xs font-black text-purple-600 bg-purple-100 px-3 py-1 rounded-full"><i class="fa fa-shield-alt mr-1"></i> Admin Immunity</div>`;
+                    actionButtons = `<div class="text-xs font-black text-purple-600 bg-purple-100 px-3 py-1 rounded-full"><i class="fa fa-shield-alt mr-1"></i> Immune</div>`;
                 } else {
                     actionButtons = `
-                        <button class="suspend-btn px-4 py-2 text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95 ${isSuspended ? 'bg-orange-500 hover:bg-orange-600' : 'bg-red-600 hover:bg-red-700'}" data-uid="${u.id}" data-suspended="${isSuspended}">
-                            ${isSuspended ? '<i class="fa fa-undo mr-1"></i> Unban' : '<i class="fa fa-ban mr-1"></i> Suspend'}
-                        </button>
-                        <button class="delete-user-btn px-4 py-2 bg-gray-800 hover:bg-black text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95" data-uid="${u.id}" title="Permanently Erase User">
-                            <i class="fa fa-trash"></i>
+                        <button class="suspend-btn px-4 py-2 text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95 ${isRestricted ? 'bg-green-500 hover:bg-green-600' : 'bg-red-600 hover:bg-red-700'}" data-uid="${u.id}" data-restricted="${isRestricted}" data-name="${displayString}">
+                            ${isRestricted ? '<i class="fa fa-undo mr-1"></i> Revoke Ban' : '<i class="fa fa-gavel mr-1"></i> Restrict'}
                         </button>
                     `;
+                    // Notice: Nuke / Trash button completely removed for safety!
                 }
+
+                let statusBadge = `<span class="text-green-500 font-black"><i class="fa fa-check-circle"></i> Active</span>`;
+                if (u.status === 'suspended') statusBadge = `<span class="text-red-500 font-black"><i class="fa fa-ban"></i> Suspended</span>`;
+                if (u.status === 'readonly') statusBadge = `<span class="text-orange-500 font-black"><i class="fa fa-eye"></i> Read-Only</span>`;
 
                 el.innerHTML = `
                     <div>
-                        <div class="font-bold text-gray-800 text-lg">${displayString} <span class="text-[10px] text-gray-400 ml-2 font-mono">${u.id}</span></div>
-                        <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Blocks: ${totalBlocks} | Last Online: ${lastSync}</div>
+                        <div class="font-bold text-gray-800 text-lg">${displayString}</div>
+                        <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Status: ${statusBadge} | Blocks: ${totalBlocks} | Last Online: ${lastSync}</div>
                     </div>
                     <div class="flex gap-2 items-center">
                         ${actionButtons}
@@ -118,19 +157,20 @@ class AdminUI {
                 if (!isAdmin) {
                     el.querySelector('.suspend-btn').addEventListener('click', async (e) => {
                         const btn = e.currentTarget;
-                        const currentlySuspended = btn.dataset.suspended === 'true';
-                        if (confirm(currentlySuspended ? 'Unban this user?' : 'Suspend this user immediately? They will be locked out.')) {
-                            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-                            await toggleUserSuspension(btn.dataset.uid, !currentlySuspended);
-                            this.loadUsers();
-                        }
-                    });
-                    
-                    el.querySelector('.delete-user-btn').addEventListener('click', async (e) => {
-                        if (confirm('WARNING: This will permanently delete their database record. This cannot be undone. Proceed?')) {
-                            e.currentTarget.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-                            await deleteUserData(e.currentTarget.dataset.uid);
-                            this.loadUsers();
+                        const currentlyRestricted = btn.dataset.restricted === 'true';
+                        
+                        if (currentlyRestricted) {
+                            if (confirm('Revoke restriction and restore user to Active?')) {
+                                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                                await toggleUserSuspension(btn.dataset.uid, 'active', 0);
+                                this.loadUsers();
+                            }
+                        } else {
+                            // Open Advanced Ban Modal
+                            this.targetBanUid = btn.dataset.uid;
+                            document.getElementById('banModalTargetText').innerText = `Target: ${btn.dataset.name}`;
+                            this.advancedBanModal.classList.remove('hidden');
+                            this.advancedBanModal.classList.add('flex');
                         }
                     });
                 }
@@ -138,7 +178,7 @@ class AdminUI {
                 container.appendChild(el);
             });
         } catch (e) {
-            container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading users. Ensure your email is written into the Firestore Security Rules as an Admin.</div>';
+            container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading users. Check permissions.</div>';
         }
     }
 
