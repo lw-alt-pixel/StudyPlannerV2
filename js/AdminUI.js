@@ -30,7 +30,6 @@ class AdminUI {
                 const tabId = e.currentTarget.dataset.tab;
                 document.getElementById(tabId)?.classList.remove('hidden');
 
-                // 🚨 Trigger data load when tabs are clicked!
                 if (tabId === 'admin-users') this.loadUsers();
                 if (tabId === 'admin-inbox') this.loadTickets();
             });
@@ -80,38 +79,61 @@ class AdminUI {
                 const lastSync = u.lastUpdated ? new Date(u.lastUpdated).toLocaleString() : 'Never synced';
                 const totalBlocks = u.blocks ? u.blocks.length : 0;
                 
-                el.innerHTML = `
-                    <div>
-                        <div class="font-bold text-gray-800 text-lg">${u.email || 'Anonymous User'} <span class="text-xs text-gray-400 ml-2 font-mono">${u.id}</span></div>
-                        <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Blocks: ${totalBlocks} | Last Online: ${lastSync}</div>
-                    </div>
-                    <div class="flex gap-2">
+                // 🚨 Format Display Name (Handle @studyapp.com fake emails gracefully)
+                let displayString = u.email || 'Unknown User';
+                if (u.email && u.email.endsWith('@studyapp.com')) {
+                    displayString = `👤 ${u.email.split('@')[0]} (Username Login)`;
+                } else if (u.displayName) {
+                    displayString = `${u.displayName} (${u.email})`;
+                }
+
+                // 🚨 ADMIN IMMUNITY CHECK: Replace with YOUR actual admin email!
+                const ADMIN_EMAIL = "your.email@gmail.com";
+                const isAdmin = u.email === ADMIN_EMAIL;
+                
+                let actionButtons = '';
+                if (isAdmin) {
+                    actionButtons = `<div class="text-xs font-black text-purple-600 bg-purple-100 px-3 py-1 rounded-full"><i class="fa fa-shield-alt mr-1"></i> Admin Immunity</div>`;
+                } else {
+                    actionButtons = `
                         <button class="suspend-btn px-4 py-2 text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95 ${isSuspended ? 'bg-orange-500 hover:bg-orange-600' : 'bg-red-600 hover:bg-red-700'}" data-uid="${u.id}" data-suspended="${isSuspended}">
                             ${isSuspended ? '<i class="fa fa-undo mr-1"></i> Unban' : '<i class="fa fa-ban mr-1"></i> Suspend'}
                         </button>
                         <button class="delete-user-btn px-4 py-2 bg-gray-800 hover:bg-black text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95" data-uid="${u.id}" title="Permanently Erase User">
                             <i class="fa fa-trash"></i>
                         </button>
+                    `;
+                }
+
+                el.innerHTML = `
+                    <div>
+                        <div class="font-bold text-gray-800 text-lg">${displayString} <span class="text-[10px] text-gray-400 ml-2 font-mono">${u.id}</span></div>
+                        <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Blocks: ${totalBlocks} | Last Online: ${lastSync}</div>
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        ${actionButtons}
                     </div>
                 `;
                 
-                el.querySelector('.suspend-btn').addEventListener('click', async (e) => {
-                    const btn = e.currentTarget;
-                    const currentlySuspended = btn.dataset.suspended === 'true';
-                    if (confirm(currentlySuspended ? 'Unban this user?' : 'Suspend this user immediately? They will be locked out.')) {
-                        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-                        await toggleUserSuspension(btn.dataset.uid, !currentlySuspended);
-                        this.loadUsers();
-                    }
-                });
-                
-                el.querySelector('.delete-user-btn').addEventListener('click', async (e) => {
-                    if (confirm('WARNING: This will permanently delete their database record. This cannot be undone. Proceed?')) {
-                        e.currentTarget.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-                        await deleteUserData(e.currentTarget.dataset.uid);
-                        this.loadUsers();
-                    }
-                });
+                if (!isAdmin) {
+                    el.querySelector('.suspend-btn').addEventListener('click', async (e) => {
+                        const btn = e.currentTarget;
+                        const currentlySuspended = btn.dataset.suspended === 'true';
+                        if (confirm(currentlySuspended ? 'Unban this user?' : 'Suspend this user immediately? They will be locked out.')) {
+                            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                            await toggleUserSuspension(btn.dataset.uid, !currentlySuspended);
+                            this.loadUsers();
+                        }
+                    });
+                    
+                    el.querySelector('.delete-user-btn').addEventListener('click', async (e) => {
+                        if (confirm('WARNING: This will permanently delete their database record. This cannot be undone. Proceed?')) {
+                            e.currentTarget.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                            await deleteUserData(e.currentTarget.dataset.uid);
+                            this.loadUsers();
+                        }
+                    });
+                }
                 
                 container.appendChild(el);
             });
@@ -137,6 +159,9 @@ class AdminUI {
                 const timeStr = t.timestamp ? new Date(t.timestamp).toLocaleString() : 'Unknown Time';
                 const isAnswered = t.status === 'answered';
                 
+                let displayEmail = t.email || 'Unknown';
+                if (displayEmail.endsWith('@studyapp.com')) displayEmail = displayEmail.split('@')[0] + " (Username)";
+
                 let replyHtml = '';
                 if (isAnswered) {
                     replyHtml = `
@@ -159,7 +184,7 @@ class AdminUI {
                 el.innerHTML = `
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <div class="font-black text-gray-800 text-lg">${t.email}</div>
+                            <div class="font-black text-gray-800 text-lg">${displayEmail}</div>
                             <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">${timeStr}</div>
                         </div>
                         <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-inner ${isAnswered ? 'bg-gray-200 text-gray-600' : 'bg-yellow-100 text-yellow-700 animate-pulse'}">${t.status}</span>
