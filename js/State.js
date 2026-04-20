@@ -73,7 +73,6 @@ class Store {
 }
 export const store = new Store();
 
-// 🚨 THE FIX: Re-added getAllIds() to stop the crash!
 export const audioDB = window.indexedDB ? {
     db: null,
     async init() {
@@ -144,7 +143,6 @@ onAuthStateChanged(auth, async (user) => {
             }
         });
 
-        // 🚨 NEW: Notify user if Admin replies to their ticket!
         const ticketQuery = query(collection(db, 'supportTickets'), where("uid", "==", user.uid));
         onSnapshot(ticketQuery, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
@@ -177,9 +175,14 @@ onAuthStateChanged(auth, async (user) => {
                 
                 store.update('userProfile', () => ({
                     email: user.email,
+                    displayName: data.displayName || '',
                     status: data.status || 'active',
                     role: data.role || 'user'
                 }));
+            } else {
+                // First time login -> Create basic profile
+                await setDoc(docRef, { status: 'active', role: 'user', lastUpdated: new Date().toISOString() }, { merge: true });
+                store.update('userProfile', () => ({ email: user.email, status: 'active', role: 'user' }));
             }
         } catch (e) {
             console.error("Error fetching user data:", e);
@@ -193,6 +196,8 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    let loginMode = 'email'; // can be 'email' or 'username'
+
     document.getElementById('openLoginModalBtn')?.addEventListener('click', () => {
         document.getElementById('loginModal').classList.remove('hidden');
         document.getElementById('loginModal').classList.add('flex');
@@ -203,17 +208,52 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('loginModal').classList.add('hidden');
     });
 
+    // 🚨 Toggle Logic for Hybrid Auth
+    document.getElementById('modeEmailBtn')?.addEventListener('click', (e) => {
+        loginMode = 'email';
+        e.target.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+        e.target.classList.remove('text-gray-500');
+        const userBtn = document.getElementById('modeUsernameBtn');
+        userBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+        userBtn.classList.add('text-gray-500');
+        document.getElementById('authEmail').placeholder = "Email Address";
+        document.getElementById('authEmail').type = "email";
+        document.getElementById('googleLoginBtn').style.display = 'flex';
+    });
+
+    document.getElementById('modeUsernameBtn')?.addEventListener('click', (e) => {
+        loginMode = 'username';
+        e.target.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+        e.target.classList.remove('text-gray-500');
+        const emailBtn = document.getElementById('modeEmailBtn');
+        emailBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+        emailBtn.classList.add('text-gray-500');
+        document.getElementById('authEmail').placeholder = "Pick a Username";
+        document.getElementById('authEmail').type = "text";
+        document.getElementById('googleLoginBtn').style.display = 'none'; // Google doesn't support generic usernames
+    });
+
+    const getProcessedIdentifier = () => {
+        let val = document.getElementById('authEmail').value.trim();
+        if (loginMode === 'username') {
+            val = val.replace(/\s+/g, '').toLowerCase() + "@studyapp.com"; // Silently append fake domain
+        }
+        return val;
+    };
+
     document.getElementById('emailLoginBtn')?.addEventListener('click', async () => {
-        const email = document.getElementById('authEmail').value; const pass = document.getElementById('authPassword').value;
-        if(!email || !pass) return alert("Please enter email and password.");
-        try { await signInWithEmailAndPassword(auth, email, pass); document.getElementById('loginModal').classList.add('hidden');
+        const identifier = getProcessedIdentifier(); 
+        const pass = document.getElementById('authPassword').value;
+        if(!identifier || !pass) return alert("Please enter credentials.");
+        try { await signInWithEmailAndPassword(auth, identifier, pass); document.getElementById('loginModal').classList.add('hidden');
         } catch(e) { alert("Login Error: " + e.message); }
     });
 
     document.getElementById('emailSignupBtn')?.addEventListener('click', async () => {
-        const email = document.getElementById('authEmail').value; const pass = document.getElementById('authPassword').value;
-        if(!email || !pass) return alert("Please enter email and password.");
-        try { await createUserWithEmailAndPassword(auth, email, pass); document.getElementById('loginModal').classList.add('hidden');
+        const identifier = getProcessedIdentifier(); 
+        const pass = document.getElementById('authPassword').value;
+        if(!identifier || !pass) return alert("Please enter credentials.");
+        try { await createUserWithEmailAndPassword(auth, identifier, pass); document.getElementById('loginModal').classList.add('hidden');
         } catch(e) { alert("Signup Error: " + e.message); }
     });
 
@@ -247,7 +287,6 @@ export const pushGlobalHotfix = async (cssString) => {
     } catch (e) { console.error("Hotfix Error:", e); throw e; }
 };
 
-// 🚨 NEW ADMIN POWERS: User & Ticket Management
 export const fetchAllUsers = async () => {
     if (!currentUser) return [];
     const snapshot = await getDocs(collection(db, 'users'));
