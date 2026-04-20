@@ -1,10 +1,15 @@
 // js/AdminUI.js
-import { pushGlobalBroadcast, pushGlobalHotfix, fetchAllUsers, toggleUserSuspension, fetchSupportTickets, replyToTicket, publishUpdateLog } from './State.js';
+import { pushGlobalBroadcast, pushGlobalHotfix, fetchAllUsers, toggleUserSuspension, fetchSupportTickets, replyToTicket, publishUpdateLog, fetchUserBlocks, forceDeleteUserBlocks } from './State.js';
+
 class AdminUI {
     init() {
         this.modal = document.getElementById('adminDashboardModal');
         this.advancedBanModal = document.getElementById('advancedBanModal');
+        this.inspectorModal = document.getElementById('dataInspectorModal');
+        
         this.targetBanUid = null;
+        this.currentInspectorUid = null; // 🚨 Tracks whose data we are spying on
+        
         this.bindEvents();
     }
     
@@ -16,25 +21,7 @@ class AdminUI {
         document.getElementById('closeAdminDashboardBtn')?.addEventListener('click', () => {
             this.modal?.classList.add('hidden');
         });
-        // 🚨 Publish Update Log
-        document.getElementById('publishUpdateBtn')?.addEventListener('click', async () => {
-            const title = document.getElementById('adminUpdateTitle').value.trim();
-            const msg = document.getElementById('adminUpdateMsg').value.trim();
-            if (!title || !msg) return alert("Please fill out both the title and the message.");
-            
-            const btn = document.getElementById('publishUpdateBtn');
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Publishing...'; btn.disabled = true;
-            
-            try {
-                await publishUpdateLog(title, msg);
-                alert("Update log successfully published to all users!");
-                document.getElementById('adminUpdateTitle').value = '';
-                document.getElementById('adminUpdateMsg').value = '';
-            } catch (e) {
-                alert("Error publishing update.");
-            }
-            btn.innerHTML = '<i class="fa fa-paper-plane mr-2"></i> Publish to All Users'; btn.disabled = false;
-        });
+        
         document.querySelectorAll('.admin-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.admin-tab-btn').forEach(b => {
@@ -86,29 +73,69 @@ class AdminUI {
             this.loadUsers();
         });
         
+        // 🚨 Publish Update Log
+        document.getElementById('publishUpdateBtn')?.addEventListener('click', async () => {
+            const title = document.getElementById('adminUpdateTitle').value.trim();
+            const msg = document.getElementById('adminUpdateMsg').value.trim();
+            if (!title || !msg) return alert("Please fill out both the title and the message.");
+            
+            const btn = document.getElementById('publishUpdateBtn');
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Publishing...'; btn.disabled = true;
+            
+            try {
+                await publishUpdateLog(title, msg);
+                alert("Update log successfully published to all users!");
+                document.getElementById('adminUpdateTitle').value = '';
+                document.getElementById('adminUpdateMsg').value = '';
+            } catch (e) { alert("Error publishing update."); }
+            btn.innerHTML = '<i class="fa fa-paper-plane mr-2"></i> Publish to All Users'; btn.disabled = false;
+        });
+
+        // Broadcast Power
         document.getElementById('sendBroadcastBtn')?.addEventListener('click', async () => {
             const msg = document.getElementById('adminBroadcastInput').value.trim();
             if(!msg) return alert("Please enter a message.");
-            try {
-                await pushGlobalBroadcast(msg, true);
-                alert("Broadcast sent globally!");
-            } catch(e) { alert("Error sending broadcast. Check permissions."); }
+            try { await pushGlobalBroadcast(msg, true); alert("Broadcast sent globally!");
+            } catch(e) { alert("Error sending broadcast."); }
         });
-        
         document.getElementById('clearBroadcastBtn')?.addEventListener('click', async () => {
             document.getElementById('adminBroadcastInput').value = '';
-            try {
-                await pushGlobalBroadcast('', false);
-                alert("Banner cleared!");
+            try { await pushGlobalBroadcast('', false); alert("Banner cleared!");
             } catch(e) { alert("Error clearing banner."); }
         });
-        
         document.getElementById('pushHotfixBtn')?.addEventListener('click', async () => {
             const css = document.getElementById('adminCssHotfixInput').value;
-            try {
-                await pushGlobalHotfix(css);
-                alert("Hotfix CSS injected globally!");
+            try { await pushGlobalHotfix(css); alert("Hotfix CSS injected globally!");
             } catch(e) { alert("Error pushing hotfix."); }
+        });
+
+        // 🚨 DATA INSPECTOR ESPIONAGE EVENTS
+        document.getElementById('closeInspectorModalBtn')?.addEventListener('click', () => {
+            this.inspectorModal.classList.remove('flex'); this.inspectorModal.classList.add('hidden');
+            this.currentInspectorUid = null;
+        });
+
+        document.getElementById('filterInspectorBtn')?.addEventListener('click', () => {
+            this.loadInspectorData();
+        });
+
+        document.getElementById('forceDeleteBlocksBtn')?.addEventListener('click', async () => {
+            const checkboxes = document.querySelectorAll('.inspector-checkbox:checked');
+            if (checkboxes.length === 0) return alert('Please select at least one block to delete.');
+            
+            if (confirm(`⚠️ ESPIONAGE WARNING: Are you sure you want to PERMANENTLY ERASER ${checkboxes.length} blocks from this user's timeline? They will disappear from their screen instantly.`)) {
+                const btn = document.getElementById('forceDeleteBlocksBtn');
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Nuking...'; btn.disabled = true;
+                
+                try {
+                    const idsToDelete = Array.from(checkboxes).map(cb => cb.value);
+                    await forceDeleteUserBlocks(this.currentInspectorUid, idsToDelete);
+                    alert('Target blocks successfully wiped from the cloud.');
+                    this.loadInspectorData(); // Refresh list to show they are gone
+                } catch (e) { alert("Error deleting blocks."); }
+                
+                btn.innerHTML = '<i class="fa fa-skull-crossbones mr-2"></i>Nuke Selected'; btn.disabled = false;
+            }
         });
     }
 
@@ -119,12 +146,9 @@ class AdminUI {
         try {
             const users = await fetchAllUsers();
             container.innerHTML = '';
-            if (users.length === 0) {
-                container.innerHTML = '<div class="text-gray-500 font-bold">No users found in database.</div>';
-                return;
-            }
+            if (users.length === 0) { container.innerHTML = '<div class="text-gray-500 font-bold">No users found.</div>'; return; }
+            
             users.forEach(u => {
-                // Check if ban is expired naturally
                 if (u.banUntil && new Date(u.banUntil) < new Date()) u.status = 'active';
 
                 const isRestricted = u.status === 'suspended' || u.status === 'readonly';
@@ -134,14 +158,10 @@ class AdminUI {
                 const totalBlocks = u.blocks ? u.blocks.length : 0;
                 
                 let displayString = u.email || 'Unknown User';
-                if (u.email && u.email.endsWith('@studyapp.com')) {
-                    displayString = `👤 ${u.email.split('@')[0]} (Username Login)`;
-                } else if (u.displayName) {
-                    displayString = `${u.displayName} (${u.email})`;
-                }
+                if (u.email && u.email.endsWith('@studyapp.com')) displayString = `👤 ${u.email.split('@')[0]} (Username Login)`;
+                else if (u.displayName) displayString = `${u.displayName} (${u.email})`;
 
-                // 🚨 Dynamic Admin Immunity: If this user's email matches YOUR logged-in email!
-                // We don't hardcode it here; we check the current session
+                // 🚨 Use your actual email string here as well if needed, but App.js already restricts modal access
                 const MASTER_ADMIN_EMAIL = "luke.wong.1120@gmail.com"; 
                 const isAdmin = u.email === MASTER_ADMIN_EMAIL;
                 
@@ -149,12 +169,15 @@ class AdminUI {
                 if (isAdmin) {
                     actionButtons = `<div class="text-xs font-black text-purple-600 bg-purple-100 px-3 py-1 rounded-full"><i class="fa fa-shield-alt mr-1"></i> Immune</div>`;
                 } else {
+                    // 🚨 INJECTED THE SPY INSPECT BUTTON
                     actionButtons = `
+                        <button class="inspect-btn px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95" data-uid="${u.id}" data-name="${displayString}">
+                            <i class="fa fa-user-secret mr-1"></i> Inspect Data
+                        </button>
                         <button class="suspend-btn px-4 py-2 text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95 ${isRestricted ? 'bg-green-500 hover:bg-green-600' : 'bg-red-600 hover:bg-red-700'}" data-uid="${u.id}" data-restricted="${isRestricted}" data-name="${displayString}">
                             ${isRestricted ? '<i class="fa fa-undo mr-1"></i> Revoke Ban' : '<i class="fa fa-gavel mr-1"></i> Restrict'}
                         </button>
                     `;
-                    // Notice: Nuke / Trash button completely removed for safety!
                 }
 
                 let statusBadge = `<span class="text-green-500 font-black"><i class="fa fa-check-circle"></i> Active</span>`;
@@ -172,10 +195,10 @@ class AdminUI {
                 `;
                 
                 if (!isAdmin) {
+                    // Restrict Binding
                     el.querySelector('.suspend-btn').addEventListener('click', async (e) => {
                         const btn = e.currentTarget;
                         const currentlyRestricted = btn.dataset.restricted === 'true';
-                        
                         if (currentlyRestricted) {
                             if (confirm('Revoke restriction and restore user to Active?')) {
                                 btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -183,20 +206,84 @@ class AdminUI {
                                 this.loadUsers();
                             }
                         } else {
-                            // Open Advanced Ban Modal
                             this.targetBanUid = btn.dataset.uid;
                             document.getElementById('banModalTargetText').innerText = `Target: ${btn.dataset.name}`;
                             this.advancedBanModal.classList.remove('hidden');
                             this.advancedBanModal.classList.add('flex');
                         }
                     });
+
+                    // 🚨 Inspect Binding
+                    el.querySelector('.inspect-btn').addEventListener('click', (e) => {
+                        const btn = e.currentTarget;
+                        this.currentInspectorUid = btn.dataset.uid;
+                        document.getElementById('inspectorTargetName').innerText = `Target: ${btn.dataset.name}`;
+                        document.getElementById('inspectorStartDate').value = '';
+                        document.getElementById('inspectorEndDate').value = '';
+                        
+                        this.inspectorModal.classList.remove('hidden');
+                        this.inspectorModal.classList.add('flex');
+                        this.loadInspectorData();
+                    });
                 }
-                
                 container.appendChild(el);
             });
-        } catch (e) {
-            container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading users. Check permissions.</div>';
-        }
+        } catch (e) { container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading users. Check permissions.</div>'; }
+    }
+
+    // 🚨 LOADS AND FILTERS TARGET USER'S BLOCKS
+    async loadInspectorData() {
+        const container = document.getElementById('inspectorBlocksList');
+        if (!container || !this.currentInspectorUid) return;
+        
+        container.innerHTML = '<div class="text-center mt-10"><i class="fa fa-spinner fa-spin text-5xl text-purple-500 drop-shadow-md"></i></div>';
+        
+        try {
+            const blocks = await fetchUserBlocks(this.currentInspectorUid);
+            const startNode = document.getElementById('inspectorStartDate').value;
+            const endNode = document.getElementById('inspectorEndDate').value;
+            
+            let filtered = blocks;
+            if (startNode) filtered = filtered.filter(b => (b.date || b.startDate) >= startNode);
+            if (endNode) filtered = filtered.filter(b => (b.date || b.startDate) <= endNode);
+            
+            // Sort by Date Descending
+            filtered.sort((a,b) => new Date(b.date || b.startDate || 0) - new Date(a.date || a.startDate || 0));
+
+            container.innerHTML = '';
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 font-bold text-center mt-10 text-xl"><i class="fa fa-ghost mb-2 text-3xl"></i><br>No blocks found for this criteria.</div>';
+                return;
+            }
+            
+            filtered.forEach(b => {
+                const el = document.createElement('div');
+                el.className = 'flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 mb-3 shadow-sm hover:border-purple-300 transition-colors cursor-pointer';
+                
+                const theDate = b.date || b.startDate || 'Unknown';
+                const timeStr = `${b.scheduledStart || '?'} - ${b.scheduledEnd || '?'}`;
+                let statusColor = b.status === 'completed' ? 'text-green-500' : 'text-blue-500';
+                
+                el.innerHTML = `
+                    <input type="checkbox" class="inspector-checkbox w-6 h-6 text-purple-600 rounded cursor-pointer pointer-events-auto" value="${b.id}">
+                    <div class="flex-1 pointer-events-none">
+                        <div class="font-black text-gray-800 text-lg">${b.title || 'Focus Session'} <span class="text-[10px] text-gray-400 font-mono ml-2">ID: ${b.id.substring(0,6)}</span></div>
+                        <div class="text-xs font-black uppercase tracking-widest ${statusColor}"><i class="fa fa-tag mr-1"></i>${b.subject} &nbsp;|&nbsp; <i class="fa fa-calendar mr-1"></i>${theDate} &nbsp;|&nbsp; <i class="fa fa-clock mr-1"></i>${timeStr}</div>
+                        ${b.remarks ? `<div class="text-xs text-gray-500 italic mt-1 border-l-2 border-gray-300 pl-2">"${b.remarks}"</div>` : ''}
+                    </div>
+                `;
+                
+                // Allow clicking the div to toggle the checkbox
+                el.addEventListener('click', (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        const cb = el.querySelector('.inspector-checkbox');
+                        cb.checked = !cb.checked;
+                    }
+                });
+
+                container.appendChild(el);
+            });
+        } catch (e) { container.innerHTML = '<div class="text-red-500 font-bold text-center mt-10">Error decrypting data.</div>'; }
     }
 
     async loadTickets() {
@@ -206,10 +293,8 @@ class AdminUI {
         try {
             const tickets = await fetchSupportTickets();
             container.innerHTML = '';
-            if (tickets.length === 0) {
-                container.innerHTML = '<div class="text-gray-500 font-bold">Inbox is empty.</div>';
-                return;
-            }
+            if (tickets.length === 0) { container.innerHTML = '<div class="text-gray-500 font-bold">Inbox is empty.</div>'; return; }
+            
             tickets.forEach(t => {
                 const el = document.createElement('div');
                 el.className = 'p-5 bg-gray-50 border rounded-xl mb-4 shadow-sm relative';
@@ -261,12 +346,9 @@ class AdminUI {
                         this.loadTickets();
                     });
                 }
-                
                 container.appendChild(el);
             });
-        } catch (e) {
-            container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading tickets. Check Firestore permissions.</div>';
-        }
+        } catch (e) { container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading tickets.</div>'; }
     }
 }
 export const adminUI = new AdminUI();
