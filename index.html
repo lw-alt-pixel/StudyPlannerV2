@@ -844,6 +844,49 @@
             </div>
         </div>
     </div>
+    <div id="profileModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[90000] items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <i class="fa fa-user-circle text-6xl text-blue-500 mb-4"></i>
+            <h2 class="text-2xl font-black text-gray-800" id="profileModalName">User Profile</h2>
+            <p class="text-xs font-bold text-gray-500 mb-6" id="profileModalEmail">email@example.com</p>
+            
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 text-left">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                <p class="text-sm font-bold text-green-600" id="profileModalStatus"><i class="fa fa-check-circle mr-1"></i> Active & Synced</p>
+            </div>
+
+            <button id="safeLogoutBtn" class="w-full py-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl font-black shadow-sm transition-colors flex justify-center items-center gap-2">
+                <i class="fa fa-sign-out-alt"></i> Safe Logout & Clear Data
+            </button>
+            <button id="closeProfileModalBtn" class="mt-3 w-full py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors">Close</button>
+        </div>
+    </div>
+
+    <div id="advancedBanModal" class="hidden fixed inset-0 bg-gray-900/80 backdrop-blur-md z-[110000] items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 border-4 border-red-500">
+            <h2 class="text-2xl font-black text-gray-800 mb-1"><i class="fa fa-gavel text-red-600 mr-2"></i>Restrict User</h2>
+            <p class="text-xs font-bold text-gray-500 mb-4 pb-4 border-b" id="banModalTargetText">Target: ...</p>
+            
+            <label class="block text-[10px] font-black text-gray-800 uppercase mb-2">Restriction Type</label>
+            <div class="flex gap-2 mb-4">
+                <button class="ban-type-btn flex-1 py-2 bg-orange-100 text-orange-700 border-2 border-orange-500 rounded-lg font-bold text-sm" data-type="readonly">Read-Only</button>
+                <button class="ban-type-btn flex-1 py-2 bg-gray-100 text-gray-500 border-2 border-transparent rounded-lg font-bold text-sm" data-type="suspended">Full Suspension</button>
+            </div>
+
+            <label class="block text-[10px] font-black text-gray-800 uppercase mb-2">Duration</label>
+            <select id="banDurationSelect" class="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-sm mb-6 outline-none focus:border-red-500">
+                <option value="1">1 Hour</option>
+                <option value="24">24 Hours</option>
+                <option value="168">7 Days</option>
+                <option value="999999">Indefinite (Until Unbanned)</option>
+            </select>
+
+            <div class="flex justify-end gap-2">
+                <button id="closeBanModalBtn" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+                <button id="executeBanBtn" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl shadow-md transition-colors">Execute</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="js/CalendarUI.js"></script>
     <script type="module" src="js/App.js"></script>
 </body>
