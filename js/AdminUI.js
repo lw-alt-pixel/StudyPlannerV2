@@ -1,6 +1,5 @@
 // js/AdminUI.js
-import { pushGlobalBroadcast, pushGlobalHotfix, fetchAllUsers, toggleUserSuspension, fetchSupportTickets, replyToTicket } from './State.js';
-
+import { pushGlobalBroadcast, pushGlobalHotfix, fetchAllUsers, toggleUserSuspension, fetchSupportTickets, replyToTicket, publishUpdateLog } from './State.js';
 class AdminUI {
     init() {
         this.modal = document.getElementById('adminDashboardModal');
@@ -17,7 +16,25 @@ class AdminUI {
         document.getElementById('closeAdminDashboardBtn')?.addEventListener('click', () => {
             this.modal?.classList.add('hidden');
         });
-        
+        // 🚨 Publish Update Log
+        document.getElementById('publishUpdateBtn')?.addEventListener('click', async () => {
+            const title = document.getElementById('adminUpdateTitle').value.trim();
+            const msg = document.getElementById('adminUpdateMsg').value.trim();
+            if (!title || !msg) return alert("Please fill out both the title and the message.");
+            
+            const btn = document.getElementById('publishUpdateBtn');
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Publishing...'; btn.disabled = true;
+            
+            try {
+                await publishUpdateLog(title, msg);
+                alert("Update log successfully published to all users!");
+                document.getElementById('adminUpdateTitle').value = '';
+                document.getElementById('adminUpdateMsg').value = '';
+            } catch (e) {
+                alert("Error publishing update.");
+            }
+            btn.innerHTML = '<i class="fa fa-paper-plane mr-2"></i> Publish to All Users'; btn.disabled = false;
+        });
         document.querySelectorAll('.admin-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.admin-tab-btn').forEach(b => {
