@@ -33,6 +33,56 @@ document.addEventListener('DOMContentLoaded', async () => {
     adminUI.init();
     goalManager.init(); // 🚨 BOOT UP THE GOAL ENGINE!
 
+    // 🚨 UPDATE LOGS (WHAT'S NEW) CONTROLLER
+    store.subscribe('updateLogs', (logs) => {
+        if (!logs || logs.length === 0) return;
+        
+        const seenLogs = JSON.parse(localStorage.getItem('seenUpdateLogs') || '[]');
+        const badge = document.getElementById('updateLogsBadge');
+        
+        // Check if there is any log the user hasn't seen yet
+        const hasUnseen = logs.some(log => !seenLogs.includes(log.id));
+        if (hasUnseen && badge) {
+            badge.classList.remove('hidden');
+        } else if (badge) {
+            badge.classList.add('hidden');
+        }
+
+        // Render the modal list
+        const container = document.getElementById('updateLogsListContainer');
+        if (container) {
+            container.innerHTML = '';
+            logs.forEach(log => {
+                const dateStr = new Date(log.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                container.innerHTML += `
+                    <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-lg font-black text-gray-800 leading-tight">${log.title}</h3>
+                            <span class="text-[10px] font-black text-teal-600 bg-teal-50 px-2 py-1 rounded-full uppercase tracking-widest whitespace-nowrap ml-3">${dateStr}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 font-medium whitespace-pre-wrap">${log.message}</p>
+                    </div>
+                `;
+            });
+        }
+    });
+
+    document.getElementById('openUpdateLogsBtn')?.addEventListener('click', () => {
+        document.getElementById('updateLogsModal')?.classList.remove('hidden');
+        document.getElementById('updateLogsModal')?.classList.add('flex');
+        
+        // Mark all as seen!
+        const logs = store.state.updateLogs || [];
+        const ids = logs.map(l => l.id);
+        localStorage.setItem('seenUpdateLogs', JSON.stringify(ids));
+        document.getElementById('updateLogsBadge')?.classList.add('hidden');
+    });
+
+    document.getElementById('closeUpdateLogsModalBtn')?.addEventListener('click', () => {
+        document.getElementById('updateLogsModal')?.classList.remove('flex');
+        document.getElementById('updateLogsModal')?.classList.add('hidden');
+    });
+
    // 🚨 GLOBAL ADMIN & SECURITY BOUNCER
     store.subscribe('userProfile', (profile) => {
         if (!profile) return;
