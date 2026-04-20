@@ -33,11 +33,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     adminUI.init();
     goalManager.init(); // 🚨 BOOT UP THE GOAL ENGINE!
 
+   // 🚨 GLOBAL ADMIN & SECURITY BOUNCER
     store.subscribe('userProfile', (profile) => {
         if (!profile) return;
 
-        // 1. Check for Ban Hammer
-        if (profile.status === 'suspended') {
+        // Check if timed ban expired
+        let currentStatus = profile.status;
+        if (profile.banUntil && new Date(profile.banUntil) < new Date()) {
+            currentStatus = 'active'; // Ban expired naturally!
+        }
+
+        // 1. Check for Full Suspension
+        if (currentStatus === 'suspended') {
             document.getElementById('bannedOverlay')?.classList.remove('hidden');
             document.getElementById('bannedOverlay')?.classList.add('flex');
             document.body.style.pointerEvents = 'none';
@@ -49,15 +56,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.body.style.pointerEvents = 'auto';
         }
 
-        // 2. Check for God Mode (Admin)
-        const adminEmail = "your.email@gmail.com"; 
-        if (profile.email === adminEmail) {
+        // 2. Check for Read-Only Mode
+        if (currentStatus === 'readonly') {
+            let roStyle = document.getElementById('readonly-css');
+            if (!roStyle) {
+                roStyle = document.createElement('style');
+                roStyle.id = 'readonly-css';
+                // This CSS physically hides all edit/delete buttons while keeping the Timer usable
+                roStyle.innerHTML = `
+                    #openAddBlockModal, .delete-row-btn, #saveEditBlock,
+                    #createNewGoalBtn, .fa-trash, .fa-times, #pushBackTimerBtn,
+                    #openExamModalBtn, #openMarathonModalBtn {
+                        display: none !important;
+                    }
+                `;
+                document.head.appendChild(roStyle);
+                setTimeout(() => alert("⚠️ Your account is restricted to Read-Only Mode due to a violation. You can study existing blocks but cannot create new ones."), 500);
+            }
+        } else {
+            document.getElementById('readonly-css')?.remove();
+        }
+
+        // 3. Admin Immunity Check
+        // 🚨 REPLACE THIS WITH YOUR ACTUAL ADMIN EMAIL!!
+        const MASTER_ADMIN_EMAIL = "luke.wong.1120@gmail.com"; 
+        
+        if (profile.email === MASTER_ADMIN_EMAIL) {
             document.getElementById('openAdminDashboardBtn')?.classList.remove('hidden');
         } else {
             document.getElementById('openAdminDashboardBtn')?.classList.add('hidden');
         }
     });
-
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('bg-gray-900/50') || e.target.classList.contains('bg-gray-900/60')) {
             e.target.classList.add('hidden'); 
