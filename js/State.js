@@ -124,10 +124,6 @@ export const audioDB = window.indexedDB ? {
     }
 } : null;
 
-// Replace everything from `onAuthStateChanged(auth, async (user) => {` down to the end of the `document.addEventListener('DOMContentLoaded', () => {` block with this:
-
-
-
 onAuthStateChanged(auth, async (user) => {
 
     const topLoginBtn = document.getElementById('openLoginModalBtn');
@@ -577,8 +573,12 @@ export const fetchAllUsers = async () => {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const toggleUserSuspension = async (uid, isSuspended) => {
-    await setDoc(doc(db, 'users', uid), { status: isSuspended ? 'suspended' : 'active' }, { merge: true });
+export const toggleUserSuspension = async (uid, statusType, durationHours) => {
+    let banUntil = null;
+    if (statusType !== 'active') {
+        banUntil = new Date(Date.now() + (durationHours * 60 * 60 * 1000)).toISOString();
+    }
+    await setDoc(doc(db, 'users', uid), { status: statusType, banUntil: banUntil }, { merge: true });
 };
 
 export const deleteUserData = async (uid) => {
