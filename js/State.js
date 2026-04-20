@@ -38,7 +38,8 @@ class Store {
             timer: { activeBlockId: null, spontaneousSubject: null, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false },
             marathon: { active: false, phases: [], currentPhaseIdx: -1, strikes: 0, isWaitingForCheckIn: false },
             audio: { enabled: false, volume: 50, source: 'none', breakSource: 'none' },
-            activeTab: 'focus', userProfile: null, broadcast: null, userTickets: []
+            activeTab: 'focus', userProfile: null, broadcast: null, userTickets: [],
+            updateLogs: [],
         };
         this.listeners = {};
     }
@@ -194,7 +195,14 @@ onAuthStateChanged(auth, async (user) => {
 
         });
 
-
+// 🚨 LIVE UPDATE LOGS FETCHER
+        onSnapshot(doc(db, 'server', 'updates'), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().logs) {
+                store.update('updateLogs', () => docSnap.data().logs);
+            } else {
+                store.update('updateLogs', () => []);
+            }
+        });
 
         const ticketQuery = query(collection(db, 'supportTickets'), where("uid", "==", user.uid));
 
@@ -594,4 +602,18 @@ export const fetchSupportTickets = async () => {
 
 export const replyToTicket = async (ticketId, replyMessage) => {
     await setDoc(doc(db, 'supportTickets', ticketId), { adminResponse: replyMessage, status: 'answered' }, { merge: true });
+};
+// 🚨 PUBLISH UPDATE LOGS
+export const publishUpdateLog = async (title, message) => {
+    if (!currentUser) return;
+    try {
+        const docRef = doc(db, 'server', 'updates');
+        const docSnap = await getDoc(docRef);
+        const newLog = { id: Date.now().toString(), title, message, date: new Date().toISOString() };
+        
+        let logs = [];
+        if (docSnap.exists() && docSnap.data().logs) logs = docSnap.data().logs;
+        
+        await setDoc(docRef, { logs: [newLog, ...logs] }, { merge: true });
+    } catch (e) { console.error("Update Log Error:", e); throw e; }
 };
