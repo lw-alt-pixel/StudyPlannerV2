@@ -69,6 +69,7 @@
         <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50" data-tab="stats"><i class="fa fa-chart-pie mr-2"></i>Analytics</button>
     </nav>
 
+
     <main id="appMain" class="flex-1 relative w-full flex flex-col min-h-0">
         
         <div id="focus" class="tab-content hidden flex-1 w-full flex-col items-center justify-center bg-gray-50/50 p-4 md:p-8 pb-32">
@@ -267,7 +268,12 @@
                     </div>
                 </div>
         </div>
-            <div id="goals" class="tab-content hidden h-full overflow-y-auto p-4 md:p-8 w-full max-w-4xl mx-auto pb-32">
+                <div id="fallbackButtons" class="hidden flex-col gap-2 mt-4">
+                    <button id="fallbackSettingsBtn" class="w-full px-4 py-4 bg-gray-800 text-white font-bold rounded-xl shadow transition-transform active:scale-95"><i class="fa fa-cog mr-2"></i> Open Settings & Preferences</button>
+                </div>
+            </div>
+        </div>
+        <div id="goals" class="tab-content hidden h-full overflow-y-auto p-4 md:p-8 w-full max-w-4xl mx-auto pb-32">
             <div class="flex justify-between items-end mb-6">
                 <div>
                     <h2 class="text-3xl font-black text-gray-800 tracking-tight">Syllabus Tracker</h2>
@@ -278,24 +284,6 @@
 
             <div id="goalsListContainer" class="space-y-6">
                 </div>
-        </div>
-
-        <div id="goalSetupModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
-                <h2 class="text-2xl font-black text-gray-800 mb-2">Create Master Goal</h2>
-                <input type="text" id="newGoalTitle" class="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-lg mb-4 outline-none focus:border-blue-500" placeholder="e.g., Final Physics Exam">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Target Date</label>
-                <input type="date" id="newGoalDate" class="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-sm mb-6 outline-none focus:border-blue-500">
-                <div class="flex justify-end gap-2">
-                    <button id="closeGoalSetupBtn" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
-                    <button id="saveNewGoalBtn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-colors">Create Goal</button>
-                </div>
-            </div>
-        </div>
-                <div id="fallbackButtons" class="hidden flex-col gap-2 mt-4">
-                    <button id="fallbackSettingsBtn" class="w-full px-4 py-4 bg-gray-800 text-white font-bold rounded-xl shadow transition-transform active:scale-95"><i class="fa fa-cog mr-2"></i> Open Settings & Preferences</button>
-                </div>
-            </div>
         </div>
     </main>
 
@@ -944,6 +932,18 @@
             <div class="p-6 bg-white border-t flex justify-between items-center shrink-0">
                 <div class="text-sm font-bold text-gray-500">Select blocks to forcefully erase from their database.</div>
                 <button id="forceDeleteBlocksBtn" class="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-xl font-black shadow-md transition-transform active:scale-95"><i class="fa fa-skull-crossbones mr-2"></i>Nuke Selected</button>
+            </div>
+        </div>
+    </div>
+    <div id="goalSetupModal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
+            <h2 class="text-2xl font-black text-gray-800 mb-2">Create Master Goal</h2>
+            <input type="text" id="newGoalTitle" class="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-lg mb-4 outline-none focus:border-blue-500" placeholder="e.g., Final Physics Exam">
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Target Date</label>
+            <input type="date" id="newGoalDate" class="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-sm mb-6 outline-none focus:border-blue-500">
+            <div class="flex justify-end gap-2">
+                <button id="closeGoalSetupBtn" class="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+                <button id="saveNewGoalBtn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-colors">Create Goal</button>
             </div>
         </div>
     </div>
