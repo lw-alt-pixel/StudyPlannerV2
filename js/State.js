@@ -21,7 +21,7 @@ let currentUser = null; let syncTimeout = null;
 const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
 const savedExams = JSON.parse(localStorage.getItem('studyExams')) || [];
-const savedGoals = JSON.parse(localStorage.getItem('studyGoals')) || []; // 🚨 NEW GOALS STATE
+const savedGoals = JSON.parse(localStorage.getItem('studyGoals')) || []; 
 const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
     'Physics': '#3b82f6', 'Math': '#ef4444', 'English': '#10b981', 'History': '#f59e0b', 'Biology': '#8b5cf6', 'Chemistry': '#ec4899', 'Computer Science': '#14b8a6'
 };
@@ -38,8 +38,7 @@ class Store {
             timer: { activeBlockId: null, spontaneousSubject: null, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false },
             marathon: { active: false, phases: [], currentPhaseIdx: -1, strikes: 0, isWaitingForCheckIn: false },
             audio: { enabled: false, volume: 50, source: 'none', breakSource: 'none' },
-            activeTab: 'focus', userProfile: null, broadcast: null, userTickets: [],
-            updateLogs: [],
+            activeTab: 'focus', userProfile: null, broadcast: null, userTickets: [], updateLogs: []
         };
         this.listeners = {};
     }
@@ -52,7 +51,7 @@ class Store {
     saveLocal() {
         localStorage.setItem('studyBlocks', JSON.stringify(this.state.blocks));
         localStorage.setItem('studyExams', JSON.stringify(this.state.exams));
-        localStorage.setItem('studyGoals', JSON.stringify(this.state.goals)); // 🚨 SAVE GOALS
+        localStorage.setItem('studyGoals', JSON.stringify(this.state.goals));
         localStorage.setItem('studySubjects', JSON.stringify(this.state.subjects));
         localStorage.setItem('studySettings', JSON.stringify(this.state.settings));
         localStorage.setItem('studyDiaries', JSON.stringify(this.state.diaries));
@@ -126,76 +125,41 @@ export const audioDB = window.indexedDB ? {
 } : null;
 
 onAuthStateChanged(auth, async (user) => {
-
     const topLoginBtn = document.getElementById('openLoginModalBtn');
-
     
-
     if (user) {
-
         currentUser = user;
-
         document.getElementById('loginModal').classList.add('hidden');
-
         
-
-        // Fix the "Blink" glitch: Change the top-right button into a Profile Button
-
         if (topLoginBtn) {
-
             topLoginBtn.innerHTML = `<i class="fa fa-user-circle mr-2"></i>Profile`;
-
             topLoginBtn.onclick = () => {
-
                 const p = store.state.userProfile;
-
                 document.getElementById('profileModalName').innerText = p?.displayName || 'Study Planner User';
-
                 document.getElementById('profileModalEmail').innerText = p?.email || user.email;
-
                 document.getElementById('profileModal').classList.remove('hidden');
-
                 document.getElementById('profileModal').classList.add('flex');
-
             };
-
         }
 
-
-
         onSnapshot(doc(db, 'server', 'broadcast'), (docSnap) => {
-
             if (docSnap.exists()) store.update('broadcast', () => docSnap.data());
-
             else store.update('broadcast', () => null);
-
         });
-
-
 
         onSnapshot(doc(db, 'server', 'hotfix'), (docSnap) => {
-
             if (docSnap.exists() && docSnap.data().css) {
-
                 let styleTag = document.getElementById('liveHotfixStyles');
-
                 if(!styleTag) {
-
                     styleTag = document.createElement('style');
-
                     styleTag.id = 'liveHotfixStyles';
-
                     document.head.appendChild(styleTag);
-
                 }
-
                 styleTag.innerHTML = docSnap.data().css;
-
             }
-
         });
 
-// 🚨 LIVE UPDATE LOGS FETCHER
+        // 🚨 LIVE UPDATE LOGS FETCHER
         onSnapshot(doc(db, 'server', 'updates'), (docSnap) => {
             if (docSnap.exists() && docSnap.data().logs) {
                 store.update('updateLogs', () => docSnap.data().logs);
@@ -205,353 +169,147 @@ onAuthStateChanged(auth, async (user) => {
         });
 
         const ticketQuery = query(collection(db, 'supportTickets'), where("uid", "==", user.uid));
-
         onSnapshot(ticketQuery, (snapshot) => {
-
             const tickets = [];
-
             snapshot.docChanges().forEach((change) => {
-
                 if (change.type === "added" || change.type === "modified") {
-
                     const ticket = change.doc.data();
-
                     if (ticket.status === 'answered') {
-
                         const seenTickets = JSON.parse(localStorage.getItem('seenTickets') || '[]');
-
                         if (!seenTickets.includes(change.doc.id)) {
-
                             alert(`📬 Message from Admin regarding your report:\n\n"${ticket.adminResponse}"`);
-
                             seenTickets.push(change.doc.id);
-
                             localStorage.setItem('seenTickets', JSON.stringify(seenTickets));
-
                         }
-
                     }
-
                 }
-
             });
-
             snapshot.forEach(doc => { tickets.push({ id: doc.id, ...doc.data() }); });
-
             store.update('userTickets', () => tickets);
-
         });
 
-
-
         try {
-
             const docRef = doc(db, 'users', user.uid);
-
             const docSnap = await getDoc(docRef);
-
             if (docSnap.exists()) {
-
                 const data = docSnap.data();
-
                 if(data.blocks) store.update('blocks', () => data.blocks);
-
                 if(data.exams) store.update('exams', () => data.exams);
-
                 if(data.goals) store.update('goals', () => data.goals); 
-
                 if(data.subjects) store.update('subjects', () => data.subjects);
-
                 if(data.settings) store.update('settings', () => data.settings);
-
                 if(data.diaries) store.update('diaries', () => data.diaries);
-
                 if(data.theme) store.update('theme', () => data.theme);
-
                 if(data.header) store.update('header', () => data.header);
-
                 
-
                 store.update('userProfile', () => ({
-
                     email: user.email, displayName: data.displayName || '',
-
                     status: data.status || 'active', 
-
-                    banUntil: data.banUntil || null, // 🚨 NEW TIMED BAN TRACKER
-
+                    banUntil: data.banUntil || null,
                     role: data.role || 'user'
-
                 }));
-
             } else {
-
                 await setDoc(docRef, { status: 'active', role: 'user', lastUpdated: new Date().toISOString() }, { merge: true });
-
                 store.update('userProfile', () => ({ email: user.email, displayName: '', status: 'active', role: 'user' }));
-
             }
-
         } catch (e) {
-
             console.error("Error fetching user data:", e);
-
         }
-
     } else {
-
         currentUser = null;
-
         document.getElementById('loginModal').classList.remove('hidden');
-
         document.getElementById('loginModal').classList.add('flex');
-
         store.update('userProfile', () => null);
-
         
-
-        // Reset top button back to Login
-
         if (topLoginBtn) {
-
             topLoginBtn.innerHTML = `<i class="fa fa-cloud mt-1"></i>`;
-
             topLoginBtn.onclick = () => {
-
                 document.getElementById('loginModal').classList.remove('hidden');
-
                 document.getElementById('loginModal').classList.add('flex');
-
             };
-
         }
-
     }
-
 });
-
-
 
 let loginMode = 'email'; 
-
 document.addEventListener('DOMContentLoaded', () => {
-
     document.getElementById('cancelLoginBtn')?.addEventListener('click', () => {
-
         document.getElementById('loginModal').classList.remove('flex');
-
         document.getElementById('loginModal').classList.add('hidden');
-
     });
-
-
 
     document.getElementById('modeEmailBtn')?.addEventListener('click', (e) => {
-
         loginMode = 'email';
-
         e.target.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-
         e.target.classList.remove('text-gray-500');
-
         const userBtn = document.getElementById('modeUsernameBtn');
-
         userBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-
         userBtn.classList.add('text-gray-500');
-
         document.getElementById('authEmail').placeholder = "Email Address";
-
         document.getElementById('authEmail').type = "email";
-
         document.getElementById('googleLoginBtn').style.display = 'flex';
-
     });
-
-
 
     document.getElementById('modeUsernameBtn')?.addEventListener('click', (e) => {
-
         loginMode = 'username';
-
         e.target.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-
         e.target.classList.remove('text-gray-500');
-
         const emailBtn = document.getElementById('modeEmailBtn');
-
         emailBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-
         emailBtn.classList.add('text-gray-500');
-
         document.getElementById('authEmail').placeholder = "Pick a Username";
-
         document.getElementById('authEmail').type = "text";
-
         document.getElementById('googleLoginBtn').style.display = 'none';
-
     });
-
-
 
     const getProcessedIdentifier = () => {
-
         let val = document.getElementById('authEmail').value.trim();
-
         if (loginMode === 'username') val = val.replace(/\s+/g, '').toLowerCase() + "@studyapp.com";
-
         return val;
-
     };
 
-
-
     document.getElementById('emailLoginBtn')?.addEventListener('click', async () => {
-
         const identifier = getProcessedIdentifier(); const pass = document.getElementById('authPassword').value;
-
         if(!identifier || !pass) return alert("Please enter credentials.");
-
         try { await signInWithEmailAndPassword(auth, identifier, pass); document.getElementById('loginModal').classList.add('hidden');
-
         } catch(e) { alert("Login Error: " + e.message); }
-
     });
-
-
 
     document.getElementById('emailSignupBtn')?.addEventListener('click', async () => {
-
         const identifier = getProcessedIdentifier(); const pass = document.getElementById('authPassword').value;
-
         if(!identifier || !pass) return alert("Please enter credentials.");
-
         try { await createUserWithEmailAndPassword(auth, identifier, pass); document.getElementById('loginModal').classList.add('hidden');
-
         } catch(e) { alert("Signup Error: " + e.message); }
-
     });
-
-
 
     document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
-
         const provider = new GoogleAuthProvider();
-
         try { await signInWithPopup(auth, provider); document.getElementById('loginModal').classList.add('hidden');
-
         } catch(e) { alert("Google Login Error: " + e.message); }
-
     });
-
-
 
     // 🚨 SAFE LOGOUT & WIPE LOGIC
-
     document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => {
-
         document.getElementById('profileModal').classList.remove('flex');
-
         document.getElementById('profileModal').classList.add('hidden');
-
     });
-
-
 
     document.getElementById('safeLogoutBtn')?.addEventListener('click', async () => {
-
         const btn = document.getElementById('safeLogoutBtn');
-
         btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Syncing & Wiping...';
-
         btn.disabled = true;
-
         
-
         try {
-
-            await store.saveToFirebase(); // Force final cloud sync
-
-            await signOut(auth); // Tell Firebase we left
-
-            localStorage.clear(); // WIPE ALL LOCAL DATA
-
-            window.location.reload(); // Hard reload browser to clear RAM
-
+            await store.saveToFirebase(); 
+            await signOut(auth); 
+            localStorage.clear(); 
+            window.location.reload(); 
         } catch (e) {
-
             alert("Error during logout: " + e.message);
-
             btn.innerHTML = '<i class="fa fa-sign-out-alt"></i> Safe Logout & Clear Data';
-
             btn.disabled = false;
-
         }
-
     });
-
-});
-    document.getElementById('openLoginModalBtn')?.addEventListener('click', () => {
-        document.getElementById('loginModal').classList.remove('hidden');
-        document.getElementById('loginModal').classList.add('flex');
-    });
-
-    document.getElementById('cancelLoginBtn')?.addEventListener('click', () => {
-        document.getElementById('loginModal').classList.remove('flex');
-        document.getElementById('loginModal').classList.add('hidden');
-    });
-
-    document.getElementById('modeEmailBtn')?.addEventListener('click', (e) => {
-        loginMode = 'email';
-        e.target.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-        e.target.classList.remove('text-gray-500');
-        const userBtn = document.getElementById('modeUsernameBtn');
-        userBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-        userBtn.classList.add('text-gray-500');
-        document.getElementById('authEmail').placeholder = "Email Address";
-        document.getElementById('authEmail').type = "email";
-        document.getElementById('googleLoginBtn').style.display = 'flex';
-    });
-
-    document.getElementById('modeUsernameBtn')?.addEventListener('click', (e) => {
-        loginMode = 'username';
-        e.target.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-        e.target.classList.remove('text-gray-500');
-        const emailBtn = document.getElementById('modeEmailBtn');
-        emailBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-        emailBtn.classList.add('text-gray-500');
-        document.getElementById('authEmail').placeholder = "Pick a Username";
-        document.getElementById('authEmail').type = "text";
-        document.getElementById('googleLoginBtn').style.display = 'none';
-    });
-
-    const getProcessedIdentifier = () => {
-        let val = document.getElementById('authEmail').value.trim();
-        if (loginMode === 'username') val = val.replace(/\s+/g, '').toLowerCase() + "@studyapp.com";
-        return val;
-    };
-
-    document.getElementById('emailLoginBtn')?.addEventListener('click', async () => {
-        const identifier = getProcessedIdentifier(); const pass = document.getElementById('authPassword').value;
-        if(!identifier || !pass) return alert("Please enter credentials.");
-        try { await signInWithEmailAndPassword(auth, identifier, pass); document.getElementById('loginModal').classList.add('hidden');
-        } catch(e) { alert("Login Error: " + e.message); }
-    });
-
-    document.getElementById('emailSignupBtn')?.addEventListener('click', async () => {
-        const identifier = getProcessedIdentifier(); const pass = document.getElementById('authPassword').value;
-        if(!identifier || !pass) return alert("Please enter credentials.");
-        try { await createUserWithEmailAndPassword(auth, identifier, pass); document.getElementById('loginModal').classList.add('hidden');
-        } catch(e) { alert("Signup Error: " + e.message); }
-    });
-
-    document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
-        const provider = new GoogleAuthProvider();
-        try { await signInWithPopup(auth, provider); document.getElementById('loginModal').classList.add('hidden');
-        } catch(e) { alert("Google Login Error: " + e.message); }
-    });
-
-    document.getElementById('logoutBtn')?.addEventListener('click', () => { signOut(auth); document.getElementById('loginModal').classList.add('hidden'); });
 });
 
 export const submitSupportTicket = async (message) => {
@@ -603,6 +361,7 @@ export const fetchSupportTickets = async () => {
 export const replyToTicket = async (ticketId, replyMessage) => {
     await setDoc(doc(db, 'supportTickets', ticketId), { adminResponse: replyMessage, status: 'answered' }, { merge: true });
 };
+
 // 🚨 PUBLISH UPDATE LOGS
 export const publishUpdateLog = async (title, message) => {
     if (!currentUser) return;
@@ -617,6 +376,7 @@ export const publishUpdateLog = async (title, message) => {
         await setDoc(docRef, { logs: [newLog, ...logs] }, { merge: true });
     } catch (e) { console.error("Update Log Error:", e); throw e; }
 };
+
 // 🚨 ESPIONAGE FUNCTIONS: Fetch and Nuke User Blocks
 export const fetchUserBlocks = async (uid) => {
     if (!currentUser) return [];
@@ -636,7 +396,6 @@ export const forceDeleteUserBlocks = async (uid, blockIdsToDelete) => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && docSnap.data().blocks) {
             const currentBlocks = docSnap.data().blocks;
-            // Filter out the blocks that have IDs matching our kill-list
             const survivingBlocks = currentBlocks.filter(b => !blockIdsToDelete.includes(b.id));
             await setDoc(docRef, { blocks: survivingBlocks }, { merge: true });
         }
