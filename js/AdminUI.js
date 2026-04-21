@@ -8,7 +8,7 @@ class AdminUI {
         this.inspectorModal = document.getElementById('dataInspectorModal');
         
         this.targetBanUid = null;
-        this.currentInspectorUid = null; // 🚨 Tracks whose data we are spying on
+        this.currentInspectorUid = null; 
         
         this.bindEvents();
     }
@@ -41,7 +41,6 @@ class AdminUI {
             });
         });
 
-        // 🚨 Advanced Ban Hammer Logic
         let selectedBanType = 'readonly';
         document.querySelectorAll('.ban-type-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -73,7 +72,6 @@ class AdminUI {
             this.loadUsers();
         });
         
-        // 🚨 Publish Update Log
         document.getElementById('publishUpdateBtn')?.addEventListener('click', async () => {
             const title = document.getElementById('adminUpdateTitle').value.trim();
             const msg = document.getElementById('adminUpdateMsg').value.trim();
@@ -91,7 +89,6 @@ class AdminUI {
             btn.innerHTML = '<i class="fa fa-paper-plane mr-2"></i> Publish to All Users'; btn.disabled = false;
         });
 
-        // Broadcast Power
         document.getElementById('sendBroadcastBtn')?.addEventListener('click', async () => {
             const msg = document.getElementById('adminBroadcastInput').value.trim();
             if(!msg) return alert("Please enter a message.");
@@ -109,7 +106,6 @@ class AdminUI {
             } catch(e) { alert("Error pushing hotfix."); }
         });
 
-        // 🚨 DATA INSPECTOR ESPIONAGE EVENTS
         document.getElementById('closeInspectorModalBtn')?.addEventListener('click', () => {
             this.inspectorModal.classList.remove('flex'); this.inspectorModal.classList.add('hidden');
             this.currentInspectorUid = null;
@@ -123,7 +119,7 @@ class AdminUI {
             const checkboxes = document.querySelectorAll('.inspector-checkbox:checked');
             if (checkboxes.length === 0) return alert('Please select at least one block to delete.');
             
-            if (confirm(`⚠️ ESPIONAGE WARNING: Are you sure you want to PERMANENTLY ERASER ${checkboxes.length} blocks from this user's timeline? They will disappear from their screen instantly.`)) {
+            if (confirm(`⚠️ ESPIONAGE WARNING: Are you sure you want to PERMANENTLY ERASE ${checkboxes.length} blocks from this user's timeline? They will disappear from their screen instantly.`)) {
                 const btn = document.getElementById('forceDeleteBlocksBtn');
                 btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Nuking...'; btn.disabled = true;
                 
@@ -131,7 +127,7 @@ class AdminUI {
                     const idsToDelete = Array.from(checkboxes).map(cb => cb.value);
                     await forceDeleteUserBlocks(this.currentInspectorUid, idsToDelete);
                     alert('Target blocks successfully wiped from the cloud.');
-                    this.loadInspectorData(); // Refresh list to show they are gone
+                    this.loadInspectorData(); 
                 } catch (e) { alert("Error deleting blocks."); }
                 
                 btn.innerHTML = '<i class="fa fa-skull-crossbones mr-2"></i>Nuke Selected'; btn.disabled = false;
@@ -157,11 +153,18 @@ class AdminUI {
                 const lastSync = u.lastUpdated ? new Date(u.lastUpdated).toLocaleString() : 'Never synced';
                 const totalBlocks = u.blocks ? u.blocks.length : 0;
                 
-                let displayString = u.email || 'Unknown User';
-                if (u.email && u.email.endsWith('@studyapp.com')) displayString = `👤 ${u.email.split('@')[0]} (Username Login)`;
-                else if (u.displayName) displayString = `${u.displayName} (${u.email})`;
+                // 🚨 NEW FORMATTER: Gracefully handle missing emails
+                let safeEmail = u.email ? u.email : 'No Email';
+                let displayString = safeEmail;
 
-                // 🚨 Use your actual email string here as well if needed, but App.js already restricts modal access
+                if (u.email && u.email.endsWith('@studyapp.com')) {
+                    displayString = `👤 ${u.email.split('@')[0]} (Username Login)`;
+                } else if (u.displayName) {
+                    displayString = `${u.displayName} (${safeEmail})`;
+                } else if (!u.email) {
+                    displayString = `Unknown User (${safeEmail})`;
+                }
+
                 const MASTER_ADMIN_EMAIL = "luke.wong.1120@gmail.com"; 
                 const isAdmin = u.email === MASTER_ADMIN_EMAIL;
                 
@@ -169,7 +172,6 @@ class AdminUI {
                 if (isAdmin) {
                     actionButtons = `<div class="text-xs font-black text-purple-600 bg-purple-100 px-3 py-1 rounded-full"><i class="fa fa-shield-alt mr-1"></i> Immune</div>`;
                 } else {
-                    // 🚨 INJECTED THE SPY INSPECT BUTTON
                     actionButtons = `
                         <button class="inspect-btn px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-lg text-sm shadow-md transition-transform active:scale-95" data-uid="${u.id}" data-name="${displayString}">
                             <i class="fa fa-user-secret mr-1"></i> Inspect Data
@@ -195,7 +197,6 @@ class AdminUI {
                 `;
                 
                 if (!isAdmin) {
-                    // Restrict Binding
                     el.querySelector('.suspend-btn').addEventListener('click', async (e) => {
                         const btn = e.currentTarget;
                         const currentlyRestricted = btn.dataset.restricted === 'true';
@@ -213,7 +214,6 @@ class AdminUI {
                         }
                     });
 
-                    // 🚨 Inspect Binding
                     el.querySelector('.inspect-btn').addEventListener('click', (e) => {
                         const btn = e.currentTarget;
                         this.currentInspectorUid = btn.dataset.uid;
@@ -231,7 +231,6 @@ class AdminUI {
         } catch (e) { container.innerHTML = '<div class="text-red-500 font-bold p-4 bg-red-50 rounded-xl">Error loading users. Check permissions.</div>'; }
     }
 
-    // 🚨 LOADS AND FILTERS TARGET USER'S BLOCKS
     async loadInspectorData() {
         const container = document.getElementById('inspectorBlocksList');
         if (!container || !this.currentInspectorUid) return;
@@ -247,7 +246,6 @@ class AdminUI {
             if (startNode) filtered = filtered.filter(b => (b.date || b.startDate) >= startNode);
             if (endNode) filtered = filtered.filter(b => (b.date || b.startDate) <= endNode);
             
-            // Sort by Date Descending
             filtered.sort((a,b) => new Date(b.date || b.startDate || 0) - new Date(a.date || a.startDate || 0));
 
             container.innerHTML = '';
@@ -273,7 +271,6 @@ class AdminUI {
                     </div>
                 `;
                 
-                // Allow clicking the div to toggle the checkbox
                 el.addEventListener('click', (e) => {
                     if (e.target.type !== 'checkbox') {
                         const cb = el.querySelector('.inspector-checkbox');
@@ -301,6 +298,7 @@ class AdminUI {
                 const timeStr = t.timestamp ? new Date(t.timestamp).toLocaleString() : 'Unknown Time';
                 const isAnswered = t.status === 'answered';
                 
+                // Formatter for Support Inbox Usernames
                 let displayEmail = t.email || 'Unknown';
                 if (displayEmail.endsWith('@studyapp.com')) displayEmail = displayEmail.split('@')[0] + " (Username)";
 
