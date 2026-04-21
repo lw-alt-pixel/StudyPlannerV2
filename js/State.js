@@ -69,6 +69,7 @@ class Store {
                 blocks: this.state.blocks, exams: this.state.exams, goals: this.state.goals, subjects: this.state.subjects,
                 settings: this.state.settings, diaries: this.state.diaries, theme: this.state.theme, header: this.state.header,
                 displayName: this.state.userProfile?.displayName || '',
+                email: currentUser.email || '', // 🚨 FIX: Forcefully write their email to Firestore!
                 lastUpdated: new Date().toISOString()
             }, { merge: true });
         } catch (e) { console.error("Sync Error:", e); }
@@ -159,7 +160,6 @@ onAuthStateChanged(auth, async (user) => {
             }
         });
 
-        // 🚨 LIVE UPDATE LOGS FETCHER
         onSnapshot(doc(db, 'server', 'updates'), (docSnap) => {
             if (docSnap.exists() && docSnap.data().logs) {
                 store.update('updateLogs', () => docSnap.data().logs);
@@ -203,14 +203,23 @@ onAuthStateChanged(auth, async (user) => {
                 if(data.header) store.update('header', () => data.header);
                 
                 store.update('userProfile', () => ({
-                    email: user.email, displayName: data.displayName || '',
+                    email: user.email, 
+                    displayName: data.displayName || '',
                     status: data.status || 'active', 
                     banUntil: data.banUntil || null,
                     role: data.role || 'user'
                 }));
             } else {
-                await setDoc(docRef, { status: 'active', role: 'user', lastUpdated: new Date().toISOString() }, { merge: true });
-                store.update('userProfile', () => ({ email: user.email, displayName: '', status: 'active', role: 'user' }));
+                // 🚨 FIX: First-time login -> Record their email securely!
+                const newDisplayName = user.displayName || '';
+                await setDoc(docRef, { 
+                    status: 'active', 
+                    role: 'user', 
+                    email: user.email || '', 
+                    displayName: newDisplayName,
+                    lastUpdated: new Date().toISOString() 
+                }, { merge: true });
+                store.update('userProfile', () => ({ email: user.email, displayName: newDisplayName, status: 'active', role: 'user' }));
             }
         } catch (e) {
             console.error("Error fetching user data:", e);
@@ -362,7 +371,6 @@ export const replyToTicket = async (ticketId, replyMessage) => {
     await setDoc(doc(db, 'supportTickets', ticketId), { adminResponse: replyMessage, status: 'answered' }, { merge: true });
 };
 
-// 🚨 PUBLISH UPDATE LOGS
 export const publishUpdateLog = async (title, message) => {
     if (!currentUser) return;
     try {
@@ -377,7 +385,6 @@ export const publishUpdateLog = async (title, message) => {
     } catch (e) { console.error("Update Log Error:", e); throw e; }
 };
 
-// 🚨 ESPIONAGE FUNCTIONS: Fetch and Nuke User Blocks
 export const fetchUserBlocks = async (uid) => {
     if (!currentUser) return [];
     try {
