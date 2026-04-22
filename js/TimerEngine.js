@@ -3,11 +3,17 @@ import { store } from './State.js';
 
 class TimerEngine {
     constructor() {
-        this.interval = null;
-        this.alarmTriggeredFor = null; // Prevents the alarm from spamming
-        // 🚨 Start the intelligent background scanner immediately
-        setInterval(() => this.watchUpNext(), 1000); 
-    }
+    this.interval = null;
+    this.alarmTriggeredFor = null;
+    this.postDeadlineInterval = null;  // 🚨 NEW
+    this.lastReminderTime = null;      // 🚨 NEW
+    this.reminderMinutesMark = 0;      // 🚨 NEW
+    
+    // Start the intelligent background scanner immediately
+    setInterval(() => this.watchUpNext(), 1000);
+    // 🚨 NEW: Watch for post-deadline conditions
+    setInterval(() => this.watchPostDeadline(), 1000);
+}
 
     watchUpNext() {
         const now = new Date();
@@ -83,7 +89,80 @@ class TimerEngine {
             }
         }
     }
+watchPostDeadline() {
+    const t = store.state.timer;
+    if (!t.isRunning || !t.activeBlockId) return;
 
+    const block = store.state.blocks.find(b => b.id === t.activeBlockId);
+    if (!block || !block.scheduledEnd) return;
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+    
+    const endTime = new Date(`${block.endDate || block.startDate || todayStr}T${block.scheduledEnd}:00`);
+    const timePastMs = now - endTime;
+
+    // Only trigger if past the deadline
+    if (timePastMs > 0) {
+        // Check if we should show a reminder (every 15 minutes)
+        const minutesPast = Math.floor(timePastMs / 60000);
+        const nextReminderMark = Math.floor(minutesPast / 15) * 15;
+
+        if (this.reminderMinutesMark !== nextReminderMark) {
+            this.reminderMinutesMark = nextReminderMark;
+            this.showPostDeadlineReminder(minutesPast);
+        }
+    } else {
+        // Reset if we go back before deadline
+        this.reminderMinutesMark = 0;
+    }
+}
+
+showPostDeadlineReminder(minutesPast) {
+    const modal = document.getElementById('postDeadlineReminder');
+    const messageEl = document.getElementById('reminderMessage');
+    
+    if (!modal || !messageEl) return;
+
+    // Generate message based on how much time has passed
+    if (minutesPast === 0) {
+        messageEl.innerText = "Have you finished? It's already the scheduled end time.";
+    } else if (minutesPast <= 15) {
+        messageEl.innerText = `Have you finished? It's now ${minutesPast} minutes past the scheduled end time.`;
+    } else {
+        const quarters = Math.floor(minutesPast / 15);
+        messageEl.innerText = `Have you finished? It's now ${quarters * 15} minutes past the scheduled end time.`;
+    }
+
+    // Show modal
+    modal.classList.remove('hidden');
+
+    // Button handlers
+    document.getElementById('dismissReminderBtn').onclick = () => {
+        modal.classList.add('hidden');
+    };
+
+    document.getElementById('finishBlockReminderBtn').onclick = () => {
+        modal.classList.add('hidden');
+        
+        // Mark block as completed
+        const t = store.state.timer;
+        store.update('blocks', blocks => blocks.map(b =>
+            b.id === t.activeBlockId
+                ? { ...b, studySeconds: t.studySeconds, status: 'completed' }
+                : b
+        ));
+
+        // Stop timer
+        this.stop();
+        store.update('timer', () => ({
+            activeBlockId: null, spontaneousSubject: null,
+            mode: 'pomodoro', phase: 'study',
+            studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false
+        }));
+    };
+}
     start() {
         if (this.interval) clearInterval(this.interval);
         
