@@ -115,7 +115,7 @@ class CanvasUI {
         }
 
         this.bindEvents();
-
+        this.initTimelineDropdown(); // 🚨 NEW
         if (this.container) {
             this.updateTransform();
             this.renderHeaders();
@@ -128,7 +128,133 @@ class CanvasUI {
             }
         });
     }
+// 🚨 NEW: Initialize Timeline Dropdown
+initTimelineDropdown() {
+    const toggleBtn = document.getElementById('toggleTimelineBtn');
+    const container = document.getElementById('todayTimelineContainer');
+    if (!toggleBtn || !container) return;
 
+    toggleBtn.addEventListener('click', () => {
+        container.classList.toggle('hidden');
+        const icon = toggleBtn.querySelector('i');
+        if (container.classList.contains('hidden')) {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+        } else {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+            this.renderTimelineList();
+        }
+    });
+    
+    // Render timeline whenever blocks change
+    store.subscribe('blocks', () => {
+        if (!container.classList.contains('hidden')) {
+            this.renderTimelineList();
+        }
+    });
+}
+
+renderTimelineList() {
+    const now = this.getChinaTime();
+    const pad = n => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+    
+    const allBlocks = store.state.blocks.filter(b => b.startDate === todayStr);
+    allBlocks.sort((a, b) => (a.scheduledStart || "00:00").localeCompare(b.scheduledStart || "00:00"));
+    
+    const timelineList = document.getElementById('timelineList');
+    if (!timelineList) return;
+    timelineList.innerHTML = '';
+
+    const completedBlocks = allBlocks.filter(b => b.status === 'completed');
+    const pendingBlocks = allBlocks.filter(b => b.status !== 'completed');
+
+    // Render pending blocks first
+    pendingBlocks.forEach(b => {
+        const el = this.createTimelineItem(b, todayStr, now);
+        timelineList.appendChild(el);
+    });
+
+    // 🚨 NEW: Collapsible completed blocks section
+    if (completedBlocks.length > 0) {
+        const collapsibleDiv = document.createElement('div');
+        collapsibleDiv.className = 'border-t border-gray-200 pt-2 mt-2';
+        
+        const toggleCompletedBtn = document.createElement('button');
+        toggleCompletedBtn.className = 'text-xs font-black text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors w-full';
+        toggleCompletedBtn.innerHTML = '<i class="fa fa-arrow-up"></i> Completed Blocks (' + completedBlocks.length + ')';
+        
+        const completedContainer = document.createElement('div');
+        completedContainer.className = 'hidden space-y-2 mt-2';
+        
+        completedBlocks.forEach(b => {
+            const el = this.createTimelineItem(b, todayStr, now, true);
+            completedContainer.appendChild(el);
+        });
+        
+        toggleCompletedBtn.addEventListener('click', () => {
+            completedContainer.classList.toggle('hidden');
+            const icon = toggleCompletedBtn.querySelector('i');
+            if (completedContainer.classList.contains('hidden')) {
+                icon.classList.remove('fa-arrow-down');
+                icon.classList.add('fa-arrow-up');
+            } else {
+                icon.classList.remove('fa-arrow-up');
+                icon.classList.add('fa-arrow-down');
+            }
+        });
+        
+        collapsibleDiv.appendChild(toggleCompletedBtn);
+        collapsibleDiv.appendChild(completedContainer);
+        timelineList.appendChild(collapsibleDiv);
+    }
+}
+
+createTimelineItem(block, todayStr, now, isCompleted = false) {
+    const subColor = store.state.subjects[block.subject] || '#3b82f6';
+    const bTime = new Date(`${todayStr}T${block.scheduledStart}:00`);
+    const isUpNext = !isCompleted && bTime <= now && new Date(`${todayStr}T${block.scheduledEnd}:00`) > now;
+    
+    const el = document.createElement('div');
+    el.className = `relative flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+        isCompleted 
+            ? 'bg-gray-50 border-gray-200 opacity-60' 
+            : isUpNext
+            ? 'bg-blue-50 border-blue-300 border-l-4 ring-1 ring-blue-200'
+            : 'bg-white border-gray-200 hover:bg-gray-50'
+    }`;
+    
+    const timeStr = `${block.scheduledStart} - ${block.scheduledEnd}`;
+    const statusBadge = isCompleted 
+        ? '<span class="text-[10px] font-black text-green-600 bg-green-100 px-2 py-0.5 rounded">✓ Done</span>'
+        : isUpNext
+        ? '<span class="text-[10px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded">⏰ Now</span>'
+        : '';
+    
+    el.innerHTML = `
+        <div class="w-1 h-8 rounded-full" style="background-color: ${subColor}"></div>
+        <div class="flex-1 min-w-0">
+            <div class="text-xs font-black text-gray-500 uppercase">${timeStr}</div>
+            <div class="text-sm font-bold text-gray-800 truncate">${block.title || block.subject}</div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            ${statusBadge}
+            ${!isCompleted ? `<button class="run-btn text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1"><i class="fa fa-play mr-1"></i>Start</button>` : ''}
+        </div>
+    `;
+    
+    if (!isCompleted) {
+        el.querySelector('.run-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            store.update('timer', t => ({ ...t, activeBlockId: block.id, spontaneousSubject: block.subject, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: true }));
+            timerEngine.start();
+            document.querySelector('.tab-btn[data-tab="focus"]')?.click();
+        });
+    }
+    
+    return el;
+}
     toggleFullscreen(enable) {
         const header = document.getElementById('appHeader');
         const nav = document.getElementById('appNav');
