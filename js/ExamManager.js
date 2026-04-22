@@ -76,7 +76,7 @@ class ExamManager {
     store.update('exams', ex => [...ex, newExam]);
     this.modal?.classList.add('hidden');
 });
-
+}
     generateEbbinghaus(examId) {
         const ex = store.state.exams.find(e => e.id === examId);
         if(!ex) return;
