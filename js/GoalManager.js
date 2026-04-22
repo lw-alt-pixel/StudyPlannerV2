@@ -6,8 +6,10 @@ class GoalManager {
         this.container = document.getElementById('goalsListContainer');
         this.modal = document.getElementById('goalSetupModal');
         this.bindEvents();
+        this.populateExamDropdown();
         
         store.subscribe('goals', () => this.render());
+        store.subscribe('exams', () => this.populateExamDropdown());
         this.render();
     }
 
@@ -15,6 +17,8 @@ class GoalManager {
         document.getElementById('createNewGoalBtn')?.addEventListener('click', () => {
             document.getElementById('newGoalTitle').value = '';
             document.getElementById('newGoalDate').value = '';
+            document.getElementById('newGoalExamSelect').value = '';
+            document.getElementById('newGoalSubject').value = '';
             this.modal?.classList.remove('hidden');
         });
 
@@ -24,19 +28,49 @@ class GoalManager {
 
         document.getElementById('saveNewGoalBtn')?.addEventListener('click', () => {
             const title = document.getElementById('newGoalTitle').value.trim();
+            const linkedExamId = document.getElementById('newGoalExamSelect')?.value || null;
+            const subject = document.getElementById('newGoalSubject')?.value?.trim() || null;
             const date = document.getElementById('newGoalDate').value;
+            
             if (!title) return alert("Please enter a Goal title.");
             
             const newGoal = {
                 id: 'goal_' + Date.now(),
                 title: title,
                 targetDate: date,
+                subject: subject,
+                linkedExamId: linkedExamId,
                 topics: []
             };
 
             store.update('goals', old => [...(old || []), newGoal]);
             this.modal.classList.add('hidden');
         });
+
+        // Timeline dropdown toggle
+        document.getElementById('toggleTimelineBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = document.getElementById('timelineDropdown');
+            dropdown?.classList.toggle('hidden');
+        });
+    }
+
+    populateExamDropdown() {
+        const select = document.getElementById('newGoalExamSelect');
+        if (!select) return;
+
+        const exams = store.state.exams || [];
+        const currentValue = select.value;
+        
+        select.innerHTML = '<option value="">None - Create Standalone Goal</option>';
+        exams.forEach(exam => {
+            const opt = document.createElement('option');
+            opt.value = exam.id;
+            opt.text = `${exam.title} (${exam.subject}) - ${exam.date}`;
+            select.appendChild(opt);
+        });
+
+        select.value = currentValue;
     }
 
     // 🚨 The Math Engine: Recursively calculates progress from Tasks -> Chapters -> Topics -> Goal
@@ -81,11 +115,18 @@ class GoalManager {
             gEl.className = 'bg-white border-2 border-gray-200 rounded-3xl p-6 shadow-sm mb-6';
             
             const dateBadge = goal.targetDate ? `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-3"><i class="fa fa-flag-checkered mr-1"></i>${goal.targetDate}</span>` : '';
+            
+            // 🚨 Show exam link if linked
+            const linkedExam = goal.linkedExamId ? store.state.exams?.find(e => e.id === goal.linkedExamId) : null;
+            const examBadge = linkedExam ? `<span class="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2"><i class="fa fa-link mr-1"></i>Exam: ${linkedExam.title}</span>` : '';
+
+            const subjectBadge = goal.subject ? `<span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2"><i class="fa fa-book mr-1"></i>${goal.subject}</span>` : '';
 
             gEl.innerHTML = `
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <h3 class="text-2xl font-black text-gray-800 tracking-tight">${goal.title} ${dateBadge}</h3>
+                        <div class="text-xs font-bold text-gray-400 mt-2 flex gap-2 flex-wrap">${examBadge}${subjectBadge}</div>
                         <div class="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Master Goal Progress</div>
                     </div>
                     <button class="text-gray-400 hover:text-red-500 transition-colors px-2 py-1" onclick="if(confirm('Delete this entire Goal?')) window.goalManager.deleteNode('goal', '${goal.id}')"><i class="fa fa-trash"></i></button>
@@ -160,7 +201,7 @@ class GoalManager {
                             <input type="checkbox" ${task.isCompleted ? 'checked' : ''} class="w-4 h-4 text-blue-600 rounded border-gray-300 cursor-pointer" onclick="window.goalManager.toggleTask('${goal.id}', '${topic.id}', '${chapter.id}', '${task.id}', this.checked)">
                             <span class="flex-1 text-xs font-bold ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}">${task.title}</span>
                             
-                            <button class="text-[10px] font-black bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors uppercase tracking-widest" onclick="window.goalManager.scheduleToCanvas('${task.title}', '${topic.title}')">
+                            <button class="text-[10px] font-black bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors uppercase tracking-widest" onclick="window.goalManager.scheduleToCanvas('${goal.id}', '${topic.id}', '${chapter.id}', '${task.id}')">
                                 <i class="fa fa-calendar-plus mr-1"></i> Schedule
                             </button>
                             <button class="text-gray-300 hover:text-red-500 text-xs ml-2" onclick="window.goalManager.deleteNode('task', '${goal.id}', '${topic.id}', '${chapter.id}', '${task.id}')"><i class="fa fa-trash"></i></button>
@@ -227,32 +268,51 @@ class GoalManager {
         });
     }
 
-    // 🚨 CANVAS SYNERGY ENGINE
-    scheduleToCanvas(taskTitle, topicTitle) {
+    // 🚨 ENHANCED CANVAS SYNERGY ENGINE - Generates rich task titles
+    scheduleToCanvas(goalId, topicId, chapterId, taskId) {
+        const goal = store.state.goals.find(g => g.id === goalId);
+        const topic = goal?.topics.find(t => t.id === topicId);
+        const chapter = topic?.chapters.find(c => c.id === chapterId);
+        const task = chapter?.tasks.find(t => t.id === taskId);
+        
+        if (!task || !topic || !chapter) return;
+
         // Switch view to schedule
         document.querySelector('.tab-btn[data-tab="schedule"]')?.click();
         
-        // Open the Add Block Modal from BlockManager
+        // Open the Add Block Modal
         const modal = document.getElementById('addBlockModal');
         if (modal) modal.classList.remove('hidden');
 
         // Pre-fill the inputs!
         const titleInput = document.getElementById('newBlockTitle');
+        const subjectSelect = document.getElementById('newBlockSubject');
         const customSubjectDiv = document.getElementById('newBlockCustomSubjectDiv');
         const customNameInput = document.getElementById('newBlockCustomName');
-        const subjectSelect = document.getElementById('newBlockSubject');
 
-        if (titleInput) titleInput.value = `[Task] ${taskTitle}`;
+        // 🎯 ENHANCED TITLE FORMAT: [Topic: Physics] [Chapter: Electromagnetism] [Task: Solve 10 problems] *for Final Physics*
+        let blocktitle = `[Topic: ${topic.title}] [Chapter: ${chapter.title}] [Task: ${task.title}]`;
+        if (goal.linkedExamId) {
+            const exam = store.state.exams?.find(e => e.id === goal.linkedExamId);
+            if (exam) blocktitle += ` *for ${exam.title}*`;
+        }
         
-        // Try to set the subject to the Topic Name. If the topic doesn't exist in their global subjects, 
-        // we force it to create a custom subject!
-        if (subjectSelect) {
-            subjectSelect.value = "custom";
-            if (customSubjectDiv) {
-                customSubjectDiv.classList.remove('hidden');
+        if (titleInput) titleInput.value = blocktitle;
+        
+        // Auto-populate subject
+        if (goal.subject) {
+            // Try to set the subject from goal
+            const subs = store.state.subjects;
+            if (subs[goal.subject]) {
+                subjectSelect.value = goal.subject;
+                customSubjectDiv.classList.add('hidden');
+            } else {
+                // Create custom subject if it doesn't exist
+                subjectSelect.value = "custom";
+                customSubjectDiv.classList.remove('hidden'); 
                 customSubjectDiv.classList.add('flex');
+                if (customNameInput) customNameInput.value = goal.subject.substring(0, 15);
             }
-            if (customNameInput) customNameInput.value = topicTitle.substring(0, 15); // Limit length
         }
     }
 }
