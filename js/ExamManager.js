@@ -58,24 +58,24 @@ class ExamManager {
         document.getElementById('cancelAddExam')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
 
         document.getElementById('saveNewExam')?.addEventListener('click', () => {
-            const title = document.getElementById('newExamTitle').value || 'Final Exam';
-            let subject = this.subjectInput.value;
-            const date = document.getElementById('newExamDate').value;
-            const time = document.getElementById('newExamTime').value || '09:00';
-            
-            if(subject === 'custom') {
-                subject = document.getElementById('newExamCustomName').value || 'Custom';
-                const color = document.getElementById('newExamCustomColor').value;
-                store.update('subjects', s => ({...s, [subject]: color}));
-            }
-
-            if (!date) return alert("Please select a date!");
-
-            const newExam = { id: 'exam_' + Date.now(), title, subject, date, time };
-            store.update('exams', ex => [...ex, newExam]);
-            this.modal?.classList.add('hidden');
-        });
+    const title = document.getElementById('newExamTitle').value || 'Final Exam';
+    let subject = this.subjectInput.value;
+    const defaultSubject = document.getElementById('newExamDefaultSubject')?.value?.trim() || null; // 🚨 NEW
+    const date = document.getElementById('newExamDate').value;
+    const time = document.getElementById('newExamTime').value || '09:00';
+    
+    if(subject === 'custom') {
+        subject = document.getElementById('newExamCustomName').value || 'Custom';
+        const color = document.getElementById('newExamCustomColor').value;
+        store.update('subjects', s => ({...s, [subject]: color}));
     }
+
+    if (!date) return alert("Please select a date!");
+
+    const newExam = { id: 'exam_' + Date.now(), title, subject, date, time, defaultSubject }; // 🚨 ADDED defaultSubject
+    store.update('exams', ex => [...ex, newExam]);
+    this.modal?.classList.add('hidden');
+});
 
     generateEbbinghaus(examId) {
         const ex = store.state.exams.find(e => e.id === examId);
