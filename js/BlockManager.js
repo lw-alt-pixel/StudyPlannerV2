@@ -37,12 +37,28 @@ class BlockManager {
         this.subjectInput.innerHTML = '';
         const bulkSub = document.getElementById('bulkTargetSubject');
         if (bulkSub) bulkSub.innerHTML = '';
-        
+        const setColorForSelect = (sel) => {
+            const v = sel.value;
+            const color = (subs && subs[v]) ? subs[v] : '';
+            if (color) sel.style.backgroundImage = `linear-gradient(to right, ${color} 0 22px, transparent 22px)`;
+            else sel.style.backgroundImage = '';
+        };
+
         Object.keys(subs).forEach(s => {
-            this.subjectInput.innerHTML += `<option value="${s}">${s}</option>`;
-            if(bulkSub) bulkSub.innerHTML += `<option value="${s}">${s}</option>`;
+            const opt = document.createElement('option');
+            opt.value = s; opt.text = s;
+            if (subs[s]) opt.dataset.color = subs[s];
+            this.subjectInput.appendChild(opt);
+            if (bulkSub) {
+                const opt2 = document.createElement('option'); opt2.value = s; opt2.text = s; if (subs[s]) opt2.dataset.color = subs[s]; bulkSub.appendChild(opt2);
+            }
         });
-        this.subjectInput.innerHTML += `<option value="custom">+ Add Custom Subject</option>`;
+
+        // Update visual chip on change
+        this.subjectInput.addEventListener('change', () => setColorForSelect(this.subjectInput));
+        if (bulkSub) bulkSub.addEventListener('change', () => setColorForSelect(bulkSub));
+        // Initialize
+        setColorForSelect(this.subjectInput);
     }
 
     bindEvents() {
@@ -60,16 +76,21 @@ class BlockManager {
             this.singleForm?.classList.add('hidden');
         });
 
-        document.getElementById('cancelAddBlock')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
+        document.getElementById('cancelAddBlock')?.addEventListener('click', () => {
+            if (this.modal) {
+                this.modal.classList.add('hidden');
+                delete this.modal.dataset.lockedSubject;
+                delete this.modal.dataset.lockedSubjectValue;
+            }
+            if (this.subjectInput) this.subjectInput.disabled = false;
+        });
         document.getElementById('cancelBulkSchedule')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
 
-        this.subjectInput?.addEventListener('change', (e) => {
-            if (e.target.value === 'custom') {
-                this.customSubjectDiv.classList.remove('hidden'); this.customSubjectDiv.classList.add('flex');
-            } else {
-                this.customSubjectDiv.classList.add('hidden'); this.customSubjectDiv.classList.remove('flex');
-            }
-        });
+        // Subjects are managed in Settings; prevent inline custom creation
+        if (this.customSubjectDiv) {
+            this.customSubjectDiv.classList.add('hidden');
+            this.customSubjectDiv.classList.remove('flex');
+        }
 
         document.getElementById('saveNewBlock')?.addEventListener('click', () => this.saveBlock());
         document.getElementById('cancelEditBlock')?.addEventListener('click', () => { this.editModal?.classList.add('hidden'); this.editBlockId = null; });
@@ -114,10 +135,9 @@ class BlockManager {
     saveBlock() {
         const title = this.titleInput.value;
         let subject = this.subjectInput.value;
-        if(subject === 'custom') {
-            subject = this.customNameInput.value || 'Custom';
-            const color = this.customColorInput.value;
-            store.update('subjects', s => ({...s, [subject]: color}));
+        // Respect locked subject when modal was opened from a linked goal
+        if (this.modal && this.modal.dataset.lockedSubject === 'true') {
+            subject = this.modal.dataset.lockedSubjectValue || subject;
         }
 
         const date = this.startDateInput.value;
@@ -132,10 +152,20 @@ class BlockManager {
             scheduledStart: start, scheduledEnd: end,
             status: 'pending', studySeconds: 0, breakSeconds: 0, remarks: ''
         };
+        // Preserve locked status if modal indicated it
+        if (this.modal && this.modal.dataset.lockedSubject === 'true') {
+            newBlock.lockedSubject = true;
+        }
 
         store.update('blocks', blocks => [...blocks, newBlock]);
         this.modal.classList.add('hidden');
         this.titleInput.value = '';
+        // reset lock and enable select
+        if (this.modal) {
+            delete this.modal.dataset.lockedSubject;
+            delete this.modal.dataset.lockedSubjectValue;
+        }
+        if (this.subjectInput) this.subjectInput.disabled = false;
     }
 
     saveEditBlock(id) {

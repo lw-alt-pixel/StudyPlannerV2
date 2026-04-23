@@ -9,9 +9,6 @@ class ExamManager {
         this.modal = document.getElementById('addExamModal');
         
         this.subjectInput = document.getElementById('newExamSubject');
-        this.customSubjectDiv = document.getElementById('newExamCustomSubjectDiv');
-        this.customNameInput = document.getElementById('newExamCustomName');
-        this.customColorInput = document.getElementById('newExamCustomColor');
 
         store.subscribe('subjects', () => this.populateSubjects());
         this.populateSubjects();
@@ -40,42 +37,35 @@ class ExamManager {
         const subs = store.state.subjects;
         this.subjectInput.innerHTML = '';
         Object.keys(subs).forEach(s => {
-            this.subjectInput.innerHTML += `<option value="${s}">${s}</option>`;
+            const opt = document.createElement('option'); opt.value = s; opt.text = s; if (subs[s]) opt.dataset.color = subs[s]; this.subjectInput.appendChild(opt);
         });
-        this.subjectInput.innerHTML += `<option value="custom">+ Add Custom Subject</option>`;
+        // Show color chip on select
+        const setColor = (sel) => {
+            const v = sel.value; const color = (subs && subs[v]) ? subs[v] : '';
+            if (color) sel.style.backgroundImage = `linear-gradient(to right, ${color} 0 22px, transparent 22px)`; else sel.style.backgroundImage = '';
+        };
+        this.subjectInput.addEventListener('change', () => setColor(this.subjectInput));
+        setColor(this.subjectInput);
     }
 
     bindEvents() {
-        this.subjectInput?.addEventListener('change', (e) => {
-            if (e.target.value === 'custom') {
-                this.customSubjectDiv.classList.remove('hidden'); this.customSubjectDiv.classList.add('flex');
-            } else {
-                this.customSubjectDiv.classList.add('hidden'); this.customSubjectDiv.classList.remove('flex');
-            }
-        });
+        // Subject must be chosen from existing subjects only.
 
         document.getElementById('openAddExamBtn')?.addEventListener('click', () => this.modal?.classList.remove('hidden'));
         document.getElementById('cancelAddExam')?.addEventListener('click', () => this.modal?.classList.add('hidden'));
 
         document.getElementById('saveNewExam')?.addEventListener('click', () => {
-    const title = document.getElementById('newExamTitle').value || 'Final Exam';
-    let subject = this.subjectInput.value;
-    const defaultSubject = document.getElementById('newExamDefaultSubject')?.value?.trim() || null; // 🚨 NEW
-    const date = document.getElementById('newExamDate').value;
-    const time = document.getElementById('newExamTime').value || '09:00';
-    
-    if(subject === 'custom') {
-        subject = document.getElementById('newExamCustomName').value || 'Custom';
-        const color = document.getElementById('newExamCustomColor').value;
-        store.update('subjects', s => ({...s, [subject]: color}));
-    }
+            const title = document.getElementById('newExamTitle').value || 'Final Exam';
+            const subject = this.subjectInput.value || null;
+            const date = document.getElementById('newExamDate').value;
+            const time = document.getElementById('newExamTime').value || '09:00';
 
-    if (!date) return alert("Please select a date!");
+            if (!date) return alert("Please select a date!");
 
-    const newExam = { id: 'exam_' + Date.now(), title, subject, date, time, defaultSubject }; // 🚨 ADDED defaultSubject
-    store.update('exams', ex => [...ex, newExam]);
-    this.modal?.classList.add('hidden');
-});
+            const newExam = { id: 'exam_' + Date.now(), title, subject, date, time };
+            store.update('exams', ex => [...ex, newExam]);
+            this.modal?.classList.add('hidden');
+        });
 }
     generateEbbinghaus(examId) {
         const ex = store.state.exams.find(e => e.id === examId);

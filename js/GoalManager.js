@@ -7,9 +7,11 @@ class GoalManager {
         this.modal = document.getElementById('goalSetupModal');
         this.bindEvents();
         this.populateExamDropdown();
+        this.populateSubjectDropdown();
         
         store.subscribe('goals', () => this.render());
         store.subscribe('exams', () => this.populateExamDropdown());
+        store.subscribe('subjects', () => this.populateSubjectDropdown());
         this.render();
     }
 
@@ -18,8 +20,27 @@ class GoalManager {
             document.getElementById('newGoalTitle').value = '';
             document.getElementById('newGoalDate').value = '';
             document.getElementById('newGoalExamSelect').value = '';
-            document.getElementById('newGoalSubject').value = '';
+            const subjEl = document.getElementById('newGoalSubject');
+            if (subjEl) { subjEl.value = ''; subjEl.disabled = false; }
             this.modal?.classList.remove('hidden');
+        });
+
+        // When an exam is selected, auto-set and lock the subject to the exam's subject
+        document.getElementById('newGoalExamSelect')?.addEventListener('change', (e) => {
+            const examId = e.target.value;
+            const subjectSelect = document.getElementById('newGoalSubject');
+            if (!subjectSelect) return;
+            if (!examId) {
+                subjectSelect.disabled = false;
+                return;
+            }
+            const exam = store.state.exams?.find(x => x.id === examId);
+            if (exam && exam.subject) {
+                subjectSelect.value = exam.subject;
+            } else {
+                subjectSelect.value = '';
+            }
+            subjectSelect.disabled = true;
         });
 
         document.getElementById('closeGoalSetupBtn')?.addEventListener('click', () => {
@@ -29,7 +50,11 @@ class GoalManager {
         document.getElementById('saveNewGoalBtn')?.addEventListener('click', () => {
             const title = document.getElementById('newGoalTitle').value.trim();
             const linkedExamId = document.getElementById('newGoalExamSelect')?.value || null;
-            const subject = document.getElementById('newGoalSubject')?.value?.trim() || null;
+            let subject = document.getElementById('newGoalSubject')?.value || null;
+            if (linkedExamId) {
+                const ex = store.state.exams?.find(x => x.id === linkedExamId);
+                subject = ex?.subject || subject;
+            }
             const date = document.getElementById('newGoalDate').value;
             
             if (!title) return alert("Please enter a Goal title.");
@@ -71,6 +96,26 @@ class GoalManager {
         });
 
         select.value = currentValue;
+    }
+
+    populateSubjectDropdown() {
+        const select = document.getElementById('newGoalSubject');
+        if (!select) return;
+        const subs = store.state.subjects || {};
+        const current = select.value;
+        select.innerHTML = '<option value="">(None)</option>';
+        Object.keys(subs).forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s; opt.text = s; if (subs[s]) opt.dataset.color = subs[s]; select.appendChild(opt);
+        });
+        // Color chip for the select
+        const setColor = (sel) => {
+            const v = sel.value; const color = (subs && subs[v]) ? subs[v] : '';
+            if (color) sel.style.backgroundImage = `linear-gradient(to right, ${color} 0 22px, transparent 22px)`; else sel.style.backgroundImage = '';
+        };
+        select.addEventListener('change', () => setColor(select));
+        select.value = current;
+        setColor(select);
     }
 
     // 🚨 The Math Engine: Recursively calculates progress from Tasks -> Chapters -> Topics -> Goal
@@ -303,15 +348,25 @@ class GoalManager {
         if (goal.subject) {
             // Try to set the subject from goal
             const subs = store.state.subjects;
-            if (subs[goal.subject]) {
+            if (subs && subs[goal.subject]) {
                 subjectSelect.value = goal.subject;
-                customSubjectDiv.classList.add('hidden');
+                // If the goal is linked to an exam, lock the subject to exam's subject
             } else {
-                // Create custom subject if it doesn't exist
-                subjectSelect.value = "custom";
-                customSubjectDiv.classList.remove('hidden'); 
-                customSubjectDiv.classList.add('flex');
-                if (customNameInput) customNameInput.value = goal.subject.substring(0, 15);
+                subjectSelect.value = '';
+            }
+        }
+
+        // If this goal is linked to an exam, lock the add-block modal subject
+        if (goal.linkedExamId) {
+            const m = document.getElementById('addBlockModal');
+            if (m) {
+                m.dataset.lockedSubject = 'true';
+                m.dataset.lockedSubjectValue = (store.state.exams?.find(e => e.id === goal.linkedExamId)?.subject) || goal.subject || '';
+            }
+            if (subjectSelect) {
+                const examSubject = store.state.exams?.find(e => e.id === goal.linkedExamId)?.subject || goal.subject;
+                if (examSubject) subjectSelect.value = examSubject;
+                subjectSelect.disabled = true;
             }
         }
     }
