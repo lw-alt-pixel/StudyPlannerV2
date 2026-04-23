@@ -1,5 +1,6 @@
 // js/GoalManager.js
 import { store } from './State.js';
+import { enhanceSelect } from './SubjectDropdown.js';
 
 class GoalManager {
     init() {
@@ -118,6 +119,7 @@ class GoalManager {
         select.addEventListener('change', () => setColor(select));
         select.value = current;
         setColor(select);
+        try { enhanceSelect(select); } catch (e) { }
     }
 
     // 🚨 The Math Engine: Recursively calculates progress from Tasks -> Chapters -> Topics -> Goal
@@ -167,7 +169,8 @@ class GoalManager {
             const linkedExam = goal.linkedExamId ? store.state.exams?.find(e => e.id === goal.linkedExamId) : null;
             const examBadge = linkedExam ? `<span class="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2"><i class="fa fa-link mr-1"></i>Exam: ${linkedExam.title}</span>` : '';
 
-            const subjectBadge = goal.subject ? `<span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2"><i class="fa fa-book mr-1"></i>${goal.subject}</span>` : '';
+            const subColor = goal.subject ? (store.state.subjects[goal.subject] || '#3b82f6') : null;
+            const subjectBadge = goal.subject ? `<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2" style="background:${subColor}; color: white;"><i class="fa fa-book mr-1"></i>${goal.subject}</span>` : '';
 
             gEl.innerHTML = `
                 <div class="flex justify-between items-start mb-4">

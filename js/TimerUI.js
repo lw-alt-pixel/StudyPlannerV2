@@ -42,6 +42,7 @@ class TimerUI {
         Object.keys(allSubs).filter(s => activeMap[s] !== false).forEach(s => {
             this.spontaneousSubjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
         });
+        try { const { enhanceSelect } = await import('./SubjectDropdown.js'); enhanceSelect(this.spontaneousSubjectSelect); } catch (e) { }
     }
 
     bindEvents() {

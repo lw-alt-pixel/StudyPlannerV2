@@ -1,5 +1,6 @@
 // js/BlockManager.js
 import { store } from './State.js';
+import { enhanceSelect } from './SubjectDropdown.js';
 import { timerEngine } from './TimerEngine.js';
 
 class BlockManager {
@@ -56,11 +57,15 @@ class BlockManager {
             }
         });
 
-        // Update visual chip on change
-        this.subjectInput.addEventListener('change', () => setColorForSelect(this.subjectInput));
-        if (bulkSub) bulkSub.addEventListener('change', () => setColorForSelect(bulkSub));
-        // Initialize
-        setColorForSelect(this.subjectInput);
+        // Initialize visual chip and replace with enhanced dropdown
+        if (this.subjectInput) {
+            setColorForSelect(this.subjectInput);
+            try { enhanceSelect(this.subjectInput); } catch (e) { /* graceful fallback */ }
+        }
+        if (bulkSub) {
+            setColorForSelect(bulkSub);
+            try { enhanceSelect(bulkSub); } catch (e) { }
+        }
     }
 
     bindEvents() {

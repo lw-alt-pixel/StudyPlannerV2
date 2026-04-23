@@ -1,5 +1,6 @@
 // js/ExamManager.js
 import { store } from './State.js';
+import { enhanceSelect } from './SubjectDropdown.js';
 
 class ExamManager {
     init() {
@@ -41,13 +42,8 @@ class ExamManager {
         Object.keys(subs).forEach(s => {
             const opt = document.createElement('option'); opt.value = s; opt.text = s; if (subs[s]) opt.dataset.color = subs[s]; this.subjectInput.appendChild(opt);
         });
-        // Show color chip on select
-        const setColor = (sel) => {
-            const v = sel.value; const color = (subs && subs[v]) ? subs[v] : '';
-            if (color) sel.style.backgroundImage = `linear-gradient(to right, ${color} 0 22px, transparent 22px)`; else sel.style.backgroundImage = '';
-        };
-        this.subjectInput.addEventListener('change', () => setColor(this.subjectInput));
-        setColor(this.subjectInput);
+        // Replace select with enhanced dropdown (shows swatches in the list)
+        try { enhanceSelect(this.subjectInput); } catch (e) { /* no-op */ }
     }
 
     bindEvents() {
