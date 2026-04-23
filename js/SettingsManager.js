@@ -130,6 +130,14 @@ class SettingsManager {
                 textColor: document.getElementById('settingsHeaderTextColor').value || '#1f2937'
             }));
 
+            // Timer settings
+            store.update('timerSettings', ts => ({
+                ...(ts || {}),
+                applyPomodoro: !!document.getElementById('settingsApplyPomodoro').checked,
+                countStudyPhase: !!document.getElementById('settingsCountStudyPhase').checked,
+                countBreakPhase: !!document.getElementById('settingsCountBreakPhase').checked
+            }));
+
             // 🚨 SAVE DISPLAY NAME
             const newDisplayName = document.getElementById('settingsDisplayName')?.value.trim();
             if (newDisplayName !== undefined) {
@@ -238,6 +246,15 @@ class SettingsManager {
 
         safeSet('settingsPStudy', s.pStudy || 25);
         safeSet('settingsPBreak', s.pBreak || 5);
+
+        // Timer settings
+        const tSettings = store.state.timerSettings || {};
+        const applyEl = document.getElementById('settingsApplyPomodoro');
+        if (applyEl) applyEl.checked = tSettings.applyPomodoro !== false;
+        const cs = document.getElementById('settingsCountStudyPhase');
+        if (cs) cs.checked = tSettings.countStudyPhase !== false;
+        const cb = document.getElementById('settingsCountBreakPhase');
+        if (cb) cb.checked = !!tSettings.countBreakPhase;
 
         const aEnabled = document.getElementById('settingsAudioEnabled');
         if (aEnabled) aEnabled.checked = !!a.enabled;
