@@ -55,9 +55,9 @@ export function enhanceSelect(selectEl) {
         const care = document.createElement('i'); care.className = 'fa fa-chevron-down text-gray-400';
         btn.appendChild(left); btn.appendChild(care);
 
-        // Options list
+        // Options list (we will append this to document.body to avoid clipping inside small containers)
         const list = document.createElement('div');
-        list.className = 'sd-options absolute left-0 right-0 mt-1 bg-white border rounded shadow z-50 max-h-48 overflow-y-auto hidden';
+        list.className = 'sd-options bg-white border rounded shadow z-50 max-h-48 overflow-y-auto hidden';
 
         // Build options from select
         Array.from(selectEl.options).forEach(opt => {
@@ -74,19 +74,40 @@ export function enhanceSelect(selectEl) {
             list.appendChild(row);
         });
 
-        container.appendChild(btn); container.appendChild(list);
+        container.appendChild(btn);
 
         // Insert container after select and hide select
         selectEl.style.display = 'none';
         selectEl.parentNode.insertBefore(container, selectEl.nextSibling);
 
-        // Toggle
+        // Append list to body so it can overlay other containers without being clipped
+        document.body.appendChild(list);
+
+        // Toggle - position list on open
+        const positionList = () => {
+            const rect = btn.getBoundingClientRect();
+            list.style.position = 'absolute';
+            list.style.minWidth = rect.width + 'px';
+            list.style.left = rect.left + 'px';
+            list.style.top = (rect.bottom + window.scrollY) + 'px';
+            // Ensure it doesn't run off the right edge
+            const rightOverflow = (rect.left + list.offsetWidth) - window.innerWidth;
+            if (rightOverflow > 0) list.style.left = Math.max(8, rect.left - rightOverflow) + 'px';
+        };
+
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            list.classList.toggle('hidden');
+            if (list.classList.contains('hidden')) {
+                positionList();
+                list.classList.remove('hidden');
+            } else {
+                list.classList.add('hidden');
+            }
         });
         // Close when clicking outside
         document.addEventListener('click', () => list.classList.add('hidden'));
+        window.addEventListener('resize', () => list.classList.add('hidden'));
+        window.addEventListener('scroll', () => list.classList.add('hidden'));
 
         // Sync initial selected
         const selOpt = selectEl.options[selectEl.selectedIndex];
