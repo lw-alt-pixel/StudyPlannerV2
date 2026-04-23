@@ -33,7 +33,9 @@ class BlockManager {
 
     populateSubjects() {
         if (!this.subjectInput) return; 
-        const subs = store.state.subjects;
+        const allSubs = store.state.subjects || {};
+        const activeMap = store.state.subjectsActive || {};
+        const subs = Object.keys(allSubs).filter(s => activeMap[s] !== false).reduce((acc,k)=>{acc[k]=allSubs[k];return acc;},{ });
         this.subjectInput.innerHTML = '';
         const bulkSub = document.getElementById('bulkTargetSubject');
         if (bulkSub) bulkSub.innerHTML = '';

@@ -34,7 +34,9 @@ class ExamManager {
 
     populateSubjects() {
         if (!this.subjectInput) return;
-        const subs = store.state.subjects;
+        const allSubs = store.state.subjects || {};
+        const activeMap = store.state.subjectsActive || {};
+        const subs = Object.keys(allSubs).filter(s => activeMap[s] !== false).reduce((acc,k)=>{acc[k]=allSubs[k];return acc;},{ });
         this.subjectInput.innerHTML = '';
         Object.keys(subs).forEach(s => {
             const opt = document.createElement('option'); opt.value = s; opt.text = s; if (subs[s]) opt.dataset.color = subs[s]; this.subjectInput.appendChild(opt);

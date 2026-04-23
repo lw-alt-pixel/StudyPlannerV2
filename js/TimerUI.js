@@ -37,7 +37,9 @@ class TimerUI {
     populateSubjects() {
         if (!this.spontaneousSubjectSelect) return;
         this.spontaneousSubjectSelect.innerHTML = '<option value="">General (No Subject)</option>';
-        Object.keys(store.state.subjects || {}).forEach(s => {
+        const allSubs = store.state.subjects || {};
+        const activeMap = store.state.subjectsActive || {};
+        Object.keys(allSubs).filter(s => activeMap[s] !== false).forEach(s => {
             this.spontaneousSubjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
         });
     }

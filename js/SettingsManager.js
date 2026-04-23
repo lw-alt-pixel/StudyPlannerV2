@@ -18,6 +18,7 @@ class SettingsManager {
         
         this.bindEvents();
         this.populateForms();
+        this.renderSubjectList();
         this.bindEmojiSpawner();
 
         // 🚨 Listen for User Tickets to render the History Inbox
@@ -255,6 +256,102 @@ class SettingsManager {
         if(this.breakSourceSelect) this.breakSourceSelect.value = a.breakSource || 'none';
 
         if (this.bgMode) this.bgMode.dispatchEvent(new Event('change'));
+        // render subjects UI
+        this.renderSubjectList();
+    }
+
+    renderSubjectList() {
+        if (!this.subjectList) return;
+        const subs = store.state.subjects || {};
+        const activeMap = store.state.subjectsActive || {};
+        this.subjectList.innerHTML = '';
+
+        // Add new subject form
+        const addDiv = document.createElement('div');
+        addDiv.className = 'flex gap-2 items-center mb-3';
+        addDiv.innerHTML = `
+            <input id="newSettingsSubjectName" placeholder="Subject name" class="flex-1 p-2 border rounded text-sm" />
+            <input id="newSettingsSubjectColor" type="color" value="#3b82f6" class="w-10 h-10 p-1 border rounded" />
+            <button id="addSettingsSubjectBtn" class="px-3 py-2 bg-blue-600 text-white rounded font-bold">Add</button>
+        `;
+        this.subjectList.appendChild(addDiv);
+
+        document.getElementById('addSettingsSubjectBtn').onclick = () => {
+            const name = document.getElementById('newSettingsSubjectName').value.trim();
+            const color = document.getElementById('newSettingsSubjectColor').value;
+            if (!name) return alert('Enter a subject name');
+            if (store.state.subjects[name]) return alert('Subject already exists');
+            // Add to subjects and mark active
+            store.update('subjects', s => ({ ...s, [name]: color }));
+            store.update('subjectsActive', m => ({ ...(m||{}), [name]: true }));
+            document.getElementById('newSettingsSubjectName').value = '';
+            this.renderSubjectList();
+        };
+
+        Object.keys(subs).forEach(s => {
+            const color = subs[s];
+            const active = activeMap[s] !== false;
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded border';
+            row.innerHTML = `
+                <div class="w-3 h-3 rounded" style="background:${color}"></div>
+                <div class="flex-1 text-sm font-bold">${s}</div>
+                <input type="color" class="subject-color" value="${color}" />
+                <button class="toggle-active px-2 py-1 text-sm rounded ${active ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${active ? 'Active' : 'Inactive'}</button>
+                <button class="rename-subject px-2 py-1 text-sm bg-white border rounded">Rename</button>
+                <button class="delete-subject px-2 py-1 text-sm bg-red-100 text-red-700 rounded">Delete</button>
+            `;
+
+            // color change
+            row.querySelector('.subject-color').onchange = (e) => {
+                const newColor = e.target.value;
+                store.update('subjects', subsOld => ({ ...subsOld, [s]: newColor }));
+                this.renderSubjectList();
+            };
+
+            // toggle active (soft-delete)
+            row.querySelector('.toggle-active').onclick = (e) => {
+                const nowActive = !(activeMap[s] === false);
+                store.update('subjectsActive', m => ({ ...(m||{}), [s]: !nowActive }));
+                this.renderSubjectList();
+            };
+
+            // rename subject -- update all references
+            row.querySelector('.rename-subject').onclick = () => {
+                const newName = prompt('Rename subject', s);
+                if (!newName || newName.trim() === '' || newName === s) return;
+                if (store.state.subjects[newName]) return alert('A subject with that name already exists');
+                const newColor = store.state.subjects[s];
+                // Update subjects map
+                store.update('subjects', subsOld => {
+                    const copy = { ...subsOld };
+                    delete copy[s];
+                    copy[newName] = newColor;
+                    return copy;
+                });
+                // Update active map
+                store.update('subjectsActive', m => {
+                    const copy = { ...(m||{}) };
+                    copy[newName] = copy[s] === false ? false : (copy[s] === undefined ? true : copy[s]);
+                    delete copy[s];
+                    return copy;
+                });
+                // Update all blocks/exams/goals referencing this subject
+                store.update('blocks', blocks => blocks.map(b => b.subject === s ? { ...b, subject: newName } : b));
+                store.update('exams', exams => exams.map(x => x.subject === s ? { ...x, subject: newName } : x));
+                store.update('goals', goals => goals.map(g => g.subject === s ? { ...g, subject: newName } : g));
+                this.renderSubjectList();
+            };
+
+            // delete (soft) -> mark inactive
+            row.querySelector('.delete-subject').onclick = () => {
+                if (!confirm('Soft-delete this subject? Completed/historic items will keep showing the same name/color.')) return;
+                store.update('subjectsActive', m => ({ ...(m||{}), [s]: false }));
+                this.renderSubjectList();
+            };
+
+            this.subjectList.appendChild(row);
+        });
     }
 }
 export const settingsManager = new SettingsManager();

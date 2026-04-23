@@ -25,6 +25,7 @@ const savedGoals = JSON.parse(localStorage.getItem('studyGoals')) || [];
 const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
     'Physics': '#3b82f6', 'Math': '#ef4444', 'English': '#10b981', 'History': '#f59e0b', 'Biology': '#8b5cf6', 'Chemistry': '#ec4899', 'Computer Science': '#14b8a6'
 };
+const savedSubjectsActive = JSON.parse(localStorage.getItem('studySubjectsActive')) || {};
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
 const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {};
@@ -34,6 +35,7 @@ class Store {
     constructor() {
         this.state = {
             blocks: savedBlocks, exams: savedExams, goals: savedGoals, subjects: savedSubjects,
+            subjectsActive: savedSubjectsActive,
             settings: savedSettings, diaries: savedDiaries, theme: savedTheme, header: savedHeader,
             timer: { activeBlockId: null, spontaneousSubject: null, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false },
             marathon: { active: false, phases: [], currentPhaseIdx: -1, strikes: 0, isWaitingForCheckIn: false },
@@ -53,6 +55,7 @@ class Store {
         localStorage.setItem('studyExams', JSON.stringify(this.state.exams));
         localStorage.setItem('studyGoals', JSON.stringify(this.state.goals));
         localStorage.setItem('studySubjects', JSON.stringify(this.state.subjects));
+        localStorage.setItem('studySubjectsActive', JSON.stringify(this.state.subjectsActive || {}));
         localStorage.setItem('studySettings', JSON.stringify(this.state.settings));
         localStorage.setItem('studyDiaries', JSON.stringify(this.state.diaries));
         localStorage.setItem('studyTheme', JSON.stringify(this.state.theme));
@@ -68,6 +71,7 @@ class Store {
             await setDoc(doc(db, 'users', currentUser.uid), {
                 blocks: this.state.blocks, exams: this.state.exams, goals: this.state.goals, subjects: this.state.subjects,
                 settings: this.state.settings, diaries: this.state.diaries, theme: this.state.theme, header: this.state.header,
+                subjectsActive: this.state.subjectsActive || {},
                 displayName: this.state.userProfile?.displayName || '',
                 email: currentUser.email || '', // 🚨 FIX: Forcefully write their email to Firestore!
                 lastUpdated: new Date().toISOString()
