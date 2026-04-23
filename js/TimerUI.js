@@ -12,6 +12,7 @@ class TimerUI {
         this.modePomodoroBtn = document.getElementById('modePomodoro');
         this.phaseIndicator = document.getElementById('phaseIndicator');
         this.spontaneousSubjectSelect = document.getElementById('focusSpontaneousSubject');
+        this.applyPomodoroToggle = document.getElementById('applyPomodoroToggle');
         this.finishTimerBtn = document.getElementById('finishTimerBtn');
         this.pushBackBtn = document.getElementById('pushBackTimerBtn');
 
@@ -28,6 +29,8 @@ class TimerUI {
 
         store.subscribe('subjects', () => this.populateSubjects());
         this.populateSubjects();
+
+        store.subscribe('timerSettings', () => this.updateUI());
 
         this.bindEvents();
         store.subscribe('timer', () => this.updateUI());
@@ -74,6 +77,11 @@ class TimerUI {
 
         this.modePomodoroBtn?.addEventListener('click', () => {
             store.update('timer', t => ({ ...t, mode: 'pomodoro' }));
+        });
+
+        this.applyPomodoroToggle?.addEventListener('change', (e) => {
+            const on = !!e.target.checked;
+            store.update('timerSettings', () => ({ ...(store.state.timerSettings || {}), applyPomodoro: on }));
         });
 
         this.finishTimerBtn?.addEventListener('click', () => {
@@ -162,6 +170,12 @@ class TimerUI {
             const sec = (displaySeconds % 60).toString().padStart(2, '0');
             
             this.display.innerText = hrs > 0 ? `${hrs}:${min}:${sec}` : `${min}:${sec}`;
+        }
+
+        // Update applyPomodoro toggle if present
+        if (this.applyPomodoroToggle) {
+            const tSettings = store.state.timerSettings || {};
+            this.applyPomodoroToggle.checked = tSettings.applyPomodoro !== false;
         }
 
         if (t.mode === 'stopwatch') {

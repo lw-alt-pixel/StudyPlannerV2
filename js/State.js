@@ -27,6 +27,7 @@ const savedSubjects = JSON.parse(localStorage.getItem('studySubjects')) || {
 };
 const savedSubjectsActive = JSON.parse(localStorage.getItem('studySubjectsActive')) || {};
 const savedSettings = JSON.parse(localStorage.getItem('studySettings')) || { pStudy: 25, pBreak: 5 };
+const savedTimerSettings = JSON.parse(localStorage.getItem('studyTimerSettings')) || { applyPomodoro: true, countStudyPhase: true, countBreakPhase: false };
 const savedDiaries = JSON.parse(localStorage.getItem('studyDiaries')) || {};
 const savedTheme = JSON.parse(localStorage.getItem('studyTheme')) || {};
 const savedHeader = JSON.parse(localStorage.getItem('studyHeader')) || {};
@@ -38,6 +39,7 @@ class Store {
             subjectsActive: savedSubjectsActive,
             settings: savedSettings, diaries: savedDiaries, theme: savedTheme, header: savedHeader,
             timer: { activeBlockId: null, spontaneousSubject: null, mode: 'pomodoro', phase: 'study', studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false },
+            timerSettings: savedTimerSettings,
             marathon: { active: false, phases: [], currentPhaseIdx: -1, strikes: 0, isWaitingForCheckIn: false },
             audio: { enabled: false, volume: 50, source: 'none', breakSource: 'none' },
             activeTab: 'focus', userProfile: null, broadcast: null, userTickets: [], updateLogs: []
@@ -48,7 +50,7 @@ class Store {
     update(key, updater) {
         this.state[key] = updater(this.state[key]);
         if (this.listeners[key]) this.listeners[key].forEach(l => l(this.state[key]));
-        if (['blocks', 'exams', 'goals', 'subjects', 'settings', 'diaries', 'theme', 'header', 'userProfile'].includes(key)) this.saveLocal();
+        if (['blocks', 'exams', 'goals', 'subjects', 'settings', 'diaries', 'theme', 'header', 'userProfile', 'timerSettings'].includes(key)) this.saveLocal();
     }
     saveLocal() {
         localStorage.setItem('studyBlocks', JSON.stringify(this.state.blocks));
@@ -57,6 +59,7 @@ class Store {
         localStorage.setItem('studySubjects', JSON.stringify(this.state.subjects));
         localStorage.setItem('studySubjectsActive', JSON.stringify(this.state.subjectsActive || {}));
         localStorage.setItem('studySettings', JSON.stringify(this.state.settings));
+        localStorage.setItem('studyTimerSettings', JSON.stringify(this.state.timerSettings || {}));
         localStorage.setItem('studyDiaries', JSON.stringify(this.state.diaries));
         localStorage.setItem('studyTheme', JSON.stringify(this.state.theme));
         localStorage.setItem('studyHeader', JSON.stringify(this.state.header));
@@ -71,6 +74,7 @@ class Store {
             await setDoc(doc(db, 'users', currentUser.uid), {
                 blocks: this.state.blocks, exams: this.state.exams, goals: this.state.goals, subjects: this.state.subjects,
                 settings: this.state.settings, diaries: this.state.diaries, theme: this.state.theme, header: this.state.header,
+                timerSettings: this.state.timerSettings || {},
                 subjectsActive: this.state.subjectsActive || {},
                 displayName: this.state.userProfile?.displayName || '',
                 email: currentUser.email || '', // 🚨 FIX: Forcefully write their email to Firestore!

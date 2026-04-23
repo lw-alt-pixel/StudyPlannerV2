@@ -168,6 +168,8 @@ showPostDeadlineReminder(minutesPast) {
         
         this.interval = setInterval(() => {
             const t = store.state.timer;
+            const tSettings = store.state.timerSettings || {};
+            const applyPomodoro = tSettings.applyPomodoro !== false;
             const sSettings = store.state.settings;
             if (!t.isRunning) return; 
             
@@ -179,7 +181,7 @@ showPostDeadlineReminder(minutesPast) {
             let newS = t.phase === 'study' ? s + 1 : s;
             let newB = t.phase === 'break' ? b + 1 : b;
 
-            if (t.mode === 'pomodoro') {
+            if (applyPomodoro && t.mode === 'pomodoro') {
                 const pStudySecs = (sSettings.pStudy || 25) * 60;
                 const pBreakSecs = (sSettings.pBreak || 5) * 60;
 
