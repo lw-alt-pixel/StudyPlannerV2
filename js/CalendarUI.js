@@ -41,6 +41,23 @@ class CalendarUI {
             
             this.renderCalendar();
         });
+
+        // Slide panel close handlers
+        document.getElementById('closeSlidePanel')?.addEventListener('click', () => {
+            const panel = document.getElementById('daySlidePanel');
+            const overlay = document.getElementById('diaryOverlay');
+            if (panel) panel.classList.add('translate-x-full');
+            if (overlay) overlay.classList.add('hidden');
+            this.currentSlideDate = null;
+        });
+
+        document.getElementById('diaryOverlay')?.addEventListener('click', () => {
+            const panel = document.getElementById('daySlidePanel');
+            const overlay = document.getElementById('diaryOverlay');
+            if (panel) panel.classList.add('translate-x-full');
+            if (overlay) overlay.classList.add('hidden');
+            this.currentSlideDate = null;
+        });
     }
 
     renderCalendar() {
