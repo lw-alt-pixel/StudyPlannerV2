@@ -1,5 +1,6 @@
 // js/TimerEngine.js
-// CLEAN REFACTOR — fixes double counting, keeps all original features
+// FULL COMPLETE VERSION - Auto Pomodoro cycle fixed + no double counting
+
 import { store } from './State.js';
 
 class TimerEngine {
@@ -8,15 +9,15 @@ class TimerEngine {
         this.alarmTriggeredFor = null;
         this.reminderMinutesMark = 0;
 
-        // Background watchers (unchanged from original)
         setInterval(() => this.watchUpNext(), 1000);
         setInterval(() => this.watchPostDeadline(), 1000);
     }
 
-    getChinaTime() { return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); }
+    getChinaTime() { 
+        return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"})); 
+    }
 
     watchUpNext() {
-        // [Exact same logic as your original — full implementation kept]
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
         const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
@@ -44,7 +45,8 @@ class TimerEngine {
             upNextBanner.classList.add('hidden');
             return;
         }
-upNextBanner.classList.remove('hidden');
+
+        upNextBanner.classList.remove('hidden');
         upNextBanner.style.borderLeftColor = store.state.subjects[nextBlock.subject] || '#3b82f6';
         document.getElementById('upNextTitle').innerText = nextBlock.title || nextBlock.subject;
         document.getElementById('upNextTime').innerText = `${nextBlock.scheduledStart} - ${nextBlock.scheduledEnd}`;
@@ -57,17 +59,14 @@ upNextBanner.classList.remove('hidden');
         } else {
             document.getElementById('upNextCountdown').innerText = `00:00:00`;
             
-            // 🚨 GLOBAL ALARM TRIGGER LOGIC
             if (this.alarmTriggeredFor !== nextBlock.id) {
                 this.alarmTriggeredFor = nextBlock.id;
                 const t = store.state.timer;
                 
                 if (t.isRunning) {
-                    // Gentle Glow - Do NOT ruin flow state
                     upNextBanner.classList.add('animate-pulse', 'ring-4', 'ring-blue-400');
                     setTimeout(() => upNextBanner.classList.remove('animate-pulse', 'ring-4', 'ring-blue-400'), 15000);
                 } else {
-                    // Massive Hijack Overlay
                     const overlay = document.getElementById('upNextAlarmOverlay');
                     document.getElementById('alarmTitle').innerText = nextBlock.title || nextBlock.subject;
                     overlay.classList.remove('hidden');
@@ -88,7 +87,6 @@ upNextBanner.classList.remove('hidden');
     }
 
     watchPostDeadline() {
-        // [Exact same as your original — kept fully]
         const t = store.state.timer;
         if (!t.isRunning || !t.activeBlockId) return;
 
@@ -116,7 +114,6 @@ upNextBanner.classList.remove('hidden');
     }
 
     showPostDeadlineReminder(minutesPast) {
-        // [Exact same as your original — kept fully]
         const modal = document.getElementById('postDeadlineReminder');
         const messageEl = document.getElementById('reminderMessage');
         if (!modal || !messageEl) return;
@@ -148,7 +145,7 @@ upNextBanner.classList.remove('hidden');
         };
     }
 
-    // ────── CLEAN CORE TICKING LOGIC (this is the part that was simplified) ──────
+    // ────── FIXED CORE TICKING WITH RELIABLE AUTO POMODORO CYCLE ──────
     start() {
         if (this.interval) clearInterval(this.interval);
 
@@ -156,12 +153,33 @@ upNextBanner.classList.remove('hidden');
             const t = store.state.timer;
             if (!t.isRunning) return;
 
-            const newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + 1 };
+            const tSettings = store.state.timerSettings || {};
+            const applyPomodoro = tSettings.applyPomodoro !== false;
+            const settings = store.state.settings || {};
+            const pStudySecs = (settings.pStudy || 25) * 60;
+            const pBreakSecs = (settings.pBreak || 5) * 60;
 
+            let newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + 1 };
+
+            // Increment the current phase only
             if (t.phase === 'study') {
                 newState.studySeconds = (t.studySeconds || 0) + 1;
             } else {
                 newState.breakSeconds = (t.breakSeconds || 0) + 1;
+            }
+
+            // AUTO POMODORO CYCLE - reliable version
+            if (applyPomodoro && t.mode === 'pomodoro') {
+                if (t.phase === 'study' && newState.studySeconds >= pStudySecs) {
+                    newState.phase = 'break';
+                    newState.studySeconds = 0;           // reset for next cycle
+                    this.playTransitionChime();
+                } 
+                else if (t.phase === 'break' && newState.breakSeconds >= pBreakSecs) {
+                    newState.phase = 'study';
+                    newState.breakSeconds = 0;           // reset for next cycle
+                    this.playTransitionChime();
+                }
             }
 
             store.update('timer', () => newState);
@@ -182,6 +200,21 @@ upNextBanner.classList.remove('hidden');
             clearInterval(this.interval);
             this.interval = null;
         }
+    }
+
+    playTransitionChime() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1);
+        } catch(e) {}
     }
 }
 
