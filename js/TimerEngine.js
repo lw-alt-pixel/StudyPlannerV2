@@ -143,42 +143,41 @@ class TimerEngine {
         };
     }
 
-    start() {
+   start() {
         if (this.interval) clearInterval(this.interval);
+
+        // Fetch settings once for the boundaries
+        const pStudySec = (store.state.settings.pStudy || 25) * 60;
+        const pBreakSec = (store.state.settings.pBreak || 5) * 60;
 
         this.interval = setInterval(() => {
             const t = store.state.timer;
             if (!t.isRunning) return;
-
-           
-            const settings = store.state.settings || {};
-            const pStudySec = (settings.pStudy || 25) * 60;
-            const pBreakSec = (settings.pBreak || 5) * 60;
-            
-       
-            const applyPomodoro = document.getElementById('applyPomodoroToggle')?.checked;
 
             const newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + 1 };
 
             if (t.phase === 'study') {
                 newState.studySeconds = (t.studySeconds || 0) + 1;
                 
-   
-                if (t.mode === 'pomodoro' && applyPomodoro && newState.studySeconds > 0 && newState.studySeconds % pStudySec === 0) {
+                // SEAMLESS HYBRID: Only auto-switch if in Pomodoro Mode
+                if (t.mode === 'pomodoro' && newState.studySeconds > 0 && newState.studySeconds % pStudySec === 0) {
                     newState.phase = 'break'; 
+                    // Optional: Call your chime here if you want it to ring on auto-switch
+                    if(this.playTransitionChime) this.playTransitionChime();
                 }
             } else {
                 newState.breakSeconds = (t.breakSeconds || 0) + 1;
                 
-       
-                if (t.mode === 'pomodoro' && applyPomodoro && newState.breakSeconds > 0 && newState.breakSeconds % pBreakSec === 0) {
+                // SEAMLESS HYBRID: Only auto-switch if in Pomodoro Mode
+                if (t.mode === 'pomodoro' && newState.breakSeconds > 0 && newState.breakSeconds % pBreakSec === 0) {
                     newState.phase = 'study'; 
+                    if(this.playTransitionChime) this.playTransitionChime();
                 }
             }
 
             store.update('timer', () => newState);
 
-    
+            // Live update active block
             if (t.activeBlockId) {
                 store.update('blocks', blocks => blocks.map(b =>
                     b.id === t.activeBlockId
