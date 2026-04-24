@@ -16,7 +16,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 export const db = getFirestore(app);
 
-let currentUser = null; let syncTimeout = null;
+let currentUser = null;
+let syncTimeout = null;
 
 const rawBlocks = JSON.parse(localStorage.getItem('studyBlocks')) || [];
 const savedBlocks = rawBlocks.filter(b => b.scheduledStart && b.scheduledEnd);
@@ -77,13 +78,14 @@ class Store {
                 timerSettings: this.state.timerSettings || {},
                 subjectsActive: this.state.subjectsActive || {},
                 displayName: this.state.userProfile?.displayName || '',
-                email: currentUser.email || '', // 🚨 FIX: Forcefully write their email to Firestore!
+                email: currentUser.email || '',
                 lastUpdated: new Date().toISOString()
             }, { merge: true });
         } catch (e) { console.error("Sync Error:", e); }
     }
 }
 export const store = new Store();
+
 
 export const audioDB = window.indexedDB ? {
     db: null,
