@@ -1,6 +1,6 @@
 // js/SettingsManager.js
-// Change your top import to this:
 import { store, audioDB, fetchUpdateLogs } from './State.js';
+
 class SettingsManager {
     init() {
         this.panel = document.getElementById('settingsPanel');
@@ -85,7 +85,7 @@ class SettingsManager {
             const msg = msgInput.value.trim();
             const btn = document.getElementById('sendSupportTicketBtn');
             
-            if (!msg) { alert("Please describe your issue first!"); return; }:
+            if (!msg) { alert("Please describe your issue first!"); return; };
 
 
 
