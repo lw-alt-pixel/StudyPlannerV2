@@ -89,44 +89,38 @@ class AdminUI {
             btn.innerHTML = '<i class="fa fa-paper-plane mr-2"></i> Publish to All Users'; btn.disabled = false;
         });
 
-        document.getElementById('sendBroadcastBtn')?.addEventListener('click', async () => {
-            const msg = document.getElementById('adminBroadcastInput').value.trim();
-            if(!msg) return alert("Please enter a message.");
-            try { await pushGlobalBroadcast(msg, true); alert("Broadcast sent globally!");
-            } catch(e) { alert("Error sending broadcast."); }
-        });
-        document.getElementById('clearBroadcastBtn')?.addEventListener('click', async () => {
-            document.getElementById('adminBroadcastInput').value = '';
-            try { await pushGlobalBroadcast('', false); alert("Banner cleared!");
-            } catch(e) { alert("Error clearing banner."); }
-        });
-        // 🚨 UPDATE your existing broadcast push listener to include the duration dropdown:
-        document.getElementById('pushBroadcastBtn')?.addEventListener('click', async () => {
-            const input = document.getElementById('broadcastInput');
-            const durationSelect = document.getElementById('broadcastDuration'); // We will add this in the HTML later
+        // 🚨 CORRECTED: Global Broadcast Push Logic
+        document.getElementById('sendBroadcastBtn')?.addEventListener('click', async (e) => {
+            // Using the exact IDs from your HTML
+            const input = document.getElementById('adminBroadcastInput');
+            const durationSelect = document.getElementById('broadcastDuration'); 
+            
             if (!input || !input.value.trim()) return;
             
-            const btn = document.getElementById('pushBroadcastBtn');
+            const btn = e.currentTarget;
             const ogText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Pushing...'; 
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> Pushing...'; 
             btn.disabled = true;
             
             try {
-                // Check if admin selected an expiry time
+                // Calculate the exact time to expire
                 const duration = (durationSelect && durationSelect.value !== 'infinite') 
                     ? parseFloat(durationSelect.value) 
                     : null;
                     
+                // Push to State.js
                 await pushGlobalBroadcast(input.value.trim(), duration);
                 input.value = '';
-                alert('Broadcast pushed globally! All online users will see it immediately.');
-            } catch (e) {
+                alert('Broadcast pushed globally! It will automatically expire based on your chosen time.');
+            } catch (error) {
+                console.error(error);
                 alert('Failed to push broadcast.');
             } finally {
-                btn.innerHTML = ogText; btn.disabled = false;
+                btn.innerHTML = ogText; 
+                btn.disabled = false;
             }
         });
-
+        
         // 🚨 NEW: Add this right after the Broadcast logic to handle your Quick Templates
        // 🚨 CORRECTED: Quick Templates for Update Logs
         document.querySelectorAll('.log-template-btn').forEach(btn => {
