@@ -340,10 +340,34 @@ export const submitSupportTicket = async (message) => {
     } catch (e) { console.error("Ticket Error:", e); throw e; }
 };
 
-export const pushGlobalBroadcast = async (message, active) => {
+export const pushGlobalBroadcast = async (message, durationHours = null) => {
     if (!currentUser) return;
-    try { await setDoc(doc(db, 'server', 'broadcast'), { message, active, timestamp: new Date().toISOString() });
+    try {
+        const docRef = doc(db, 'server', 'broadcast');
+        let expiryTime = null;
+        
+        // 🚨 NEW: Calculate exact expiry timestamp if a duration was selected
+        if (durationHours) {
+            expiryTime = Date.now() + (durationHours * 60 * 60 * 1000);
+        }
+        
+        await setDoc(docRef, { 
+            message, 
+            timestamp: Date.now(),
+            expiryTime: expiryTime // null means it stays until you manually clear it
+        });
     } catch (e) { console.error("Broadcast Error:", e); throw e; }
+};
+
+export const fetchUpdateLogs = async () => {
+    try {
+        const docRef = doc(db, 'server', 'updates');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().logs) {
+            return docSnap.data().logs;
+        }
+        return [];
+    } catch (e) { console.error("Fetch Update Logs Error:", e); return []; }
 };
 
 export const pushGlobalHotfix = async (cssString) => {
@@ -386,7 +410,19 @@ export const publishUpdateLog = async (title, message) => {
     try {
         const docRef = doc(db, 'server', 'updates');
         const docSnap = await getDoc(docRef);
-        const newLog = { id: Date.now().toString(), title, message, date: new Date().toISOString() };
+        
+        // 🚨 NEW: Create a beautifully formatted timestamp (e.g., April 25, 2026 at 14:30)
+        const now = new Date();
+        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        const formattedDate = now.toLocaleDateString('en-US', options);
+
+        const newLog = { 
+            id: Date.now().toString(), 
+            title, 
+            message, 
+            date: now.toISOString(),
+            formattedDate: formattedDate // Saves the exact local string so we don't have to compute it later
+        };
         
         let logs = [];
         if (docSnap.exists() && docSnap.data().logs) logs = docSnap.data().logs;
