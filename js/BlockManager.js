@@ -37,9 +37,11 @@ class BlockManager {
         const allSubs = store.state.subjects || {};
         const activeMap = store.state.subjectsActive || {};
         const subs = Object.keys(allSubs).filter(s => activeMap[s] !== false).reduce((acc,k)=>{acc[k]=allSubs[k];return acc;},{ });
+        
         this.subjectInput.innerHTML = '';
         const bulkSub = document.getElementById('bulkTargetSubject');
         if (bulkSub) bulkSub.innerHTML = '';
+
         const setColorForSelect = (sel) => {
             const v = sel.value;
             const color = (subs && subs[v]) ? subs[v] : '';
@@ -49,18 +51,26 @@ class BlockManager {
 
         Object.keys(subs).forEach(s => {
             const opt = document.createElement('option');
-            opt.value = s; opt.text = s;
+            opt.value = s; 
+            opt.text = s;
             if (subs[s]) opt.dataset.color = subs[s];
             this.subjectInput.appendChild(opt);
+            
             if (bulkSub) {
-                const opt2 = document.createElement('option'); opt2.value = s; opt2.text = s; if (subs[s]) opt2.dataset.color = subs[s]; bulkSub.appendChild(opt2);
+                const opt2 = document.createElement('option'); 
+                opt2.value = s; 
+                opt2.text = s; 
+                if (subs[s]) opt2.dataset.color = subs[s]; 
+                bulkSub.appendChild(opt2);
             }
         });
 
         // Initialize visual chip and replace with enhanced dropdown
         if (this.subjectInput) {
             setColorForSelect(this.subjectInput);
-try { enhanceSelect(this.subjectInput); } catch (e) { }        if (bulkSub) {
+            try { enhanceSelect(this.subjectInput); } catch (e) { }
+        }
+        if (bulkSub) {
             setColorForSelect(bulkSub);
             try { enhanceSelect(bulkSub); } catch (e) { }
         }
