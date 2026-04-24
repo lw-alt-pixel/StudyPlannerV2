@@ -1,4 +1,7 @@
 // js/App.js
+// Add these to your top imports in App.js:
+import { db } from './State.js';
+import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { adminUI } from './AdminUI.js';
 import { store, audioDB } from './State.js';
 import { uiManager } from './UIManager.js';
@@ -32,7 +35,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     marathonEngine.init();
     adminUI.init();
     goalManager.init(); // 🚨 BOOT UP THE GOAL ENGINE!
+// 🚨 REAL-TIME GLOBAL BROADCAST LISTENER
+    const broadcastRef = doc(db, 'server', 'broadcast');
+    let broadcastExpiryTimer = null;
 
+    onSnapshot(broadcastRef, (snap) => {
+        const banner = document.getElementById('globalBroadcastBanner');
+        const minIcon = document.getElementById('minimizedBroadcastIcon');
+        const textEl = document.getElementById('globalBroadcastText');
+        
+        if (!banner || !minIcon || !textEl) return;
+
+        if (snap.exists()) {
+            const data = snap.data();
+            const now = Date.now();
+            
+            if (data.message && (!data.expiryTime || data.expiryTime > now)) {
+                // Active Broadcast Detected!
+                textEl.innerText = data.message;
+                
+                // Show banner, hide minimized icon
+                banner.classList.remove('hidden', '-translate-y-full');
+                banner.classList.add('translate-y-0');
+                minIcon.classList.add('hidden');
+                
+                // Handle Auto-Expiry Timer
+                if (broadcastExpiryTimer) clearTimeout(broadcastExpiryTimer);
+                if (data.expiryTime) {
+                    broadcastExpiryTimer = setTimeout(() => {
+                        banner.classList.remove('translate-y-0');
+                        banner.classList.add('-translate-y-full');
+                        minIcon.classList.add('hidden');
+                    }, data.expiryTime - now);
+                }
+            } else {
+                // Expired or cleared by Admin
+                banner.classList.remove('translate-y-0');
+                banner.classList.add('-translate-y-full');
+                minIcon.classList.add('hidden');
+            }
+        }
+    });
+
+    // 🚨 BROADCAST MINIMIZE / MAXIMIZE LOGIC
+    document.getElementById('minimizeBroadcastBtn')?.addEventListener('click', () => {
+        const banner = document.getElementById('globalBroadcastBanner');
+        const minIcon = document.getElementById('minimizedBroadcastIcon');
+        banner.classList.remove('translate-y-0');
+        banner.classList.add('-translate-y-full');
+        setTimeout(() => minIcon.classList.remove('hidden'), 300); // Wait for slide animation
+    });
+
+    document.getElementById('minimizedBroadcastIcon')?.addEventListener('click', () => {
+        const banner = document.getElementById('globalBroadcastBanner');
+        const minIcon = document.getElementById('minimizedBroadcastIcon');
+        minIcon.classList.add('hidden');
+        banner.classList.remove('hidden', '-translate-y-full');
+        banner.classList.add('translate-y-0');
+    });
     // 🚨 UPDATE LOGS (WHAT'S NEW) CONTROLLER
     store.subscribe('updateLogs', (logs) => {
         if (!logs || logs.length === 0) return;
