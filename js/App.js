@@ -1,9 +1,8 @@
 // js/App.js
 // Add these to your top imports in App.js:
-import { db } from './State.js';
 import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { adminUI } from './AdminUI.js';
-import { store, audioDB } from './State.js';
+import { db, store, audioDB } from './State.js';
 import { uiManager } from './UIManager.js';
 import { timerUI } from './TimerUI.js';
 import { themeManager } from './ThemeManager.js';
