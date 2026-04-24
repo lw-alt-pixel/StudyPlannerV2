@@ -12,7 +12,6 @@ class TimerUI {
         this.modePomodoroBtn = document.getElementById('modePomodoro');
         this.phaseIndicator = document.getElementById('phaseIndicator');
         this.spontaneousSubjectSelect = document.getElementById('focusSpontaneousSubject');
-        this.applyPomodoroToggle = document.getElementById('applyPomodoroToggle');
         this.finishTimerBtn = document.getElementById('finishTimerBtn');
         this.pushBackBtn = document.getElementById('pushBackTimerBtn');
 
@@ -76,10 +75,7 @@ class TimerUI {
             store.update('timer', t => ({ ...t, mode: 'pomodoro' }));
         });
 
-        this.applyPomodoroToggle?.addEventListener('change', (e) => {
-            const on = !!e.target.checked;
-            store.update('timerSettings', () => ({ ...(store.state.timerSettings || {}), applyPomodoro: on }));
-        });
+        // 🚨 The 'applyPomodoroToggle' event listener has been completely removed from here!
 
         this.finishTimerBtn?.addEventListener('click', () => {
             timerEngine.stop();
@@ -122,7 +118,6 @@ class TimerUI {
             }));
         });
     }
-
     updateUI() {
         const t = store.state.timer;
 
