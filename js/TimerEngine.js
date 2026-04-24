@@ -144,8 +144,7 @@ class TimerEngine {
             }));
         };
     }
-
-    // ────── FIXED CORE TICKING WITH RELIABLE AUTO POMODORO CYCLE ──────
+    // ────── CLEAN CORE TICKING LOGIC WITH POMODORO TRANSITION ──────
     start() {
         if (this.interval) clearInterval(this.interval);
 
@@ -153,38 +152,39 @@ class TimerEngine {
             const t = store.state.timer;
             if (!t.isRunning) return;
 
-            const tSettings = store.state.timerSettings || {};
-            const applyPomodoro = tSettings.applyPomodoro !== false;
+            // 1. Fetch user settings for Pomodoro targets (convert to seconds)
             const settings = store.state.settings || {};
-            const pStudySecs = (settings.pStudy || 25) * 60;
-            const pBreakSecs = (settings.pBreak || 5) * 60;
+            const pStudySec = (settings.pStudy || 25) * 60;
+            const pBreakSec = (settings.pBreak || 5) * 60;
+            
+            // 2. Check if the "Apply Pomodoro Logic" toggle is active in the UI
+            const applyPomodoro = document.getElementById('applyPomodoroToggle')?.checked;
 
-            let newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + 1 };
+            const newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + 1 };
 
-            // Increment the current phase only
             if (t.phase === 'study') {
                 newState.studySeconds = (t.studySeconds || 0) + 1;
+                
+                // 🚨 NEW LOGIC: SWITCH TO BREAK PHASE
+                // If Pomodoro is toggled ON, and we exactly hit a multiple of the study target:
+                if (t.mode === 'pomodoro' && applyPomodoro && newState.studySeconds > 0 && newState.studySeconds % pStudySec === 0) {
+                    newState.phase = 'break'; // Force the transition!
+                    // Note: We DO NOT reset studySeconds to 0, so your block saves the total time perfectly.
+                }
             } else {
                 newState.breakSeconds = (t.breakSeconds || 0) + 1;
-            }
-
-            // AUTO POMODORO CYCLE - reliable version
-            if (applyPomodoro && t.mode === 'pomodoro') {
-                if (t.phase === 'study' && newState.studySeconds >= pStudySecs) {
-                    newState.phase = 'break';
-                    newState.studySeconds = 0;           // reset for next cycle
-                    this.playTransitionChime();
-                } 
-                else if (t.phase === 'break' && newState.breakSeconds >= pBreakSecs) {
-                    newState.phase = 'study';
-                    newState.breakSeconds = 0;           // reset for next cycle
-                    this.playTransitionChime();
+                
+                // 🚨 NEW LOGIC: SWITCH BACK TO STUDY PHASE
+                // If Pomodoro is toggled ON, and we exactly hit a multiple of the break target:
+                if (t.mode === 'pomodoro' && applyPomodoro && newState.breakSeconds > 0 && newState.breakSeconds % pBreakSec === 0) {
+                    newState.phase = 'study'; // Force the transition!
                 }
             }
 
+            // 3. Dispatch the new state to the store (UI and AudioEngine will instantly react)
             store.update('timer', () => newState);
 
-            // Live update active block
+            // 4. Live update active block (Keeps your refactor intact)
             if (t.activeBlockId) {
                 store.update('blocks', blocks => blocks.map(b =>
                     b.id === t.activeBlockId
