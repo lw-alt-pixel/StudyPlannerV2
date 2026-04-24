@@ -128,13 +128,19 @@ class AdminUI {
         });
 
         // 🚨 NEW: Add this right after the Broadcast logic to handle your Quick Templates
+       // 🚨 CORRECTED: Quick Templates for Update Logs
         document.querySelectorAll('.log-template-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const type = e.currentTarget.dataset.type;
-                const titleInput = document.getElementById('updateLogTitle');
-                const msgInput = document.getElementById('updateLogMessage');
                 
-                if (!titleInput || !msgInput) return;
+                // FIXED: Matching the exact IDs from your HTML!
+                const titleInput = document.getElementById('adminUpdateTitle');
+                const msgInput = document.getElementById('adminUpdateMsg');
+                
+                if (!titleInput || !msgInput) {
+                    console.error("Could not find the input boxes!");
+                    return;
+                }
 
                 if (type === 'minor') {
                     titleInput.value = "🐛 Minor Bug Fixes & Stability";
