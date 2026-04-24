@@ -100,6 +100,54 @@ class AdminUI {
             try { await pushGlobalBroadcast('', false); alert("Banner cleared!");
             } catch(e) { alert("Error clearing banner."); }
         });
+        // 🚨 UPDATE your existing broadcast push listener to include the duration dropdown:
+        document.getElementById('pushBroadcastBtn')?.addEventListener('click', async () => {
+            const input = document.getElementById('broadcastInput');
+            const durationSelect = document.getElementById('broadcastDuration'); // We will add this in the HTML later
+            if (!input || !input.value.trim()) return;
+            
+            const btn = document.getElementById('pushBroadcastBtn');
+            const ogText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Pushing...'; 
+            btn.disabled = true;
+            
+            try {
+                // Check if admin selected an expiry time
+                const duration = (durationSelect && durationSelect.value !== 'infinite') 
+                    ? parseFloat(durationSelect.value) 
+                    : null;
+                    
+                await pushGlobalBroadcast(input.value.trim(), duration);
+                input.value = '';
+                alert('Broadcast pushed globally! All online users will see it immediately.');
+            } catch (e) {
+                alert('Failed to push broadcast.');
+            } finally {
+                btn.innerHTML = ogText; btn.disabled = false;
+            }
+        });
+
+        // 🚨 NEW: Add this right after the Broadcast logic to handle your Quick Templates
+        document.querySelectorAll('.log-template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const type = e.currentTarget.dataset.type;
+                const titleInput = document.getElementById('updateLogTitle');
+                const msgInput = document.getElementById('updateLogMessage');
+                
+                if (!titleInput || !msgInput) return;
+
+                if (type === 'minor') {
+                    titleInput.value = "🐛 Minor Bug Fixes & Stability";
+                    msgInput.value = "We've squashed a few bugs and improved background stability for a smoother study experience.";
+                } else if (type === 'ui') {
+                    titleInput.value = "✨ UI/UX Enhancements";
+                    msgInput.value = "We've polished the interface and improved animations to make your schedule look even better.";
+                } else if (type === 'feature') {
+                    titleInput.value = "🚀 New Feature Released";
+                    msgInput.value = "Check out the brand new tools we've just added to help you maximize your focus!";
+                }
+            });
+        });
         document.getElementById('pushHotfixBtn')?.addEventListener('click', async () => {
             const css = document.getElementById('adminCssHotfixInput').value;
             try { await pushGlobalHotfix(css); alert("Hotfix CSS injected globally!");
