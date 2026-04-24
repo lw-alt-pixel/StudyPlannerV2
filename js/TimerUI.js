@@ -30,8 +30,6 @@ class TimerUI {
         store.subscribe('subjects', () => this.populateSubjects());
         this.populateSubjects();
 
-        store.subscribe('timerSettings', () => this.updateUI());
-
         this.bindEvents();
         store.subscribe('timer', () => this.updateUI());
         this.updateUI(); 
@@ -49,7 +47,6 @@ class TimerUI {
     }
 
     bindEvents() {
-        // 🚨 SAFE BINDING: Using ?. prevents fatal crashes if a button is missing in the HTML!
         this.toggleBtn?.addEventListener('click', () => {
             const t = store.state.timer;
             if (t.isRunning) {
@@ -85,51 +82,44 @@ class TimerUI {
         });
 
         this.finishTimerBtn?.addEventListener('click', () => {
-            try {
-                timerEngine.stop();
-                const t = store.state.timer;
+            timerEngine.stop();
+            const t = store.state.timer;
 
-                if (t.activeBlockId) {
-                    store.update('blocks', blocks => blocks.map(b => {
-                        if (b.id === t.activeBlockId) {
-                            return { ...b, studySeconds: t.studySeconds, status: 'completed' };
-                        }
-                        return b;
-                    }));
-                } else {
-                    const now = new Date();
-                    const pad = n => String(n).padStart(2, '0');
-                    
-                    const actualEndStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-                    
-                    const startObj = new Date(now.getTime() - (((t.studySeconds || 0) + (t.breakSeconds || 0)) * 1000));
-                    const actualStartStr = `${pad(startObj.getHours())}:${pad(startObj.getMinutes())}:${pad(startObj.getSeconds())}`;
-
-                    const newSpontaneousBlock = {
-                        id: 'spont_' + Date.now(),
-                        subject: t.spontaneousSubject || 'General',
-                        title: 'Spontaneous Focus',
-                        date: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
-                        startDate: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
-                        actualStart: actualStartStr,
-                        actualEnd: actualEndStr,
-                        studySeconds: t.studySeconds || 0,
-                        breakSeconds: t.breakSeconds || 0,
-                        status: 'completed',
-                        remarks: ''
-                    };
-                    store.update('blocks', old => [...old, newSpontaneousBlock]);
-                }
-
-                // Strictly reset the timer so the spontaneous dropdown unlocks correctly
-                store.update('timer', () => ({
-                    activeBlockId: null, spontaneousSubject: null,
-                    mode: 'pomodoro', phase: 'study',
-                    studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false
+            if (t.activeBlockId) {
+                store.update('blocks', blocks => blocks.map(b => {
+                    if (b.id === t.activeBlockId) {
+                        return { ...b, studySeconds: t.studySeconds, status: 'completed' };
+                    }
+                    return b;
                 }));
-            } catch (err) {
-                console.error("Crash averted during Finish & Save:", err);
+            } else {
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                const actualEndStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                const startObj = new Date(now.getTime() - ((t.studySeconds || 0) + (t.breakSeconds || 0)) * 1000);
+                const actualStartStr = `${pad(startObj.getHours())}:${pad(startObj.getMinutes())}:${pad(startObj.getSeconds())}`;
+
+                const newSpontaneousBlock = {
+                    id: 'spont_' + Date.now(),
+                    subject: t.spontaneousSubject || 'General',
+                    title: 'Spontaneous Focus',
+                    date: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
+                    startDate: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
+                    actualStart: actualStartStr,
+                    actualEnd: actualEndStr,
+                    studySeconds: t.studySeconds || 0,
+                    breakSeconds: t.breakSeconds || 0,
+                    status: 'completed',
+                    remarks: ''
+                };
+                store.update('blocks', old => [...old, newSpontaneousBlock]);
             }
+
+            store.update('timer', () => ({
+                activeBlockId: null, spontaneousSubject: null,
+                mode: 'pomodoro', phase: 'study',
+                studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false
+            }));
         });
     }
 
@@ -143,9 +133,7 @@ class TimerUI {
                 : "flex-1 custom-action-btn text-white font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg";
         }
 
-        if (this.switchPhaseBtn) {
-            this.switchPhaseBtn.innerText = t.phase === 'study' ? "Take Break" : "Start Focus";
-        }
+        if (this.switchPhaseBtn) this.switchPhaseBtn.innerText = t.phase === 'study' ? "Take Break" : "Start Focus";
         
         if (this.phaseIndicator) {
             this.phaseIndicator.innerText = t.phase === 'study' ? "Focus Time" : "Break Time";
@@ -168,16 +156,15 @@ class TimerUI {
             const hrs = Math.floor(displaySeconds / 3600);
             const min = Math.floor((displaySeconds % 3600) / 60).toString().padStart(2, '0');
             const sec = (displaySeconds % 60).toString().padStart(2, '0');
-            
             this.display.innerText = hrs > 0 ? `${hrs}:${min}:${sec}` : `${min}:${sec}`;
         }
 
-        // Update applyPomodoro toggle if present
         if (this.applyPomodoroToggle) {
             const tSettings = store.state.timerSettings || {};
             this.applyPomodoroToggle.checked = tSettings.applyPomodoro !== false;
         }
 
+        // Mode button styles
         if (t.mode === 'stopwatch') {
             if (this.modeStopwatchBtn) this.modeStopwatchBtn.className = "flex-1 px-4 py-2 rounded shadow bg-white font-bold text-sm transition-all text-theme-action";
             if (this.modePomodoroBtn) this.modePomodoroBtn.className = "flex-1 px-4 py-2 rounded text-gray-400 font-bold text-sm transition-all hover:text-gray-600";
@@ -188,6 +175,7 @@ class TimerUI {
             if (this.switchPhaseBtn) this.switchPhaseBtn.classList.add('hidden');
         }
 
+        // Show/hide finish buttons
         if (t.isRunning || t.studySeconds > 0 || t.breakSeconds > 0) {
             if (this.finishTimerBtn) this.finishTimerBtn.classList.remove('hidden');
             if (this.pushBackBtn) this.pushBackBtn.classList.remove('hidden');
@@ -201,7 +189,6 @@ class TimerUI {
             if (this.spontaneousSubjectSelect) {
                 this.spontaneousSubjectSelect.disabled = false;
                 this.spontaneousSubjectSelect.classList.remove('opacity-50');
-                
                 if (t.activeBlockId) {
                     const b = store.state.blocks.find(x => x.id === t.activeBlockId);
                     if (b) this.spontaneousSubjectSelect.value = b.subject;
