@@ -13,7 +13,7 @@ import { settingsManager } from './SettingsManager.js';
 import { floatingWidgetManager } from './FloatingWidgetManager.js';
 import { audioEngine } from './AudioEngine.js'; 
 import { marathonEngine } from './MarathonEngine.js'; 
-import { goalManager } from './GoalManager.js'; // 🚨 NEW MODULE IMPORT!
+import { goalManager } from './GoalManager.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     try { if(audioDB) await audioDB.init(); } catch (e) { console.warn("Audio DB init failed", e); }
