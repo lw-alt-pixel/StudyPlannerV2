@@ -60,9 +60,7 @@ class BlockManager {
         // Initialize visual chip and replace with enhanced dropdown
         if (this.subjectInput) {
             setColorForSelect(this.subjectInput);
-            try { enhanceSelect(this.subjectInput); } catch (e) { /* graceful fallback */ }
-        }
-        if (bulkSub) {
+try { enhanceSelect(this.subjectInput); } catch (e) { }        if (bulkSub) {
             setColorForSelect(bulkSub);
             try { enhanceSelect(bulkSub); } catch (e) { }
         }
