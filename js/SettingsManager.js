@@ -1,6 +1,6 @@
 // js/SettingsManager.js
-import { store, audioDB } from './State.js';
-
+// Change your top import to this:
+import { store, audioDB, fetchUpdateLogs } from './State.js';
 class SettingsManager {
     init() {
         this.panel = document.getElementById('settingsPanel');
@@ -70,15 +70,27 @@ class SettingsManager {
                 e.target.value = '';
             } catch (err) { console.error("Audio save failed", err); }
         });
-
+// 🚨 NEW: Update Logs Modal Logic
+        document.getElementById('viewUpdateLogsBtn')?.addEventListener('click', () => {
+            this.renderUpdateLogs();
+            document.getElementById('updateLogsModal')?.classList.remove('hidden');
+        });
+        
+        document.getElementById('closeUpdateLogsBtn')?.addEventListener('click', () => {
+            document.getElementById('updateLogsModal')?.classList.add('hidden');
+        });
         // 🚨 SEND TICKET EVENT
         document.getElementById('sendSupportTicketBtn')?.addEventListener('click', async () => {
             const msgInput = document.getElementById('supportTicketMsg');
             const msg = msgInput.value.trim();
             const btn = document.getElementById('sendSupportTicketBtn');
             
-            if (!msg) { alert("Please describe your issue first!"); return; }
+            if (!msg) { alert("Please describe your issue first!"); return; }:
 
+
+
+
+            
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
             btn.disabled = true;
@@ -225,7 +237,33 @@ class SettingsManager {
             container.appendChild(el);
         });
     }
+// 🚨 NEW: Fetch and Render the Update Logs
+    async renderUpdateLogs() {
+        const container = document.getElementById('updateLogsContainer');
+        if (!container) return;
+        
+        // Show loading state
+        container.innerHTML = '<div class="text-center py-10 text-gray-400 font-bold flex flex-col items-center"><i class="fa fa-spinner fa-spin text-3xl mb-3 text-blue-500"></i><p>Fetching latest updates...</p></div>';
+        
+        const logs = await fetchUpdateLogs();
+        
+        if (logs.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-gray-400 font-bold"><p>No updates found.</p></div>';
+            return;
+        }
 
+        // Render the logs beautifully
+        container.innerHTML = logs.map(log => `
+            <div class="mb-4 bg-gray-50 border border-gray-100 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-transform hover:-translate-y-1">
+                <div class="absolute top-0 left-0 w-1.5 h-full bg-blue-500 rounded-l-3xl"></div>
+                <h3 class="font-black text-gray-800 text-lg mb-1 leading-tight">${log.title}</h3>
+                <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-1">
+                    <i class="fa fa-clock"></i> ${log.formattedDate || new Date(log.date).toLocaleString()}
+                </div>
+                <p class="text-sm font-bold text-gray-600 leading-relaxed whitespace-pre-wrap">${log.message}</p>
+            </div>
+        `).join('');
+    }
     async populateForms() {
         const t = store.state.theme || {};
         const h = store.state.header || {};
