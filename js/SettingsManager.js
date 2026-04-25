@@ -75,9 +75,12 @@ class SettingsManager {
         });
 // 🚨 NEW: Update Logs Modal Logic
         // 🚨 UPDATED: Update Logs Modal Logic & Notification Dot
-        document.getElementById('viewUpdateLogsBtn')?.addEventListener('click', () => {
-            // Hide the red dot
+       // 🚨 UPGRADED: Update Logs Modal Logic & Shaking Bell
+        document.getElementById('viewUpdateLogsBtn')?.addEventListener('click', (e) => {
+            // Hide the red dot and stop the shaking animation!
             document.getElementById('updateNotificationDot')?.classList.add('hidden');
+            e.currentTarget.classList.remove('animate-bounce');
+            
             // Save the exact time they clicked it to their browser
             localStorage.setItem('lastViewedUpdate', Date.now());
             
@@ -248,6 +251,7 @@ class SettingsManager {
     }
 // 🚨 NEW: Fetch and Render the Update Logs
     // 🚨 NEW: Checks if there is a new update the user hasn't seen
+    // 🚨 NEW: Checks if there is a new update the user hasn't seen
     async checkForNewUpdates() {
         try {
             const logs = await fetchUpdateLogs();
@@ -257,9 +261,10 @@ class SettingsManager {
                 // Get the timestamp of the last time the user clicked the Bell
                 const lastViewed = localStorage.getItem('lastViewedUpdate') || 0;
                 
-                // If the update is newer than their last view, show the red dot!
+                // If the update is newer than their last view, show dot & shake!
                 if (latestLogTime > lastViewed) {
                     document.getElementById('updateNotificationDot')?.classList.remove('hidden');
+                    document.getElementById('viewUpdateLogsBtn')?.classList.add('animate-bounce');
                 }
             }
         } catch (e) {
