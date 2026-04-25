@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+ <header id="appHeader" class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center relative overflow-hidden transition-colors z-50 shrink-0">
+        <div id="headerStickerZone" class="absolute inset-0 z-50 pointer-events-none"></div>
+        <h1 id="appTitle" class="text-2xl font-black text-gray-800 tracking-tight relative z-10 select-none">Study Planner Pro</h1>
+        <div class="flex items-center gap-4 relative z-10">
+            
+            <button id="viewUpdateLogsBtn" class="relative text-gray-500 hover:text-blue-600 transition-colors p-2 flex items-center justify-center" title="What's New">
+                <i class="fa fa-bell text-xl"></i>
+                <span id="updateNotificationDot" class="hidden absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+            </button>
 
+            <div id="userInfo" class="text-xs font-bold text-gray-500 hidden md:block bg-gray-100 px-3 py-1 rounded-full border"></div>
+            <button id="openLoginModalBtn" class="text-sm font-bold custom-action-btn rounded-full shadow-sm">Login / Sync</button>
+            <button id="logoutBtn" class="hidden text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-full transition-colors border border-red-100">Logout</button>
+        </div>
+    </header>
 <body id="appBody" class="transition-colors duration-500 min-h-screen flex flex-col relative bg-gray-50">
    
     <div id="bannedOverlay" class="hidden fixed inset-0 bg-red-950 z-[999999] flex-col items-center justify-center text-white px-4 text-center">
@@ -51,21 +65,7 @@
     </div>
 
   
- <header id="appHeader" class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center relative overflow-hidden transition-colors z-50 shrink-0">
-        <div id="headerStickerZone" class="absolute inset-0 z-50 pointer-events-none"></div>
-        <h1 id="appTitle" class="text-2xl font-black text-gray-800 tracking-tight relative z-10 select-none">Study Planner Pro</h1>
-        <div class="flex items-center gap-4 relative z-10">
-            
-            <button id="viewUpdateLogsBtn" class="relative text-gray-500 hover:text-blue-600 transition-colors p-2 flex items-center justify-center" title="What's New">
-                <i class="fa fa-bell text-xl"></i>
-                <span id="updateNotificationDot" class="hidden absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
-            </button>
 
-            <div id="userInfo" class="text-xs font-bold text-gray-500 hidden md:block bg-gray-100 px-3 py-1 rounded-full border"></div>
-            <button id="openLoginModalBtn" class="text-sm font-bold custom-action-btn rounded-full shadow-sm">Login / Sync</button>
-            <button id="logoutBtn" class="hidden text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded-full transition-colors border border-red-100">Logout</button>
-        </div>
-    </header>
     <nav id="appNav" class="flex overflow-x-auto hide-scrollbar bg-white border-b shadow-sm sticky top-0 z-40 relative shrink-0">
         <button class="tab-btn active-tab flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap border-r border-gray-100" data-tab="focus"><i class="fa fa-clock mr-2"></i>Focus</button>
         <button class="tab-btn flex-1 py-3 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap text-gray-500 hover:bg-gray-50 border-r border-gray-100" data-tab="schedule"><i class="fa fa-calendar-alt mr-2"></i>Schedule</button>
