@@ -251,6 +251,12 @@ class TimerUI {
                 }
             }
         }
+
+        // Show/hide Continue button when a session exists but timer is not running
+        if (this.continueBtn) {
+            if (t.sessionId && !t.isRunning) this.continueBtn.classList.remove('hidden');
+            else this.continueBtn.classList.add('hidden');
+        }
     }
 }
 export const timerUI = new TimerUI();
