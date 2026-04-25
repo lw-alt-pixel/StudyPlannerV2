@@ -27,54 +27,64 @@ class GoalManager {
 
         // 🚨 REQ #1: When an exam is selected, auto-set and lock the Title, Date, and Subject!
         document.getElementById('newGoalExamSelect')?.addEventListener('change', (e) => {
-            const examId = e.target.value;
-            const subjectSelect = document.getElementById('newGoalSubject');
-            const titleInput = document.getElementById('newGoalTitle');
-            const dateInput = document.getElementById('newGoalDate');
+        const examId = e.target.value;
+        const subjectSelect = document.getElementById('newGoalSubject');
+        const titleInput = document.getElementById('newGoalTitle');
+        const dateInput = document.getElementById('newGoalDate');
+        
+        if (!subjectSelect) return;
 
-            if (!examId) {
-                if (subjectSelect) { subjectSelect.disabled = false; subjectSelect.value = ''; }
-                if (titleInput) { titleInput.disabled = false; titleInput.value = ''; }
-                if (dateInput) { dateInput.disabled = false; dateInput.value = ''; }
-                return;
-            }
+        if (!examId) {
+            // If user deselects the exam, unlock everything
+            subjectSelect.disabled = false;
+            subjectSelect.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            return;
+        }
+
+        const exam = store.state.exams.find(ex => ex.id === examId);
+        if (exam) {
+            // 1. Auto-fill Subject
+            subjectSelect.value = exam.subject;
             
-            const exam = store.state.exams?.find(x => x.id === examId);
-            if (exam) {
-                if (subjectSelect) { subjectSelect.value = exam.subject || ''; subjectSelect.disabled = true; }
-                if (titleInput) { titleInput.value = `Master: ${exam.title}`; titleInput.disabled = true; }
-                if (dateInput) { dateInput.value = exam.date || ''; dateInput.disabled = true; }
-            }
-        });
+            // 2. Lock Subject (Make it unoptional/fixed)
+            subjectSelect.disabled = true;
+            subjectSelect.classList.add('bg-gray-100', 'cursor-not-allowed');
 
+            // 3. Optional: Auto-fill Title and Date based on exam
+            if (titleInput && !titleInput.value) titleInput.value = `Study for ${exam.title}`;
+            if (dateInput && !dateInput.value) dateInput.value = exam.date;
+        }
+    });
         document.getElementById('closeGoalSetupBtn')?.addEventListener('click', () => {
             this.modal?.classList.add('hidden');
         });
 
-        document.getElementById('saveNewGoalBtn')?.addEventListener('click', () => {
-            const title = document.getElementById('newGoalTitle').value.trim();
-            const linkedExamId = document.getElementById('newGoalExamSelect')?.value || null;
-            let subject = document.getElementById('newGoalSubject')?.value || null;
-            if (linkedExamId) {
-                const ex = store.state.exams?.find(x => x.id === linkedExamId);
-                subject = ex?.subject || subject;
-            }
-            const date = document.getElementById('newGoalDate').value;
-            
-            if (!title) return alert("Please enter a Goal title.");
-            
-            const newGoal = {
-                id: 'goal_' + Date.now(),
-                title: title,
-                targetDate: date,
-                subject: subject,
-                linkedExamId: linkedExamId,
-                topics: []
-            };
+        document.getElementById('saveGoalBtn')?.addEventListener('click', () => {
+        const title = document.getElementById('newGoalTitle').value;
+        const date = document.getElementById('newGoalDate').value;
+        const examId = document.getElementById('newGoalExamSelect').value;
+        
+        // 🚨 IMPORTANT: If disabled, we grab the value directly from the element
+        const subjectSelect = document.getElementById('newGoalSubject');
+        const subject = subjectSelect.value;
 
-            store.update('goals', old => [...(old || []), newGoal]);
-            this.modal.classList.add('hidden');
-        });
+        if (!title || !subject) {
+            alert("Please provide at least a title and a subject.");
+            return;
+        }
+
+        const newGoal = {
+            id: 'goal_' + Date.now(),
+            title,
+            startDate: date || null,
+            subject,
+            linkedExamId: examId || null,
+            topics: []
+        };
+
+        store.update('goals', old => [...old, newGoal]);
+        this.modal?.classList.add('hidden');
+    });
 
         document.getElementById('toggleTimelineBtn')?.addEventListener('click', (e) => {
             e.stopPropagation();
