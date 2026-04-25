@@ -82,13 +82,31 @@ class TimerUI {
             const t = store.state.timer;
 
             if (t.activeBlockId) {
+                // 1. Update the block itself
                 store.update('blocks', blocks => blocks.map(b => {
                     if (b.id === t.activeBlockId) {
                         return { ...b, studySeconds: t.studySeconds, status: 'completed' };
                     }
                     return b;
                 }));
+
+                // 2. 🚨 REQ #3: Check if this block was linked to a Syllabus Task, and Auto-Tick it!
+                const finishedBlock = store.state.blocks.find(b => b.id === t.activeBlockId);
+                if (finishedBlock && finishedBlock.linkedTask) {
+                    store.update('goals', goals => {
+                        const { goalId, topicId, chapterId, taskId } = finishedBlock.linkedTask;
+                        const g = goals.find(x => x.id === goalId);
+                        if (!g) return goals;
+                        const top = g.topics.find(x => x.id === topicId);
+                        const chap = top?.chapters.find(x => x.id === chapterId);
+                        const task = chap?.tasks.find(x => x.id === taskId);
+                        
+                        if (task) task.isCompleted = true; // Auto-tick!
+                        return [...goals];
+                    });
+                }
             } else {
+                // ... (Leave your existing Spontaneous block logic below here exactly as is) ...
                 const now = new Date();
                 const pad = n => String(n).padStart(2, '0');
                 const actualEndStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
