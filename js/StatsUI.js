@@ -80,11 +80,21 @@ class StatsUI {
             }
         });
 
-        if (this.totalTimeEl) this.totalTimeEl.innerText = `${Math.floor(totalSecs / 3600)}h ${Math.floor((totalSecs % 3600) / 60)}m`;
+        if (this.totalTimeEl) {
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+            this.totalTimeEl.innerText = `${h}h ${m}m ${s}s`;
+        }
         
         const daysDiff = Math.max(1, Math.ceil((filterEnd - filterStart) / (1000 * 60 * 60 * 24)) + 1);
         const avgSecs = totalSecs / daysDiff;
-        if (this.avgTimeEl) this.avgTimeEl.innerText = `${Math.floor(avgSecs / 3600)}h ${Math.floor((avgSecs % 3600) / 60)}m`;
+        if (this.avgTimeEl) {
+            const ah = Math.floor(avgSecs / 3600);
+            const am = Math.floor((avgSecs % 3600) / 60);
+            const as_ = Math.floor(avgSecs % 60);
+            this.avgTimeEl.innerText = `${ah}h ${am}m ${as_}s`;
+        }
 
         this.drawBarChart(dayMap);
         this.drawPieChart(subjectMap);

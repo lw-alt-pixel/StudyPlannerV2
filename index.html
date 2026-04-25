@@ -453,8 +453,11 @@
                     </div>
                 </div>
                 <div class="border-t pt-4">
-                    <label class="block text-[10px] font-bold text-green-600 uppercase mb-1">Actual Study Time (Minutes)</label>
-                    <input type="number" id="editBlockStudyMins" class="w-full p-2 border rounded font-bold text-sm text-green-700 bg-green-50 focus:ring-green-500">
+                    <label class="block text-[10px] font-bold text-green-600 uppercase mb-1">Actual Study Time (MM : SS)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="editBlockStudyMins" min="0" class="w-1/2 p-2 border rounded font-bold text-sm text-green-700 bg-green-50 focus:ring-green-500" placeholder="Minutes">
+                        <input type="number" id="editBlockStudySecs" min="0" max="59" class="w-1/2 p-2 border rounded font-bold text-sm text-green-700 bg-green-50 focus:ring-green-500" placeholder="Seconds">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Remarks / Diary</label>

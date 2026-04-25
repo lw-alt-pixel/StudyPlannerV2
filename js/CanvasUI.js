@@ -619,16 +619,23 @@ createTimelineItem(block, todayStr, now, isCompleted = false) {
         safeSet('editBlockRemarks', b.remarks || '');
 
         const studyMins = document.getElementById('editBlockStudyMins');
-        if(studyMins) studyMins.value = b.studySeconds ? Math.floor(b.studySeconds / 60) : 0;
+        const studySecs = document.getElementById('editBlockStudySecs');
+        if (studyMins && studySecs) {
+            const total = b.studySeconds || 0;
+            studyMins.value = Math.floor(total / 60);
+            studySecs.value = total % 60;
+        }
 
         const t = store.state.timer;
         const warningEl = document.getElementById('editBlockRealWarning');
 
         if (t.activeBlockId === b.id && t.isRunning) {
             if(studyMins) { studyMins.disabled = true; studyMins.classList.add('opacity-50'); }
+            if(studySecs) { studySecs.disabled = true; studySecs.classList.add('opacity-50'); }
             if(warningEl) { warningEl.innerText = "⚠️ Real time cannot be edited while running."; warningEl.classList.remove('hidden'); }
         } else {
             if(studyMins) { studyMins.disabled = false; studyMins.classList.remove('opacity-50'); }
+            if(studySecs) { studySecs.disabled = false; studySecs.classList.remove('opacity-50'); }
             if(warningEl) warningEl.classList.add('hidden');
         }
 

@@ -213,9 +213,13 @@ class BlockManager {
             remarks: document.getElementById('editBlockRemarks').value
         };
 
-        const studyInput = document.getElementById('editBlockStudyMins');
-        if (studyInput && !studyInput.disabled && studyInput.value !== "") {
-            updated.studySeconds = parseInt(studyInput.value) * 60;
+        const minsInput = document.getElementById('editBlockStudyMins');
+        const secsInput = document.getElementById('editBlockStudySecs');
+        if (minsInput && secsInput && !minsInput.disabled && (minsInput.value !== "" || secsInput.value !== "")) {
+            const mins = parseInt(minsInput.value) || 0;
+            let secs = parseInt(secsInput.value) || 0;
+            if (secs < 0) secs = 0; if (secs > 59) secs = secs % 60;
+            updated.studySeconds = (mins * 60) + secs;
             if (updated.studySeconds > 0) updated.status = 'completed';
         }
 
