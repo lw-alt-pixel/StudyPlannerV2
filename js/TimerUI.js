@@ -13,6 +13,7 @@ class TimerUI {
         this.phaseIndicator = document.getElementById('phaseIndicator');
         this.spontaneousSubjectSelect = document.getElementById('focusSpontaneousSubject');
         this.finishTimerBtn = document.getElementById('finishTimerBtn');
+        this.continueBtn = document.getElementById('continueTimerBtn');
         this.pushBackBtn = document.getElementById('pushBackTimerBtn');
 
         if (!this.display) return;
@@ -52,6 +53,12 @@ class TimerUI {
                 store.update('timer', state => ({ ...state, isRunning: false }));
                 timerEngine.stop();
             } else {
+                // Initialize session tracking if not present
+                if (!t.sessionId) {
+                    const sid = 'sess_' + Date.now();
+                    store.update('timer', s => ({ ...s, sessionId: sid, sessionAccumulatedSeconds: s.sessionAccumulatedSeconds || 0, sessionIndex: s.sessionIndex || 1 }));
+                }
+
                 if (!t.activeBlockId && !t.spontaneousSubject && this.spontaneousSubjectSelect) {
                     const sub = this.spontaneousSubjectSelect.value || 'General';
                     store.update('timer', state => ({ ...state, spontaneousSubject: sub }));
@@ -85,7 +92,7 @@ class TimerUI {
                 // 1. Update the block itself
                 store.update('blocks', blocks => blocks.map(b => {
                     if (b.id === t.activeBlockId) {
-                        return { ...b, studySeconds: t.studySeconds, status: 'completed' };
+                        return { ...b, studySeconds: t.studySeconds, status: 'completed', sessionId: t.sessionId || null, sessionSegmentIndex: t.sessionIndex || 1 };
                     }
                     return b;
                 }));
@@ -123,17 +130,35 @@ class TimerUI {
                     actualEnd: actualEndStr,
                     studySeconds: t.studySeconds || 0,
                     breakSeconds: t.breakSeconds || 0,
+                    sessionId: t.sessionId || null,
+                    sessionSegmentIndex: t.sessionIndex || 1,
                     status: 'completed',
                     remarks: ''
                 };
                 store.update('blocks', old => [...old, newSpontaneousBlock]);
             }
 
+            // Accumulate session total and advance session index
+            const prevAccum = t.sessionAccumulatedSeconds || 0;
             store.update('timer', () => ({
                 activeBlockId: null, spontaneousSubject: null,
                 mode: 'pomodoro', phase: 'study',
-                studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false
+                studySeconds: 0, breakSeconds: 0, secondsElapsed: 0, isRunning: false,
+                sessionAccumulatedSeconds: prevAccum + (t.studySeconds || 0),
+                sessionId: t.sessionId || null,
+                sessionIndex: (t.sessionIndex || 1) + 1
             }));
+        });
+
+        this.continueBtn?.addEventListener('click', () => {
+            const t = store.state.timer;
+            if (!t.sessionId) {
+                const sid = 'sess_' + Date.now();
+                store.update('timer', s => ({ ...s, sessionId: sid, sessionAccumulatedSeconds: s.sessionAccumulatedSeconds || 0, sessionIndex: s.sessionIndex || 1 }));
+            }
+            // Start a fresh segment and resume
+            store.update('timer', s => ({ ...s, isRunning: true, studySeconds: 0, breakSeconds: 0, secondsElapsed: 0 }));
+            timerEngine.start();
         });
     }
     updateUI() {
@@ -170,6 +195,22 @@ class TimerUI {
             const min = Math.floor((displaySeconds % 3600) / 60).toString().padStart(2, '0');
             const sec = (displaySeconds % 60).toString().padStart(2, '0');
             this.display.innerText = hrs > 0 ? `${hrs}:${min}:${sec}` : `${min}:${sec}`;
+        }
+
+        // Session total display
+        const sessionTotalEl = document.getElementById('sessionTotalDisplay');
+        const acc = t.sessionAccumulatedSeconds || 0;
+        if (sessionTotalEl) {
+            if (acc > 0 || (t.isRunning && t.sessionId)) {
+                const combined = acc + (t.isRunning ? t.studySeconds : 0);
+                const h = Math.floor(combined / 3600);
+                const m = Math.floor((combined % 3600) / 60);
+                const s = combined % 60;
+                sessionTotalEl.innerText = `Session total: ${h}h ${m}m ${s}s`;
+                sessionTotalEl.classList.remove('hidden');
+            } else {
+                sessionTotalEl.classList.add('hidden');
+            }
         }
 
         if (this.applyPomodoroToggle) {
