@@ -167,18 +167,34 @@ class BlockManager {
             scheduledStart: start, scheduledEnd: end,
             status: 'pending', studySeconds: 0, breakSeconds: 0, remarks: ''
         };
-        // Preserve locked status if modal indicated it
+        
         if (this.modal && this.modal.dataset.lockedSubject === 'true') {
             newBlock.lockedSubject = true;
         }
 
+        // 🚨 REQ #2 & #3: Grab the Task IDs and attach them to the block!
+        if (this.modal && this.modal.dataset.linkedTaskId) {
+            newBlock.linkedTask = {
+                goalId: this.modal.dataset.linkedGoalId,
+                topicId: this.modal.dataset.linkedTopicId,
+                chapterId: this.modal.dataset.linkedChapterId,
+                taskId: this.modal.dataset.linkedTaskId
+            };
+        }
+
         store.update('blocks', blocks => [...blocks, newBlock]);
+        
         this.modal.classList.add('hidden');
         this.titleInput.value = '';
-        // reset lock and enable select
+        
         if (this.modal) {
             delete this.modal.dataset.lockedSubject;
             delete this.modal.dataset.lockedSubjectValue;
+            // 🚨 Clean up the linked task data so it doesn't accidentally attach to the next manual block
+            delete this.modal.dataset.linkedGoalId;
+            delete this.modal.dataset.linkedTopicId;
+            delete this.modal.dataset.linkedChapterId;
+            delete this.modal.dataset.linkedTaskId;
         }
         if (this.subjectInput) this.subjectInput.disabled = false;
     }
