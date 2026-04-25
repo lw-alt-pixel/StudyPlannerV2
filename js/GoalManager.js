@@ -27,34 +27,49 @@ class GoalManager {
 
         // 🚨 REQ #1: When an exam is selected, auto-set and lock the Title, Date, and Subject!
         document.getElementById('newGoalExamSelect')?.addEventListener('change', (e) => {
-        const examId = e.target.value;
-        const subjectSelect = document.getElementById('newGoalSubject');
-        const titleInput = document.getElementById('newGoalTitle');
-        const dateInput = document.getElementById('newGoalDate');
-        
-        if (!subjectSelect) return;
+            const examId = e.target.value;
+            const subjectSelect = document.getElementById('newGoalSubject');
+            const titleInput = document.getElementById('newGoalTitle');
+            const dateInput = document.getElementById('newGoalDate');
+            if (!subjectSelect) return;
 
-        if (!examId) {
-            // If user deselects the exam, unlock everything
-            subjectSelect.disabled = false;
-            subjectSelect.classList.remove('bg-gray-100', 'cursor-not-allowed');
-            return;
-        }
+            if (!examId) {
+                // If user deselects the exam, unlock and clear any locked UI state
+                subjectSelect.disabled = false;
+                subjectSelect.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                try {
+                    if (subjectSelect.dataset.enhanced === 'true') {
+                        const container = document.getElementById(subjectSelect.id + '-sd-container');
+                        const btn = container?.querySelector('button');
+                        if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'pointer-events-none'); }
+                    }
+                } catch (err) {}
+                return;
+            }
 
-        const exam = store.state.exams.find(ex => ex.id === examId);
-        if (exam) {
-            // 1. Auto-fill Subject
-            subjectSelect.value = exam.subject;
-            
-            // 2. Lock Subject (Make it unoptional/fixed)
-            subjectSelect.disabled = true;
-            subjectSelect.classList.add('bg-gray-100', 'cursor-not-allowed');
+            const exam = store.state.exams.find(ex => ex.id === examId);
+            if (exam) {
+                // 1. Auto-fill Subject
+                subjectSelect.value = exam.subject || '';
+                // Notify any enhanced-select UI to update its visible label
+                try { subjectSelect.dispatchEvent(new Event('change')); } catch (err) {}
 
-            // 3. Optional: Auto-fill Title and Date based on exam
-            if (titleInput && !titleInput.value) titleInput.value = `Study for ${exam.title}`;
-            if (dateInput && !dateInput.value) dateInput.value = exam.date;
-        }
-    });
+                // 2. Lock Subject (Make it fixed)
+                subjectSelect.disabled = true;
+                subjectSelect.classList.add('bg-gray-100', 'cursor-not-allowed');
+                try {
+                    if (subjectSelect.dataset.enhanced === 'true') {
+                        const container = document.getElementById(subjectSelect.id + '-sd-container');
+                        const btn = container?.querySelector('button');
+                        if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'pointer-events-none'); }
+                    }
+                } catch (err) {}
+
+                // 3. Optional: Auto-fill Title and Date based on exam when empty
+                if (titleInput && !titleInput.value) titleInput.value = `Study for ${exam.title}`;
+                if (dateInput && !dateInput.value) dateInput.value = exam.date;
+            }
+        });
         document.getElementById('closeGoalSetupBtn')?.addEventListener('click', () => {
             this.modal?.classList.add('hidden');
         });
@@ -130,6 +145,7 @@ class GoalManager {
         select.addEventListener('change', () => setColor(select));
         select.value = current;
         setColor(select);
+        try { select.dispatchEvent(new Event('change')); } catch (e) {}
         try { enhanceSelect(select); } catch (e) { }
     }
 
@@ -383,6 +399,7 @@ class GoalManager {
             const subs = store.state.subjects;
             if (subs && subs[goal.subject]) {
                 subjectSelect.value = goal.subject;
+                try { subjectSelect.dispatchEvent(new Event('change')); } catch (e) {}
             } else {
                 subjectSelect.value = '';
             }
@@ -397,8 +414,18 @@ class GoalManager {
             }
             if (subjectSelect) {
                 const examSubject = store.state.exams?.find(e => e.id === goal.linkedExamId)?.subject || goal.subject;
-                if (examSubject) subjectSelect.value = examSubject;
+                if (examSubject) {
+                    subjectSelect.value = examSubject;
+                    try { subjectSelect.dispatchEvent(new Event('change')); } catch (e) {}
+                }
                 subjectSelect.disabled = true;
+                try {
+                    if (subjectSelect.dataset.enhanced === 'true') {
+                        const container = document.getElementById(subjectSelect.id + '-sd-container');
+                        const btn = container?.querySelector('button');
+                        if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'pointer-events-none'); }
+                    }
+                } catch (e) {}
             }
         }
 
