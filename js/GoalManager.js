@@ -25,21 +25,26 @@ class GoalManager {
             this.modal?.classList.remove('hidden');
         });
 
+        // 🚨 REQ #1: When an exam is selected, auto-set and lock the Title, Date, and Subject!
         document.getElementById('newGoalExamSelect')?.addEventListener('change', (e) => {
             const examId = e.target.value;
             const subjectSelect = document.getElementById('newGoalSubject');
-            if (!subjectSelect) return;
+            const titleInput = document.getElementById('newGoalTitle');
+            const dateInput = document.getElementById('newGoalDate');
+
             if (!examId) {
-                subjectSelect.disabled = false;
+                if (subjectSelect) { subjectSelect.disabled = false; subjectSelect.value = ''; }
+                if (titleInput) { titleInput.disabled = false; titleInput.value = ''; }
+                if (dateInput) { dateInput.disabled = false; dateInput.value = ''; }
                 return;
             }
+            
             const exam = store.state.exams?.find(x => x.id === examId);
-            if (exam && exam.subject) {
-                subjectSelect.value = exam.subject;
-            } else {
-                subjectSelect.value = '';
+            if (exam) {
+                if (subjectSelect) { subjectSelect.value = exam.subject || ''; subjectSelect.disabled = true; }
+                if (titleInput) { titleInput.value = `Master: ${exam.title}`; titleInput.disabled = true; }
+                if (dateInput) { dateInput.value = exam.date || ''; dateInput.disabled = true; }
             }
-            subjectSelect.disabled = true;
         });
 
         document.getElementById('closeGoalSetupBtn')?.addEventListener('click', () => {
@@ -159,11 +164,31 @@ class GoalManager {
             
             const dateBadge = goal.targetDate ? `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-3"><i class="fa fa-flag-checkered mr-1"></i>${goal.targetDate}</span>` : '';
             
+            // 🚨 Show exam link if linked
             const linkedExam = goal.linkedExamId ? store.state.exams?.find(e => e.id === goal.linkedExamId) : null;
             const examBadge = linkedExam ? `<span class="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2"><i class="fa fa-link mr-1"></i>Exam: ${linkedExam.title}</span>` : '';
 
             const subColor = goal.subject ? (store.state.subjects[goal.subject] || '#3b82f6') : null;
             const subjectBadge = goal.subject ? `<span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2" style="background:${subColor}; color: white;"><i class="fa fa-book mr-1"></i>${goal.subject}</span>` : '';
+
+            // 🚨 REQ #4: Progress vs Deadline Math
+            let timeTrackerHtml = '';
+            if (goal.targetDate) {
+                const today = new Date(); today.setHours(0,0,0,0);
+                const target = new Date(goal.targetDate);
+                const daysLeft = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+                
+                if (daysLeft < 0) {
+                    timeTrackerHtml = `<div class="text-[11px] font-black text-red-500 mt-2 uppercase tracking-widest"><i class="fa fa-exclamation-circle mr-1"></i> Deadline passed ${Math.abs(daysLeft)} days ago</div>`;
+                } else {
+                    let timeColor = "text-gray-500";
+                    // If time is running out but progress is low, alert the user visually!
+                    if (daysLeft <= 7 && goalProgress < 75) timeColor = "text-orange-500";
+                    if (daysLeft <= 3 && goalProgress < 90) timeColor = "text-red-500";
+                    
+                    timeTrackerHtml = `<div class="text-[11px] font-black ${timeColor} mt-2 uppercase tracking-widest"><i class="fa fa-clock mr-1"></i> ${daysLeft} Days Left to finish remaining ${100 - goalProgress}%</div>`;
+                }
+            }
 
             gEl.innerHTML = `
                 <div class="flex justify-between items-start mb-4">
@@ -177,7 +202,10 @@ class GoalManager {
                 <div class="w-full bg-gray-100 rounded-full h-4 mb-2 overflow-hidden shadow-inner">
                     <div class="bg-blue-600 h-4 rounded-full transition-all duration-1000" style="width: ${goalProgress}%"></div>
                 </div>
-                <div class="text-right text-xs font-black text-blue-600 mb-6">${goalProgress}% Completed</div>
+                <div class="flex justify-between items-center mb-6">
+                    ${timeTrackerHtml}
+                    <div class="text-xs font-black text-blue-600">${goalProgress}% Completed</div>
+                </div>
                 
                 <div class="space-y-4 pl-2" id="topics-container-${goal.id}"></div>
                 
@@ -189,6 +217,7 @@ class GoalManager {
             this.container.appendChild(gEl);
             const topicsContainer = document.getElementById(`topics-container-${goal.id}`);
 
+            // Render Topics
             (goal.topics || []).forEach(topic => {
                 const topicProgress = this.calculateProgress(topic, 'topic');
                 const tEl = document.createElement('div');
@@ -214,6 +243,7 @@ class GoalManager {
 
                 const chaptersContainer = document.getElementById(`chapters-${topic.id}`);
                 
+                // Render Chapters
                 (topic.chapters || []).forEach(chapter => {
                     const chapterProgress = this.calculateProgress(chapter, 'chapter');
                     const cEl = document.createElement('div');
@@ -233,6 +263,7 @@ class GoalManager {
 
                     const tasksContainer = document.getElementById(`tasks-${chapter.id}`);
                     
+                    // Render Tasks
                     (chapter.tasks || []).forEach(task => {
                         const taskEl = document.createElement('div');
                         taskEl.className = 'flex items-center gap-3 bg-gray-50 p-2 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow';
@@ -256,7 +287,6 @@ class GoalManager {
             });
         });
     }
-
     
     addChild(type, goalId, topicId, chapterId) {
         const title = prompt(`Enter ${type} title:`);
@@ -353,6 +383,13 @@ class GoalManager {
                 if (examSubject) subjectSelect.value = examSubject;
                 subjectSelect.disabled = true;
             }
+            // 🚨 REQ #2 & #3: Inject the Task IDs secretly into the modal so the BlockManager can grab them!
+        if (modal) {
+            modal.dataset.linkedGoalId = goalId;
+            modal.dataset.linkedTopicId = topicId;
+            modal.dataset.linkedChapterId = chapterId;
+            modal.dataset.linkedTaskId = taskId;
+        }
         }
     }
 }
