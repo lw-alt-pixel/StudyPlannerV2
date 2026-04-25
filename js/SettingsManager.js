@@ -2,7 +2,7 @@
 import { store, audioDB, fetchUpdateLogs } from './State.js';
 
 class SettingsManager {
-    init() {
+  init() {
         this.panel = document.getElementById('settingsPanel');
         this.overlay = document.getElementById('settingsOverlay');
         this.subjectList = document.getElementById('settingsSubjectList');
@@ -23,6 +23,9 @@ class SettingsManager {
 
         // 🚨 Listen for User Tickets to render the History Inbox
         store.subscribe('userTickets', (tickets) => this.renderTicketHistory(tickets));
+
+        // 🚨 NEW: Check for unread updates on load
+        this.checkForNewUpdates(); 
     }
 
     bindEmojiSpawner() {
@@ -71,7 +74,13 @@ class SettingsManager {
             } catch (err) { console.error("Audio save failed", err); }
         });
 // 🚨 NEW: Update Logs Modal Logic
+        // 🚨 UPDATED: Update Logs Modal Logic & Notification Dot
         document.getElementById('viewUpdateLogsBtn')?.addEventListener('click', () => {
+            // Hide the red dot
+            document.getElementById('updateNotificationDot')?.classList.add('hidden');
+            // Save the exact time they clicked it to their browser
+            localStorage.setItem('lastViewedUpdate', Date.now());
+            
             this.renderUpdateLogs();
             document.getElementById('updateLogsModal')?.classList.remove('hidden');
         });
@@ -238,6 +247,25 @@ class SettingsManager {
         });
     }
 // 🚨 NEW: Fetch and Render the Update Logs
+    // 🚨 NEW: Checks if there is a new update the user hasn't seen
+    async checkForNewUpdates() {
+        try {
+            const logs = await fetchUpdateLogs();
+            if (logs && logs.length > 0) {
+                // Get the timestamp of the very newest log
+                const latestLogTime = new Date(logs[0].date).getTime();
+                // Get the timestamp of the last time the user clicked the Bell
+                const lastViewed = localStorage.getItem('lastViewedUpdate') || 0;
+                
+                // If the update is newer than their last view, show the red dot!
+                if (latestLogTime > lastViewed) {
+                    document.getElementById('updateNotificationDot')?.classList.remove('hidden');
+                }
+            }
+        } catch (e) {
+            console.error("Failed to check for updates:", e);
+        }
+    }
     async renderUpdateLogs() {
         const container = document.getElementById('updateLogsContainer');
         if (!container) return;
