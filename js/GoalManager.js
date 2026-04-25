@@ -1,4 +1,3 @@
-// js/GoalManager.js
 import { store } from './State.js';
 import { enhanceSelect } from './SubjectDropdown.js';
 
@@ -26,7 +25,6 @@ class GoalManager {
             this.modal?.classList.remove('hidden');
         });
 
-        // When an exam is selected, auto-set and lock the subject to the exam's subject
         document.getElementById('newGoalExamSelect')?.addEventListener('change', (e) => {
             const examId = e.target.value;
             const subjectSelect = document.getElementById('newGoalSubject');
@@ -73,7 +71,6 @@ class GoalManager {
             this.modal.classList.add('hidden');
         });
 
-        // Timeline dropdown toggle
         document.getElementById('toggleTimelineBtn')?.addEventListener('click', (e) => {
             e.stopPropagation();
             const dropdown = document.getElementById('timelineDropdown');
@@ -111,7 +108,6 @@ class GoalManager {
             const opt = document.createElement('option');
             opt.value = s; opt.text = s; if (subs[s]) opt.dataset.color = subs[s]; select.appendChild(opt);
         });
-        // Color chip for the select
         const setColor = (sel) => {
             const v = sel.value; const color = (subs && subs[v]) ? subs[v] : '';
             if (color) sel.style.backgroundImage = `linear-gradient(to right, ${color} 0 22px, transparent 22px)`; else sel.style.backgroundImage = '';
@@ -122,14 +118,12 @@ class GoalManager {
         try { enhanceSelect(select); } catch (e) { }
     }
 
-    // 🚨 The Math Engine: Recursively calculates progress from Tasks -> Chapters -> Topics -> Goal
     calculateProgress(node, type) {
         if (type === 'task') return node.isCompleted ? 100 : 0;
         
         const children = type === 'goal' ? node.topics : (type === 'topic' ? node.chapters : node.tasks);
         if (!children || children.length === 0) return 0;
 
-        // Auto-balance: if children don't have manually set weights, distribute 100% equally
         const totalManualWeight = children.reduce((sum, c) => sum + (c.weight || 0), 0);
         const autoWeight = children.length > 0 ? (100 - totalManualWeight) / children.filter(c => !c.weight).length : 0;
 
@@ -165,7 +159,6 @@ class GoalManager {
             
             const dateBadge = goal.targetDate ? `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-3"><i class="fa fa-flag-checkered mr-1"></i>${goal.targetDate}</span>` : '';
             
-            // 🚨 Show exam link if linked
             const linkedExam = goal.linkedExamId ? store.state.exams?.find(e => e.id === goal.linkedExamId) : null;
             const examBadge = linkedExam ? `<span class="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ml-2"><i class="fa fa-link mr-1"></i>Exam: ${linkedExam.title}</span>` : '';
 
@@ -196,7 +189,6 @@ class GoalManager {
             this.container.appendChild(gEl);
             const topicsContainer = document.getElementById(`topics-container-${goal.id}`);
 
-            // Render Topics
             (goal.topics || []).forEach(topic => {
                 const topicProgress = this.calculateProgress(topic, 'topic');
                 const tEl = document.createElement('div');
@@ -222,7 +214,6 @@ class GoalManager {
 
                 const chaptersContainer = document.getElementById(`chapters-${topic.id}`);
                 
-                // Render Chapters
                 (topic.chapters || []).forEach(chapter => {
                     const chapterProgress = this.calculateProgress(chapter, 'chapter');
                     const cEl = document.createElement('div');
@@ -242,7 +233,6 @@ class GoalManager {
 
                     const tasksContainer = document.getElementById(`tasks-${chapter.id}`);
                     
-                    // Render Tasks
                     (chapter.tasks || []).forEach(task => {
                         const taskEl = document.createElement('div');
                         taskEl.className = 'flex items-center gap-3 bg-gray-50 p-2 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow';
@@ -267,7 +257,6 @@ class GoalManager {
         });
     }
 
-    // --- DATA MUTATION HELPERS ---
     
     addChild(type, goalId, topicId, chapterId) {
         const title = prompt(`Enter ${type} title:`);
@@ -318,7 +307,6 @@ class GoalManager {
         });
     }
 
-    // 🚨 ENHANCED CANVAS SYNERGY ENGINE - Generates rich task titles
     scheduleToCanvas(goalId, topicId, chapterId, taskId) {
         const goal = store.state.goals.find(g => g.id === goalId);
         const topic = goal?.topics.find(t => t.id === topicId);
@@ -327,20 +315,16 @@ class GoalManager {
         
         if (!task || !topic || !chapter) return;
 
-        // Switch view to schedule
         document.querySelector('.tab-btn[data-tab="schedule"]')?.click();
         
-        // Open the Add Block Modal
         const modal = document.getElementById('addBlockModal');
         if (modal) modal.classList.remove('hidden');
 
-        // Pre-fill the inputs!
         const titleInput = document.getElementById('newBlockTitle');
         const subjectSelect = document.getElementById('newBlockSubject');
         const customSubjectDiv = document.getElementById('newBlockCustomSubjectDiv');
         const customNameInput = document.getElementById('newBlockCustomName');
 
-        // 🎯 ENHANCED TITLE FORMAT: [Topic: Physics] [Chapter: Electromagnetism] [Task: Solve 10 problems] *for Final Physics*
         let blocktitle = `[Topic: ${topic.title}] [Chapter: ${chapter.title}] [Task: ${task.title}]`;
         if (goal.linkedExamId) {
             const exam = store.state.exams?.find(e => e.id === goal.linkedExamId);
@@ -349,19 +333,15 @@ class GoalManager {
         
         if (titleInput) titleInput.value = blocktitle;
         
-        // Auto-populate subject
         if (goal.subject) {
-            // Try to set the subject from goal
             const subs = store.state.subjects;
             if (subs && subs[goal.subject]) {
                 subjectSelect.value = goal.subject;
-                // If the goal is linked to an exam, lock the subject to exam's subject
             } else {
                 subjectSelect.value = '';
             }
         }
 
-        // If this goal is linked to an exam, lock the add-block modal subject
         if (goal.linkedExamId) {
             const m = document.getElementById('addBlockModal');
             if (m) {
@@ -378,5 +358,4 @@ class GoalManager {
 }
 export const goalManager = new GoalManager();
 
-// Expose to window so our inline HTML onclicks can reach it
 window.goalManager = goalManager;
