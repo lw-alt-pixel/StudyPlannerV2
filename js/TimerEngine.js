@@ -6,6 +6,9 @@ class TimerEngine {
         this.interval = null;
         this.alarmTriggeredFor = null;
         this.reminderMinutesMark = 0;
+        
+        // 🚨 NEW: Keeps track of exact system time
+        this.lastTickTime = 0; 
 
         setInterval(() => this.watchUpNext(), 1000);
         setInterval(() => this.watchPostDeadline(), 1000);
@@ -146,46 +149,68 @@ class TimerEngine {
    start() {
         if (this.interval) clearInterval(this.interval);
 
-        // Fetch settings once for the boundaries
         const pStudySec = (store.state.settings.pStudy || 25) * 60;
         const pBreakSec = (store.state.settings.pBreak || 5) * 60;
 
+        // 🚨 Sync the engine to the exact millisecond the user clicked "Start"
+        this.lastTickTime = Date.now(); 
+
+        // 🚨 Run 4 times a second. This ensures the UI snaps exactly on the second rollover!
         this.interval = setInterval(() => {
             const t = store.state.timer;
             if (!t.isRunning) return;
 
-            const newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + 1 };
+            const now = Date.now();
+            const deltaMs = now - this.lastTickTime;
 
-            if (t.phase === 'study') {
-                newState.studySeconds = (t.studySeconds || 0) + 1;
+            // Wait until exactly 1 full real-world second has passed
+            if (deltaMs >= 1000) {
+                // Calculate EXACTLY how many seconds passed. 
+                // If the browser tab went to sleep, this will instantly catch up! (e.g., 15 seconds)
+                const secondsPassed = Math.floor(deltaMs / 1000);
                 
-                // SEAMLESS HYBRID: Only auto-switch if in Pomodoro Mode
-                if (t.mode === 'pomodoro' && newState.studySeconds > 0 && newState.studySeconds % pStudySec === 0) {
-                    newState.phase = 'break'; 
-                    // Optional: Call your chime here if you want it to ring on auto-switch
-                    if(this.playTransitionChime) this.playTransitionChime();
+                // Move our system clock reference forward
+                this.lastTickTime += (secondsPassed * 1000); 
+
+                const newState = { ...t, secondsElapsed: (t.secondsElapsed || 0) + secondsPassed };
+
+                if (t.phase === 'study') {
+                    const oldSecs = t.studySeconds || 0;
+                    newState.studySeconds = oldSecs + secondsPassed;
+                    
+                    // SEAMLESS HYBRID: Calculate if we crossed a Pomodoro boundary
+                    const oldCycles = Math.floor(oldSecs / pStudySec);
+                    const newCycles = Math.floor(newState.studySeconds / pStudySec);
+
+                    if (t.mode === 'pomodoro' && newCycles > oldCycles) {
+                        newState.phase = 'break'; 
+                        if(this.playTransitionChime) this.playTransitionChime();
+                    }
+                } else {
+                    const oldSecs = t.breakSeconds || 0;
+                    newState.breakSeconds = oldSecs + secondsPassed;
+                    
+                    const oldCycles = Math.floor(oldSecs / pBreakSec);
+                    const newCycles = Math.floor(newState.breakSeconds / pBreakSec);
+
+                    if (t.mode === 'pomodoro' && newCycles > oldCycles) {
+                        newState.phase = 'study'; 
+                        if(this.playTransitionChime) this.playTransitionChime();
+                    }
                 }
-            } else {
-                newState.breakSeconds = (t.breakSeconds || 0) + 1;
-                
-                // SEAMLESS HYBRID: Only auto-switch if in Pomodoro Mode
-                if (t.mode === 'pomodoro' && newState.breakSeconds > 0 && newState.breakSeconds % pBreakSec === 0) {
-                    newState.phase = 'study'; 
-                    if(this.playTransitionChime) this.playTransitionChime();
+
+                store.update('timer', () => newState);
+
+                // Live update active block
+                if (t.activeBlockId) {
+                    store.update('blocks', blocks => blocks.map(b =>
+                        b.id === t.activeBlockId
+                            ? { ...b, studySeconds: newState.studySeconds, breakSeconds: newState.breakSeconds }
+                            : b
+                    ));
                 }
             }
-
-            store.update('timer', () => newState);
-
-            // Live update active block
-            if (t.activeBlockId) {
-                store.update('blocks', blocks => blocks.map(b =>
-                    b.id === t.activeBlockId
-                        ? { ...b, studySeconds: newState.studySeconds, breakSeconds: newState.breakSeconds }
-                        : b
-                ));
-            }
-        }, 1000);
+        }, 250); 
     }
 
     stop() {
