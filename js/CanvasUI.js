@@ -176,37 +176,61 @@ renderTimelineList() {
         timelineList.appendChild(el);
     });
 
-    // 🚨 NEW: Collapsible completed blocks section
+    // Group completed blocks by sessionId (if present) for better readability
     if (completedBlocks.length > 0) {
         const collapsibleDiv = document.createElement('div');
         collapsibleDiv.className = 'border-t border-gray-200 pt-2 mt-2';
-        
-        const toggleCompletedBtn = document.createElement('button');
-        toggleCompletedBtn.className = 'text-xs font-black text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors w-full';
-        toggleCompletedBtn.innerHTML = '<i class="fa fa-arrow-up"></i> Completed Blocks (' + completedBlocks.length + ')';
-        
-        const completedContainer = document.createElement('div');
-        completedContainer.className = 'hidden space-y-2 mt-2';
-        
+
+        // Build groups: sessionId -> array
+        const groups = {};
+        const noSession = [];
         completedBlocks.forEach(b => {
-            const el = this.createTimelineItem(b, todayStr, now, true);
-            completedContainer.appendChild(el);
+            if (b.sessionId) {
+                if (!groups[b.sessionId]) groups[b.sessionId] = [];
+                groups[b.sessionId].push(b);
+            } else noSession.push(b);
         });
-        
-        toggleCompletedBtn.addEventListener('click', () => {
-            completedContainer.classList.toggle('hidden');
-            const icon = toggleCompletedBtn.querySelector('i');
-            if (completedContainer.classList.contains('hidden')) {
-                icon.classList.remove('fa-arrow-down');
-                icon.classList.add('fa-arrow-up');
-            } else {
-                icon.classList.remove('fa-arrow-up');
-                icon.classList.add('fa-arrow-down');
-            }
+
+        // Render ungrouped completed blocks (no session)
+        if (noSession.length > 0) {
+            const header = document.createElement('div');
+            header.className = 'text-xs font-black text-gray-500 mt-2 mb-1';
+            header.innerText = 'Completed (single)';
+            collapsibleDiv.appendChild(header);
+            noSession.forEach(b => collapsibleDiv.appendChild(this.createTimelineItem(b, todayStr, now, true)));
+        }
+
+        // Render session groups
+        Object.keys(groups).forEach(sid => {
+            const segs = groups[sid];
+            // Calculate group total seconds
+            const totalSecs = segs.reduce((acc, x) => acc + (x.studySeconds || 0), 0);
+
+            const groupHeader = document.createElement('div');
+            groupHeader.className = 'bg-gray-50 p-2 rounded-lg mb-2 border border-gray-100 flex items-center justify-between gap-2';
+            const title = document.createElement('div');
+            title.className = 'text-sm font-black text-gray-800';
+            title.innerText = `Session: ${sid} — ${Math.floor(totalSecs/3600)}h ${Math.floor((totalSecs%3600)/60)}m ${totalSecs%60}s`;
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'text-xs font-bold text-gray-500 px-2 py-1 rounded';
+            toggleBtn.innerText = 'Show segments';
+
+            const segContainer = document.createElement('div');
+            segContainer.className = 'hidden space-y-2 mt-2';
+            segs.forEach(b => segContainer.appendChild(this.createTimelineItem(b, todayStr, now, true)));
+
+            toggleBtn.addEventListener('click', () => {
+                segContainer.classList.toggle('hidden');
+                toggleBtn.innerText = segContainer.classList.contains('hidden') ? 'Show segments' : 'Hide segments';
+            });
+
+            groupHeader.appendChild(title);
+            groupHeader.appendChild(toggleBtn);
+            collapsibleDiv.appendChild(groupHeader);
+            collapsibleDiv.appendChild(segContainer);
         });
-        
-        collapsibleDiv.appendChild(toggleCompletedBtn);
-        collapsibleDiv.appendChild(completedContainer);
+
         timelineList.appendChild(collapsibleDiv);
     }
 }
@@ -231,6 +255,7 @@ createTimelineItem(block, todayStr, now, isCompleted = false) {
         : isUpNext
         ? '<span class="text-[10px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded">⏰ Now</span>'
         : '';
+    const sessionBadge = block.sessionId ? `<span class="text-[10px] font-black text-gray-700 bg-gray-100 px-2 py-0.5 rounded">Seg ${block.sessionSegmentIndex || 1}</span>` : '';
     
     el.innerHTML = `
         <div class="w-1 h-8 rounded-full" style="background-color: ${subColor}"></div>
@@ -240,6 +265,7 @@ createTimelineItem(block, todayStr, now, isCompleted = false) {
         </div>
         <div class="flex items-center gap-2 shrink-0">
             ${statusBadge}
+            ${sessionBadge}
             ${!isCompleted ? `<button class="run-btn text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1"><i class="fa fa-play mr-1"></i>Start</button>` : ''}
         </div>
     `;
