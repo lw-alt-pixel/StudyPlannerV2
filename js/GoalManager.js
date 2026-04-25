@@ -287,6 +287,8 @@ class GoalManager {
             });
         });
     }
+
+    // --- DATA MUTATION HELPERS ---
     
     addChild(type, goalId, topicId, chapterId) {
         const title = prompt(`Enter ${type} title:`);
@@ -337,6 +339,7 @@ class GoalManager {
         });
     }
 
+    // 🚨 ENHANCED CANVAS SYNERGY ENGINE - Generates rich task titles
     scheduleToCanvas(goalId, topicId, chapterId, taskId) {
         const goal = store.state.goals.find(g => g.id === goalId);
         const topic = goal?.topics.find(t => t.id === topicId);
@@ -345,16 +348,18 @@ class GoalManager {
         
         if (!task || !topic || !chapter) return;
 
+        // Switch view to schedule
         document.querySelector('.tab-btn[data-tab="schedule"]')?.click();
         
+        // Open the Add Block Modal
         const modal = document.getElementById('addBlockModal');
         if (modal) modal.classList.remove('hidden');
 
+        // Pre-fill the inputs!
         const titleInput = document.getElementById('newBlockTitle');
         const subjectSelect = document.getElementById('newBlockSubject');
-        const customSubjectDiv = document.getElementById('newBlockCustomSubjectDiv');
-        const customNameInput = document.getElementById('newBlockCustomName');
-
+        
+        // 🎯 ENHANCED TITLE FORMAT: [Topic: Physics] [Chapter: Electromagnetism] [Task: Solve 10 problems] *for Final Physics*
         let blocktitle = `[Topic: ${topic.title}] [Chapter: ${chapter.title}] [Task: ${task.title}]`;
         if (goal.linkedExamId) {
             const exam = store.state.exams?.find(e => e.id === goal.linkedExamId);
@@ -363,6 +368,7 @@ class GoalManager {
         
         if (titleInput) titleInput.value = blocktitle;
         
+        // Auto-populate subject
         if (goal.subject) {
             const subs = store.state.subjects;
             if (subs && subs[goal.subject]) {
@@ -372,6 +378,7 @@ class GoalManager {
             }
         }
 
+        // If this goal is linked to an exam, lock the add-block modal subject
         if (goal.linkedExamId) {
             const m = document.getElementById('addBlockModal');
             if (m) {
@@ -383,16 +390,19 @@ class GoalManager {
                 if (examSubject) subjectSelect.value = examSubject;
                 subjectSelect.disabled = true;
             }
-            // 🚨 REQ #2 & #3: Inject the Task IDs secretly into the modal so the BlockManager can grab them!
+        }
+
+        // 🚨 REQ #2 & #3: Inject the Task IDs secretly into the modal so the BlockManager can grab them!
+        // FIXED: This is now safely outside the linkedExamId brackets!
         if (modal) {
             modal.dataset.linkedGoalId = goalId;
             modal.dataset.linkedTopicId = topicId;
             modal.dataset.linkedChapterId = chapterId;
             modal.dataset.linkedTaskId = taskId;
         }
-        }
     }
 }
 export const goalManager = new GoalManager();
 
+// Expose to window so our inline HTML onclicks can reach it
 window.goalManager = goalManager;
