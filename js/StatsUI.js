@@ -105,17 +105,35 @@ class StatsUI {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (this.barChart) this.barChart.destroy();
-
         const labels = Object.keys(dayData).map(d => d.slice(5)); // e.g. "04-19"
-        const data = Object.values(dayData).map(secs => (secs / 3600).toFixed(2));
+        const hoursData = Object.values(dayData).map(secs => (secs / 3600));
+
+        const formatHMS = (totalSecs) => {
+            totalSecs = Math.round(totalSecs);
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = totalSecs % 60;
+            return `${h}h ${m}m ${s}s`;
+        };
 
         this.barChart = new Chart(ctx, {
             type: 'bar',
-            data: { labels: labels, datasets: [{ label: 'Hours', data: data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+            data: { labels: labels, datasets: [{ label: 'Hours', data: hoursData, backgroundColor: '#3b82f6', borderRadius: 4 }] },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true, title: { display: true, text: 'Hours' } } },
-                plugins: { legend: { display: false } }
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const hoursVal = context.parsed && context.parsed.y !== undefined ? context.parsed.y : context.parsed || context.raw || 0;
+                                const secs = Math.round(hoursVal * 3600);
+                                return `${formatHMS(secs)} (${hoursVal.toFixed(2)} h)`;
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -127,7 +145,7 @@ class StatsUI {
         if (this.pieChart) this.pieChart.destroy();
 
         const labels = Object.keys(subjectData);
-        const data = labels.map(l => (subjectData[l] / 3600).toFixed(2));
+        const hoursData = labels.map(l => (subjectData[l] / 3600));
         const bgColors = labels.map(l => store.state.subjects[l] || '#3b82f6');
 
         if (labels.length === 0) {
@@ -141,10 +159,21 @@ class StatsUI {
 
         this.pieChart = new Chart(ctx, {
             type: 'doughnut',
-            data: { labels: labels, datasets: [{ data: data, backgroundColor: bgColors, borderWidth: 0 }] },
+            data: { labels: labels, datasets: [{ data: hoursData, backgroundColor: bgColors, borderWidth: 0 }] },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } }
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const hoursVal = context.parsed || context.raw || 0;
+                                const secs = Math.round(hoursVal * 3600);
+                                return `${context.label}: ${formatHMS(secs)} (${hoursVal.toFixed(2)} h)`;
+                            }
+                        }
+                    }
+                }
             }
         });
     }
