@@ -47,6 +47,19 @@ class TimerEngine {
             return;
         }
 
+        // Check if user dismissed this up-next until its scheduled end
+        try {
+            const key = 'dismissedUpNext_' + nextBlock.id;
+            const dismissedUntil = parseInt(localStorage.getItem(key) || '0', 10);
+            const nowMs = Date.now();
+            if (dismissedUntil && nowMs < dismissedUntil) {
+                upNextBanner.classList.add('hidden');
+                return;
+            } else if (dismissedUntil && nowMs >= dismissedUntil) {
+                localStorage.removeItem(key);
+            }
+        } catch (e) { /* ignore */ }
+
         upNextBanner.classList.remove('hidden');
         upNextBanner.style.borderLeftColor = store.state.subjects[nextBlock.subject] || '#3b82f6';
         document.getElementById('upNextTitle').innerText = nextBlock.title || nextBlock.subject;
@@ -85,6 +98,25 @@ class TimerEngine {
                 }
             }
         }
+
+            // Wire dismiss button (persist dismissal until scheduled end time)
+            try {
+                const dismissBtn = document.getElementById('dismissUpNextBtn');
+                if (dismissBtn) {
+                    dismissBtn.onclick = () => {
+                        const todayStr2 = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                        let endTs = Date.now() + (60 * 60 * 1000); // fallback 1 hour
+                        try {
+                            if (nextBlock.scheduledEnd) {
+                                const et = new Date(`${todayStr2}T${nextBlock.scheduledEnd}:00`);
+                                endTs = et.getTime();
+                            }
+                        } catch (e) {}
+                        localStorage.setItem('dismissedUpNext_' + nextBlock.id, String(endTs));
+                        upNextBanner.classList.add('hidden');
+                    };
+                }
+            } catch (e) { /* ignore */ }
     }
 
     watchPostDeadline() {

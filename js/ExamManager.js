@@ -170,9 +170,34 @@ class ExamManager {
         const mins = Math.floor((minDiff % (1000 * 60 * 60)) / (1000 * 60));
         const secs = Math.floor((minDiff % (1000 * 60)) / 1000);
 
+        // Respect dismissed exam banners persisted by user
+        try {
+            const key = 'dismissedExam_' + closest.id;
+            const dismissedUntil = parseInt(localStorage.getItem(key) || '0', 10);
+            const nowMs = Date.now();
+            if (dismissedUntil && nowMs < dismissedUntil) {
+                this.bannerEl.classList.add('hidden');
+                return;
+            } else if (dismissedUntil && nowMs >= dismissedUntil) {
+                localStorage.removeItem(key);
+            }
+        } catch (e) { /* ignore */ }
+
         this.bannerText.innerText = `${closest.title} IN: ${days}d ${hours}h ${mins}m ${secs}s`;
         this.bannerEl.classList.remove('hidden');
         this.bannerEl.classList.add('flex');
+
+        // wire dismiss button to persist until exam end
+        try {
+            const dismissBtn = document.getElementById('dismissExamBannerBtn');
+            if (dismissBtn) {
+                dismissBtn.onclick = () => {
+                    const examDate = new Date(`${closest.date}T${closest.time}:00`);
+                    localStorage.setItem('dismissedExam_' + closest.id, String(examDate.getTime()));
+                    this.bannerEl.classList.add('hidden');
+                };
+            }
+        } catch (e) { /* ignore */ }
     }
 }
 export const examManager = new ExamManager();

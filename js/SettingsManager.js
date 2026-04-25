@@ -291,7 +291,7 @@ class SettingsManager {
                 <div class="absolute top-0 left-0 w-1.5 h-full bg-blue-500 rounded-l-3xl"></div>
                 <h3 class="font-black text-gray-800 text-lg mb-1 leading-tight">${log.title}</h3>
                 <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-1">
-                    <i class="fa fa-clock"></i> ${log.formattedDate || new Date(log.date).toLocaleString()}
+                    <i class="fa fa-clock"></i> ${log.formattedDate || (function(d){const dt=new Date(d);const pad=(n)=>String(n).padStart(2,'0');return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}/${dt.getFullYear()} - ${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`})(log.date)}
                 </div>
                 <p class="text-sm font-bold text-gray-600 leading-relaxed whitespace-pre-wrap">${log.message}</p>
             </div>
